@@ -53,17 +53,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   });
                 },
                 itemBuilder: (context, index) {
-                  return _buildPage(_pages[index]);
+                  return _buildPage(_pages[index], index);
                 },
               ),
             ),
             Padding(
               padding: const EdgeInsets.all(24.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Page indicators
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(
                       _pages.length,
                       (index) => Container(
@@ -73,32 +74,59 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         decoration: BoxDecoration(
                           color: _currentPage == index
                               ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                              : Theme.of(context).colorScheme.primary.withAlpha(75),
                           borderRadius: BorderRadius.circular(5),
                         ),
                       ),
                     ),
                   ),
+                  const SizedBox(height: 24),
                   
-                  // Next or Get Started button
-                  ElevatedButton(
-                    onPressed: () {
-                      if (_currentPage == _pages.length - 1) {
-                        // Navigate to login screen
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(builder: (_) => const LoginScreen()),
-                        );
-                      } else {
-                        // Go to next page
-                        _pageController.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    },
-                    child: Text(
-                      _currentPage == _pages.length - 1 ? 'Commencer' : 'Suivant',
-                    ),
+                  // Buttons column
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Next or Get Started button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          onPressed: () {
+                            if (_currentPage == _pages.length - 1) {
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                              );
+                            } else {
+                              _pageController.nextPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            }
+                          },
+                          child: Text(
+                            _currentPage == _pages.length - 1 ? 'Commencer' : 'Suivant',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Login button
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            );
+                          },
+                          child: const Text('Se connecter'),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -109,7 +137,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildPage(OnboardingPage page) {
+  Widget _buildPage(OnboardingPage page, int index) {
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -120,7 +148,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             size: 120,
             color: Theme.of(context).colorScheme.primary,
           )
-              .animate(key: ValueKey(page.title))
+              .animate(key: ValueKey('icon-$index'))
               .fadeIn(duration: 600.ms)
               .scale(delay: 200.ms),
           const SizedBox(height: 40),
@@ -131,7 +159,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
             textAlign: TextAlign.center,
           )
-              .animate(key: ValueKey(page.title))
+              .animate(key: ValueKey('title-$index'))
               .fadeIn(delay: 300.ms, duration: 500.ms)
               .slideY(begin: 0.2, end: 0),
           const SizedBox(height: 16),
@@ -140,7 +168,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             style: Theme.of(context).textTheme.bodyLarge,
             textAlign: TextAlign.center,
           )
-              .animate(key: ValueKey(page.description))
+              .animate(key: ValueKey('description-$index'))
               .fadeIn(delay: 500.ms, duration: 500.ms)
               .slideY(begin: 0.2, end: 0),
         ],
