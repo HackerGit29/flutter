@@ -36,6 +36,17 @@ class NotificationService {
   List<NotificationModel> get notifications =>
       List.unmodifiable(_notifications);
 
+
+   Future<void> playNotificationSound() async {
+    try {
+      await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
+    } catch (e) {
+      debugPrint('Error playing notification sound: $e');
+      // Fallback to default system sound or handle error silently
+    }
+  }
+
+
   Future<void> _initNotifications() async {
     // Initialize local notifications
     if (!kIsWeb) {
