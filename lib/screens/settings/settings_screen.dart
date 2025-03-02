@@ -226,8 +226,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                         ? Center(
                           child: Lottie.asset(
                             'assets/animations/loading.json',
-                            width: 120,
-                            height: 120,
+                            width: 600,
+                            height: 600,
                           ),
                         )
                         : _devices.isEmpty
@@ -486,7 +486,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           case MqttConnectionState.connecting:
             statusColor = Colors.orange;
             statusText = 'Connexion en cours...';
-            lottieAsset = 'assets/animations/connecting.json';
+            lottieAsset = 'assets/animations/disconnected.json';
             if (!_animationController.isAnimating) {
               _animationController.repeat();
             }

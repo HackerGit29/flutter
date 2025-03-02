@@ -9,6 +9,7 @@ import 'settings/settings_screen.dart';
 import 'notifications/notifications_screen.dart';
 import '../services/notification_service.dart';
 import '../models/energy_data_model.dart';
+import '../widgets/chatbot_floating_button.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,7 +31,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_selectedIndex],
+      body: Stack(
+        children: [_screens[_selectedIndex], const ChatbotFloatingButton()],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (int index) {
@@ -77,18 +80,18 @@ class _DashboardTabState extends State<DashboardTab> {
   final NotificationService _notificationService = NotificationService();
   final _supabase = Supabase.instance.client;
   bool _isLoading = true;
-  
+
   // Energy stats data
   Map<String, dynamic> _dailyStats = {};
   Map<String, dynamic> _weeklyStats = {};
   Map<String, dynamic> _monthlyStats = {};
-  
+
   // Device consumption data
   List<Map<String, dynamic>> _deviceConsumption = [];
-  
+
   // Current date
   final String _currentDate = DateFormat('dd MMMM').format(DateTime.now());
-  
+
   @override
   void initState() {
     super.initState();
@@ -101,43 +104,46 @@ class _DashboardTabState extends State<DashboardTab> {
     _notificationService.unregisterContext(context);
     super.dispose();
   }
-  
+
   Future<void> _loadEnergyStats() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final user = _supabase.auth.currentUser;
       if (user != null) {
         // Get daily stats
-        final dailyResponse = await _supabase
-            .from('energy_stats')
-            .select()
-            .eq('user_id', user.id)
-            .eq('period_type', 'daily')
-            .order('period_start', ascending: false)
-            .limit(1)
-            .single();
-            
+        final dailyResponse =
+            await _supabase
+                .from('energy_stats')
+                .select()
+                .eq('user_id', user.id)
+                .eq('period_type', 'daily')
+                .order('period_start', ascending: false)
+                .limit(1)
+                .single();
+
         // Get weekly stats
-        final weeklyResponse = await _supabase
-            .from('energy_stats')
-            .select()
-            .eq('user_id', user.id)
-            .eq('period_type', 'weekly')
-            .order('period_start', ascending: false)
-            .limit(1)
-            .single();
-            
+        final weeklyResponse =
+            await _supabase
+                .from('energy_stats')
+                .select()
+                .eq('user_id', user.id)
+                .eq('period_type', 'weekly')
+                .order('period_start', ascending: false)
+                .limit(1)
+                .single();
+
         // Get monthly stats
-        final monthlyResponse = await _supabase
-            .from('energy_stats')
-            .select()
-            .eq('user_id', user.id)
-            .eq('period_type', 'monthly')
-            .order('period_start', ascending: false)
-            .limit(1)
-            .single();
-            
+        final monthlyResponse =
+            await _supabase
+                .from('energy_stats')
+                .select()
+                .eq('user_id', user.id)
+                .eq('period_type', 'monthly')
+                .order('period_start', ascending: false)
+                .limit(1)
+                .single();
+
         // Get device consumption
         final deviceResponse = await _supabase
             .from('energy_stats')
@@ -146,7 +152,7 @@ class _DashboardTabState extends State<DashboardTab> {
             .eq('period_type', 'daily')
             .order('consumption', ascending: false)
             .limit(5);
-            
+
         setState(() {
           _dailyStats = dailyResponse;
           _weeklyStats = weeklyResponse;
@@ -164,241 +170,257 @@ class _DashboardTabState extends State<DashboardTab> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: _isLoading 
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header with date and notification
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Mon Tableau de Bord',
-                                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
+      child:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header with date and notification
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Mon Tableau de Bord',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
-                              ),
-                              Text(
-                                _currentDate,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Stack(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.notifications_outlined, size: 28),
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const NotificationsScreen(),
-                                    ),
-                                  );
-                                },
-                              ),
-                              Positioned(
-                                right: 8,
-                                top: 8,
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 12,
-                                    minHeight: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Consumption summary carousel
-                    CarouselSlider(
-                      options: CarouselOptions(
-                        height: 180,
-                        viewportFraction: 0.9,
-                        enableInfiniteScroll: true,
-                        autoPlay: true,
-                        autoPlayInterval: const Duration(seconds: 5),
-                        autoPlayAnimationDuration: const Duration(milliseconds: 800),
-                        autoPlayCurve: Curves.fastOutSlowIn,
-                        enlargeCenterPage: true,
-                      ),
-                      items: [
-                        _buildConsumptionCard(
-                          'Consommation Journalière',
-                          _dailyStats['consumption']?.toStringAsFixed(1) ?? '0.0',
-                          '+5%',
-                          Colors.red,
-                          Icons.arrow_upward,
-                          Colors.orange.shade100,
-                          Colors.orange,
-                        ),
-                        _buildConsumptionCard(
-                          'Consommation Hebdomadaire',
-                          _weeklyStats['consumption']?.toStringAsFixed(1) ?? '0.0',
-                          '-3%',
-                          Colors.green,
-                          Icons.arrow_downward,
-                          Colors.blue.shade100,
-                          Colors.blue,
-                        ),
-                        _buildConsumptionCard(
-                          'Consommation Mensuelle',
-                          _monthlyStats['consumption']?.toStringAsFixed(1) ?? '0.0',
-                          '+10%',
-                          Colors.red,
-                          Icons.arrow_upward,
-                          Colors.purple.shade100,
-                          Colors.purple,
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Section title
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Répartition par Appareil',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const StatisticsScreen(),
-                                  ),
-                                );
-                              });
-                            },
-                            child: const Text('Voir plus'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    // Device consumption grid
-                    GridView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 1.5,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                      ),
-                      itemCount: _deviceConsumption.length.clamp(0, 4),
-                      itemBuilder: (context, index) {
-                        final device = _deviceConsumption[index];
-                        final deviceName = device['devices']['name'] ?? 'Appareil';
-                        final consumption = device['consumption']?.toStringAsFixed(1) ?? '0.0';
-                        
-                        return _buildDeviceCard(deviceName, consumption, _getDeviceIcon(deviceName));
-                      },
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Weekly consumption chart
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tendance Hebdomadaire',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            height: 200,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).cardColor,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
+                                Text(
+                                  _currentDate,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(color: Colors.grey),
                                 ),
                               ],
                             ),
-                            child: _buildWeeklyChart(),
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 24),
-                    
-                    // Tips section
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Conseils d\'économie',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
+                            Stack(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.notifications_outlined,
+                                    size: 28,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (_) => const NotificationsScreen(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                Positioned(
+                                  right: 8,
+                                  top: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 12,
+                                      minHeight: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Consumption summary carousel
+                      CarouselSlider(
+                        options: CarouselOptions(
+                          height: 180,
+                          viewportFraction: 0.9,
+                          enableInfiniteScroll: true,
+                          autoPlay: true,
+                          autoPlayInterval: const Duration(seconds: 5),
+                          autoPlayAnimationDuration: const Duration(
+                            milliseconds: 800,
                           ),
-                          const SizedBox(height: 16),
-                          _buildTipCard(
-                            'Réduisez votre consommation en éteignant les appareils en veille',
-                            Icons.lightbulb_outline,
-                            Colors.amber.shade100,
-                            Colors.amber,
+                          autoPlayCurve: Curves.fastOutSlowIn,
+                          enlargeCenterPage: true,
+                        ),
+                        items: [
+                          _buildConsumptionCard(
+                            'Consommation Journalière',
+                            _dailyStats['consumption']?.toStringAsFixed(1) ??
+                                '0.0',
+                            '+5%',
+                            Colors.red,
+                            Icons.arrow_upward,
+                            Colors.orange.shade100,
+                            Colors.orange,
+                          ),
+                          _buildConsumptionCard(
+                            'Consommation Hebdomadaire',
+                            _weeklyStats['consumption']?.toStringAsFixed(1) ??
+                                '0.0',
+                            '-3%',
+                            Colors.green,
+                            Icons.arrow_downward,
+                            Colors.blue.shade100,
+                            Colors.blue,
+                          ),
+                          _buildConsumptionCard(
+                            'Consommation Mensuelle',
+                            _monthlyStats['consumption']?.toStringAsFixed(1) ??
+                                '0.0',
+                            '+10%',
+                            Colors.red,
+                            Icons.arrow_upward,
+                            Colors.purple.shade100,
+                            Colors.purple,
                           ),
                         ],
                       ),
-                    ),
-                  ],
+
+                      const SizedBox(height: 24),
+
+                      // Section title
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Répartition par Appareil',
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => const StatisticsScreen(),
+                                    ),
+                                  );
+                                });
+                              },
+                              child: const Text('Voir plus'),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // Device consumption grid
+                      GridView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              childAspectRatio: 1.5,
+                              crossAxisSpacing: 16,
+                              mainAxisSpacing: 16,
+                            ),
+                        itemCount: _deviceConsumption.length.clamp(0, 4),
+                        itemBuilder: (context, index) {
+                          final device = _deviceConsumption[index];
+                          final deviceName =
+                              device['devices']['name'] ?? 'Appareil';
+                          final consumption =
+                              device['consumption']?.toStringAsFixed(1) ??
+                              '0.0';
+
+                          return _buildDeviceCard(
+                            deviceName,
+                            consumption,
+                            _getDeviceIcon(deviceName),
+                          );
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Weekly consumption chart
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Tendance Hebdomadaire',
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              height: 200,
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).cardColor,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.05),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: _buildWeeklyChart(),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Tips section
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Conseils d\'économie',
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTipCard(
+                              'Réduisez votre consommation en éteignant les appareils en veille',
+                              Icons.lightbulb_outline,
+                              Colors.amber.shade100,
+                              Colors.amber,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
     );
   }
-  
+
   Widget _buildConsumptionCard(
-    String title, 
-    String value, 
-    String change, 
-    Color changeColor, 
+    String title,
+    String value,
+    String change,
+    Color changeColor,
     IconData changeIcon,
     Color cardColor,
     Color iconColor,
@@ -422,10 +444,7 @@ class _DashboardTabState extends State<DashboardTab> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.electric_bolt,
-                color: iconColor,
-              ),
+              Icon(Icons.electric_bolt, color: iconColor),
               const SizedBox(width: 8),
               Text(
                 title,
@@ -453,10 +472,7 @@ class _DashboardTabState extends State<DashboardTab> {
                 padding: EdgeInsets.only(bottom: 6),
                 child: Text(
                   'kWh',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                 ),
               ),
               const Spacer(),
@@ -476,7 +492,7 @@ class _DashboardTabState extends State<DashboardTab> {
                         color: changeColor,
                         fontWeight: FontWeight.bold,
                       ),
-                                          ),
+                    ),
                   ],
                 ),
               ),
@@ -487,7 +503,11 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  Widget _buildDeviceCard(String deviceName, String consumption, IconData icon) {
+  Widget _buildDeviceCard(
+    String deviceName,
+    String consumption,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -508,10 +528,7 @@ class _DashboardTabState extends State<DashboardTab> {
           const Spacer(),
           Text(
             deviceName,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -560,10 +577,7 @@ class _DashboardTabState extends State<DashboardTab> {
               getTitlesWidget: (value, meta) {
                 return Text(
                   '${value.toInt()} kWh',
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
                 );
               },
             ),
@@ -578,20 +592,13 @@ class _DashboardTabState extends State<DashboardTab> {
                 }
                 return Text(
                   days[value.toInt()],
-                  style: const TextStyle(
-                    color: Colors.grey,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
                 );
               },
             ),
           ),
-          rightTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          topTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
+          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
         borderData: FlBorderData(show: false),
         lineBarsData: [
@@ -632,7 +639,12 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  Widget _buildTipCard(String tip, IconData icon, Color backgroundColor, Color iconColor) {
+  Widget _buildTipCard(
+    String tip,
+    IconData icon,
+    Color backgroundColor,
+    Color iconColor,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -653,10 +665,7 @@ class _DashboardTabState extends State<DashboardTab> {
           Expanded(
             child: Text(
               tip,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
           ),
         ],
