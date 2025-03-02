@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:math';
 import '../../models/device_model.dart';
 import '../../models/energy_data_model.dart';
@@ -10,7 +10,6 @@ import '../../widgets/common_header.dart';
 import '../../widgets/stat_card.dart';
 import '../../widgets/metric_chart.dart';
 import '../../widgets/device_card.dart';
-
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -23,7 +22,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   final List<String> _timeFrames = ['Jour', 'Semaine', 'Mois', 'Année'];
   String _selectedTimeFrame = 'Jour';
   String _selectedRoom = 'Tous';
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -61,26 +60,30 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
       child: Row(
-        children: _timeFrames.map((frame) {
-          final isSelected = frame == _selectedTimeFrame;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(frame),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (selected) setState(() => _selectedTimeFrame = frame);
-              },
-              backgroundColor: Colors.transparent,
-              selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              labelStyle: TextStyle(
-                color: isSelected 
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-          );
-        }).toList(),
+        children:
+            _timeFrames.map((frame) {
+              final isSelected = frame == _selectedTimeFrame;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  label: Text(frame),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    if (selected) setState(() => _selectedTimeFrame = frame);
+                  },
+                  backgroundColor: Colors.transparent,
+                  selectedColor: Theme.of(
+                    context,
+                  ).colorScheme.primary.withOpacity(0.1),
+                  labelStyle: TextStyle(
+                    color:
+                        isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Theme.of(context).colorScheme.onSurface,
+                  ),
+                ),
+              );
+            }).toList(),
       ),
     );
   }
@@ -91,9 +94,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       children: [
         Text(
           'Vue d\'ensemble',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         SizedBox(
@@ -146,42 +149,141 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       children: [
         Text(
           'Pièces',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
           child: Row(
-            children: rooms.map((room) {
-              final isSelected = room == _selectedRoom;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilterChip(
-                  label: Text(room),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    if (selected) setState(() => _selectedRoom = room);
-                  },
-                  backgroundColor: Colors.transparent,
-                  selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  labelStyle: TextStyle(
-                    color: isSelected 
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              );
-            }).toList(),
+            children:
+                rooms.map((room) {
+                  final isSelected = room == _selectedRoom;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(room),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        if (selected) setState(() => _selectedRoom = room);
+                      },
+                      backgroundColor: Colors.transparent,
+                      selectedColor: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.1),
+                      labelStyle: TextStyle(
+                        color:
+                            isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                  );
+                }).toList(),
           ),
         ),
       ],
     );
   }
 
+ 
+  // Add these variables at the top of the class
+  final _supabase = Supabase.instance.client;
+  List<DeviceModel> _devices = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDevices();
+  }
+
+
+  List<DeviceModel> _getDevices() {
+    // Filter devices based on selected room if needed
+    if (_selectedRoom == 'Tous') {
+      return _devices;
+    } else {
+      return _devices.where((device) => device.location == _selectedRoom).toList();
+    }
+  }
+
+  Future<void> _loadDevices() async {
+    try {
+      setState(() => _isLoading = true);
+      
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+
+      final response = await _supabase
+          .from('devices')
+          .select()
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false);
+
+      final devices = (response as List)
+          .map((json) => DeviceModel.fromJson(json))
+          .toList();
+
+      setState(() => _devices = devices);
+    } catch (e) {
+      // Handle error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur lors du chargement des appareils: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Update the _buildDevicesList method to handle loading state
   Widget _buildDevicesList() {
+    if (_isLoading) {
+      return const SliverFillRemaining(
+        child: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+    
+    final devices = _getDevices();
+    
+    if (devices.isEmpty) {
+      return SliverFillRemaining(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.devices_other,
+                size: 64,
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Aucun appareil trouvé',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _selectedRoom == 'Tous' 
+                    ? 'Ajoutez des appareils dans les paramètres'
+                    : 'Aucun appareil dans cette pièce',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return SliverPadding(
       padding: const EdgeInsets.all(16),
       sliver: SliverGrid(
@@ -193,73 +295,20 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ),
         delegate: SliverChildBuilderDelegate(
           (context, index) => DeviceCard(
-            device: _getDevices()[index],
-            onTap: () => _showDeviceDetails(_getDevices()[index]),
+            device: devices[index],
+            onTap: () => _showDeviceDetails(devices[index]),
           ),
-          childCount: _getDevices().length,
+          childCount: devices.length,
         ),
       ),
     );
-  }
-  List<DeviceModel> _getDevices() {
-    // Création de données simulées pour les appareils
-    return [
-      DeviceModel(
-        id: '1',
-        name: 'Lampe Salon',
-        type: 'light',
-        location: 'Salon',
-        isActive: true,
-        consumption: 5.2,
-      ),
-      DeviceModel(
-        id: '2',
-        name: 'Télévision',
-        type: 'tv',
-        location: 'Salon',
-        isActive: false,
-        consumption: 120.5,
-      ),
-      DeviceModel(
-        id: '3',
-        name: 'Climatiseur',
-        type: 'ac',
-        location: 'Chambre',
-        isActive: true,
-        consumption: 250.8,
-      ),
-      DeviceModel(
-        id: '4',
-        name: 'Réfrigérateur',
-        type: 'fridge',
-        location: 'Cuisine',
-        isActive: true,
-        consumption: 180.3,
-      ),
-      DeviceModel(
-        id: '5',
-        name: 'Lampe Bureau',
-        type: 'light',
-        location: 'Bureau',
-        isActive: false,
-        consumption: 8.7,
-      ),
-      DeviceModel(
-        id: '6',
-        name: 'Chauffage',
-        type: 'heater',
-        location: 'Salon',
-        isActive: true,
-        consumption: 320.1,
-      ),
-    ];
   }
 
   List<FlSpot> _getChartData() {
     // Génération de données de consommation basées sur le timeframe sélectionné
     final now = DateTime.now();
     final data = <EnergyDataModel>[];
-    
+
     int days;
     switch (_selectedTimeFrame) {
       case 'Jour':
@@ -277,12 +326,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       default:
         days = 7;
     }
-    
+
     // Création de données simulées pour la période sélectionnée
     for (int i = 0; i < days; i++) {
       final date = now.subtract(Duration(days: days - i - 1));
       data.add(
         EnergyDataModel(
+          status: true, // Adding required status parameter
+          userId: '1', // Adding required userId parameter
           id: 'energy_$i',
           deviceId: '1',
           consumption: 2.0 + Random().nextDouble() * 3.0,
@@ -290,13 +341,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ),
       );
     }
-    
+
     // Conversion en FlSpot pour le graphique
     return data.asMap().entries.map((entry) {
-      return FlSpot(
-        entry.key.toDouble(),
-        entry.value.consumption,
-      );
+      return FlSpot(entry.key.toDouble(), entry.value.consumption);
     }).toList();
   }
 
@@ -305,7 +353,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final data = <dynamic>[];
     String title;
     Color color;
-    
+
     switch (metric) {
       case 'energy':
         // Génération de données de consommation d'énergie
@@ -314,6 +362,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           final date = now.subtract(Duration(days: 30 - i - 1));
           data.add(
             EnergyDataModel(
+              status: true,
+              userId: '1',
               id: 'energy_$i',
               deviceId: '1',
               consumption: 1.5 + Random().nextDouble() * 4.0,
@@ -324,7 +374,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         title = 'Consommation d\'énergie';
         color = Colors.orange;
         break;
-        
+
       case 'temperature':
         // Génération de données de température
         final now = DateTime.now();
@@ -332,6 +382,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           final date = now.subtract(Duration(days: 30 - i - 1));
           data.add(
             TemperatureModel(
+              userId: '1',
               id: 'temp_$i',
               deviceId: '3',
               temperature: 18.0 + Random().nextDouble() * 10.0,
@@ -342,7 +393,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         title = 'Température';
         color = Colors.red;
         break;
-        
+
       case 'humidity':
         // Génération de données d'humidité
         final now = DateTime.now();
@@ -350,6 +401,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           final date = now.subtract(Duration(days: 30 - i - 1));
           data.add(
             HumidityModel(
+              userId: '1',
               id: 'hum_$i',
               deviceId: '3',
               humidity: 30.0 + Random().nextDouble() * 40.0,
@@ -360,21 +412,24 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         title = 'Humidité';
         color = Colors.blue;
         break;
-        
+
       default:
         title = 'Détails';
         color = Theme.of(context).colorScheme.primary;
     }
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => Scaffold(
-          title: title,
-          data: data,
-          color: color,
-          metric: metric,
-        ),
+        builder:
+            (context) => Scaffold(
+              appBar: AppBar(title: Text(title)),
+              body: MetricChart(
+                data: _getFlSpotFromData(data, metric),
+                title: title,
+                color: color,
+              ),
+            ),
       ),
     );
   }
@@ -394,5 +449,31 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         },
       ),
     );
+  }
+
+  List<FlSpot> _getFlSpotFromData(List data, String metric) {
+    if (data.isEmpty) return [];
+
+    return data.asMap().entries.map((entry) {
+      final index = entry.key.toDouble();
+      final item = entry.value;
+      double value;
+
+      switch (metric) {
+        case 'energy':
+          value = (item as EnergyDataModel).consumption;
+          break;
+        case 'temperature':
+          value = (item as TemperatureModel).temperature;
+          break;
+        case 'humidity':
+          value = (item as HumidityModel).humidity;
+          break;
+        default:
+          value = 0.0;
+      }
+
+      return FlSpot(index, value);
+    }).toList();
   }
 }

@@ -4,10 +4,14 @@ import '../../models/device_model.dart';
 
 class DeviceFormDialog extends StatefulWidget {
   final DeviceModel? device;
+  final String? initialName;
+  final String? initialLocation;
 
   const DeviceFormDialog({
     super.key,
     this.device,
+    this.initialName,
+    this.initialLocation,
   });
 
   @override
@@ -16,17 +20,25 @@ class DeviceFormDialog extends StatefulWidget {
 
 class _DeviceFormDialogState extends State<DeviceFormDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _locationController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _locationController;
   final _supabase = Supabase.instance.client;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    // Initialize with device data, or initialName/initialLocation if provided
     if (widget.device != null) {
-      _nameController.text = widget.device!.name;
-      _locationController.text = widget.device!.location;
+      _nameController = TextEditingController(text: widget.device!.name);
+      _locationController = TextEditingController(
+        text: widget.device!.location,
+      );
+    } else {
+      _nameController = TextEditingController(text: widget.initialName ?? '');
+      _locationController = TextEditingController(
+        text: widget.initialLocation ?? '',
+      );
     }
   }
 
@@ -49,7 +61,9 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Vous devez être connecté pour effectuer cette action'),
+            content: Text(
+              'Vous devez être connecté pour effectuer cette action',
+            ),
             backgroundColor: Colors.red,
           ),
         );
@@ -66,28 +80,30 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
 
       if (widget.device == null) {
         // Create new device
-        final response = await _supabase
-            .from('devices')
-            .insert(deviceData)
-            .select()
-            .single();
-        
+        final response =
+            await _supabase
+                .from('devices')
+                .insert(deviceData)
+                .select()
+                .single();
+
         result = DeviceModel.fromJson(response);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${result.name} ajouté avec succès')),
         );
       } else {
         // Update existing device
-        final response = await _supabase
-            .from('devices')
-            .update(deviceData)
-            .eq('id', widget.device!.id)
-            .select()
-            .single();
-        
+        final response =
+            await _supabase
+                .from('devices')
+                .update(deviceData)
+                .eq('id', widget.device!.id)
+                .select()
+                .single();
+
         result = DeviceModel.fromJson(response);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${result.name} mis à jour avec succès')),
         );
@@ -115,7 +131,9 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.device == null ? 'Ajouter un appareil' : 'Modifier l\'appareil'),
+      title: Text(
+        widget.device == null ? 'Ajouter un appareil' : 'Modifier l\'appareil',
+      ),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -166,16 +184,17 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
             backgroundColor: Theme.of(context).colorScheme.primary,
             foregroundColor: Theme.of(context).colorScheme.onPrimary,
           ),
-          child: _isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
-              : Text(widget.device == null ? 'Ajouter' : 'Mettre à jour'),
+          child:
+              _isLoading
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                  : Text(widget.device == null ? 'Ajouter' : 'Mettre à jour'),
         ),
       ],
     );
