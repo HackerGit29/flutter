@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../../models/chat_message.dart';
 import '../../widgets/chat/typing_indicator.dart';
 import '../../widgets/chat/message_bubble.dart';
 import '../../widgets/chat/chat_input.dart';
+import '../../services/dialogflow_service.dart';
+import 'package:uuid/uuid.dart';
 
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
@@ -14,13 +15,14 @@ class ChatbotScreen extends StatefulWidget {
   State<ChatbotScreen> createState() => _ChatbotScreenState();
 }
 
-class _ChatbotScreenState extends State<ChatbotScreen>
-    with SingleTickerProviderStateMixin {
+class _ChatbotScreenState extends State<ChatbotScreen> with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
   bool _isTyping = false;
   late AnimationController _animationController;
-
+  final DialogflowService _dialogflowService = DialogflowService.instance;
+  late String _sessionId;
+  
   @override
   void initState() {
     super.initState();
@@ -28,7 +30,15 @@ class _ChatbotScreenState extends State<ChatbotScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     );
+    
+    // Generate a unique session ID for this conversation
+    _sessionId = const Uuid().v4();
+    
+    _initializeDialogflow();
+  }
 
+  Future<void> _initializeDialogflow() async {
+    await _dialogflowService.initialize();
     // Add welcome message with delay
     Future.delayed(const Duration(milliseconds: 600), () {
       _addBotMessage(
@@ -43,53 +53,57 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     _animationController.dispose();
     super.dispose();
   }
-
+  
   void _addMessage(String text, bool isUser) {
     final message = ChatMessage(
       text: text,
       isUser: isUser,
       timestamp: DateTime.now(),
     );
-
+    
     setState(() {
       _messages.add(message);
     });
-
+    
     _scrollToBottom();
-
+    
     if (isUser) {
       // Simulate bot typing
       setState(() {
         _isTyping = true;
       });
-
+      
       // Simulate response delay
       Future.delayed(const Duration(milliseconds: 1500), () {
         _respondToMessage(text);
       });
     }
   }
-
+  
   void _addBotMessage(String text) {
     final message = ChatMessage(
       text: text,
       isUser: false,
       timestamp: DateTime.now(),
     );
-
+    
     setState(() {
       _isTyping = false;
       _messages.add(message);
     });
-
+    
     _scrollToBottom();
   }
-
-  void _respondToMessage(String userMessage) {
-    // This would be replaced with actual AI response logic
-    String response =
-        "Je comprends votre demande concernant \"$userMessage\". Je travaille sur une réponse adaptée à vos besoins en matière d'énergie intelligente.";
-    _addBotMessage(response);
+  
+  // Updated method to use DialogFlow
+  Future<void> _respondToMessage(String userMessage) async {
+    try {
+      final response = await _dialogflowService.getResponse(userMessage, _sessionId);
+      // Extract the text response from the response map
+      _addBotMessage(response['text'] ?? "Je n'ai pas compris votre demande.");
+    } catch (e) {
+      _addBotMessage("Désolé, je rencontre des difficultés techniques. Veuillez réessayer plus tard.");
+    }
   }
 
   void _scrollToBottom() {
@@ -137,10 +151,9 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                   _isTyping ? 'En train d\'écrire...' : 'En ligne',
                   style: TextStyle(
                     fontSize: 12,
-                    color:
-                        _isTyping
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.green,
+                    color: _isTyping
+                        ? Theme.of(context).colorScheme.primary
+                        : Colors.green,
                   ),
                 ),
               ],
@@ -170,96 +183,86 @@ class _ChatbotScreenState extends State<ChatbotScreen>
         children: [
           // Chat messages area
           Expanded(
-            child:
-                _messages.isEmpty
-                    ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Lottie.asset(
-                            'assets/animations/chatbot_avatar.json',
-                            width: 200,
-                            height: 200,
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            'Commencez une conversation',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withOpacity(0.6),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                    : AnimationLimiter(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 16,
-                          horizontal: 12,
+            child: _messages.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Lottie.asset(
+                          'assets/animations/chatbot_avatar.json',
+                          width: 200,
+                          height: 200,
                         ),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final message = _messages[index];
-                          final showDate =
-                              index == 0 ||
-                              !_isSameDay(
-                                message.timestamp,
-                                _messages[index - 1].timestamp,
-                              );
+                        const SizedBox(height: 20),
+                        Text(
+                          'Commencez une conversation',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : AnimationLimiter(
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 12,
+                      ),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, index) {
+                        final message = _messages[index];
+                        final showDate =
+                            index == 0 ||
+                            !_isSameDay(
+                              message.timestamp,
+                              _messages[index - 1].timestamp,
+                            );
 
-                          return AnimationConfiguration.staggeredList(
-                            position: index,
-                            duration: const Duration(milliseconds: 350),
-                            child: SlideAnimation(
-                              verticalOffset: 20.0,
-                              child: FadeInAnimation(
-                                child: Column(
-                                  children: [
-                                    if (showDate)
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 8.0,
-                                        ),
-                                        child: Center(
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 6,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color:
-                                                  Theme.of(
-                                                    context,
-                                                  ).colorScheme.surfaceVariant,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Text(
-                                              _formatDate(message.timestamp),
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color:
-                                                    Theme.of(context)
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                              ),
+                        return AnimationConfiguration.staggeredList(
+                          position: index,
+                          duration: const Duration(milliseconds: 350),
+                          child: SlideAnimation(
+                            verticalOffset: 20.0,
+                            child: FadeInAnimation(
+                              child: Column(
+                                children: [
+                                  if (showDate)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 8.0,
+                                      ),
+                                      child: Center(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 6,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context).colorScheme.surfaceVariant,
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            _formatDate(message.timestamp),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                                             ),
                                           ),
                                         ),
                                       ),
-                                    MessageBubble(message: message),
-                                  ],
-                                ),
+                                    ),
+                                  MessageBubble(message: message),
+                                ],
                               ),
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        );
+                      },
                     ),
+                  ),
           ),
 
           // Typing indicator

@@ -42,13 +42,13 @@ class TypingIndicator extends StatelessWidget {
         .scale(
           begin: const Offset(1, 1),
           end: const Offset(1.5, 1.5),
-          duration: 600.ms,
+          duration: 700.ms,
         )
         .then()
         .scale(
           begin: const Offset(1.5, 1.5),
           end: const Offset(1, 1),
-          duration: 600.ms,
+          duration: 1000.ms,
         );
   }
 }

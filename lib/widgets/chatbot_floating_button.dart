@@ -65,19 +65,19 @@ class _ChatbotFloatingButtonState extends State<ChatbotFloatingButton>
         child: GestureDetector(
           onTap: () => _navigateToChatbot(context),
           child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
+                duration: const Duration(milliseconds: 1200),
                 width: _isHovered ? 160 : 70,
                 height: 70,
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(35),
+                  borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(
                       color: Theme.of(
                         context,
                       ).colorScheme.primary.withOpacity(0.4),
                       blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      offset: const Offset(0, 6),
                     ),
                   ],
                 ),
@@ -103,13 +103,13 @@ class _ChatbotFloatingButtonState extends State<ChatbotFloatingButton>
                           color: Theme.of(context).colorScheme.onPrimary,
                           fontWeight: FontWeight.bold,
                         ),
-                      ).animate().fadeIn(duration: 200.ms),
+                      ).animate().fadeIn(duration: 800.ms),
                   ],
                 ),
               )
               .animate()
               .scale(
-                duration: 400.ms,
+                duration: 600.ms,
                 curve: Curves.elasticOut,
                 begin: const Offset(0.8, 0.8),
                 end: const Offset(1.0, 1.0),
