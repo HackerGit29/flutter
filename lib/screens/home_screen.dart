@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'statistics/statistics_screen.dart';
 import 'devices/devices_screen.dart';
 import 'settings/settings_screen.dart';
+import 'notifications/notifications_screen.dart';
+import '../services/notification_service.dart';
 
 
 class HomeScreen extends StatefulWidget {
@@ -60,8 +62,27 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // Dashboard Tab - Main home view
-class DashboardTab extends StatelessWidget {
+class DashboardTab extends StatefulWidget {
   const DashboardTab({super.key});
+
+  @override
+  State<DashboardTab> createState() => _DashboardTabState();
+}
+
+class _DashboardTabState extends State<DashboardTab> {
+  final NotificationService _notificationService = NotificationService();
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationService.registerContext(context);
+  }
+
+  @override
+  void dispose() {
+    _notificationService.unregisterContext(context);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +104,12 @@ class DashboardTab extends StatelessWidget {
                 IconButton(
                   icon: const Icon(Icons.notifications_outlined),
                   onPressed: () {
-                    // TODO: Navigate to notifications
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen(),
+                      ),
+                    );
                   },
                 ),
               ],

@@ -2,7 +2,7 @@ name: innovation
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 # The following defines the version and build number for your application.
 # A version number is three numbers separated by dots, like 1.2.43
@@ -38,6 +38,10 @@ dependencies:
   supabase_flutter: ^2.8.4
   flutter_riverpod: ^2.6.1
   flutter_animate: ^4.5.2
+  uuid: ^4.5.1
+  audioplayers: ^6.2.0
+  flutter_local_notifications: ^18.0.1
+  timeago: ^3.7.0
 
 dev_dependencies:
   flutter_test:
@@ -55,7 +59,6 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
-
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
@@ -91,3 +94,5 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+  assets:
+    - assets/sounds/notification.mp3
