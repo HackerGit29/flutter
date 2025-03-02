@@ -36,8 +36,7 @@ class NotificationService {
   List<NotificationModel> get notifications =>
       List.unmodifiable(_notifications);
 
-
-   Future<void> playNotificationSound() async {
+  Future<void> playNotificationSound() async {
     try {
       await _audioPlayer.play(AssetSource('sounds/notification.mp3'));
     } catch (e) {
@@ -45,7 +44,6 @@ class NotificationService {
       // Fallback to default system sound or handle error silently
     }
   }
-
 
   Future<void> _initNotifications() async {
     // Initialize local notifications
@@ -60,7 +58,7 @@ class NotificationService {
     }
 
     // Load notification sound
-    await _audioPlayer.setSource(AssetSource('sounds/notification.mp3'));
+    await _audioPlayer.setSource(AssetSource('sounds/notification.ogg'));
 
     // Get current user
     final user = _supabase.auth.currentUser;

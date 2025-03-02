@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../models/device_model.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/common_header.dart';
@@ -11,18 +13,43 @@ class DevicesScreen extends StatefulWidget {
   State<DevicesScreen> createState() => _DevicesScreenState();
 }
 
-class _DevicesScreenState extends State<DevicesScreen> {
+class _DevicesScreenState extends State<DevicesScreen>
+    with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
   final _notificationService = NotificationService();
   List<DeviceModel> _devices = [];
   bool _isLoading = true;
+  late TabController _tabController;
+  final List<String> _categories = [
+    'Tous',
+    'Salon',
+    'Cuisine',
+    'Chambre',
+    'Autres',
+  ];
+  String _selectedCategory = 'Tous';
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: _categories.length, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {
+          _selectedCategory = _categories[_tabController.index];
+        });
+      }
+    });
     _loadDevices();
   }
 
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  // Rest of the loading devices method remains the same
   Future<void> _loadDevices() async {
     setState(() {
       _isLoading = true;
@@ -53,54 +80,100 @@ class _DevicesScreenState extends State<DevicesScreen> {
     }
   }
 
+  // Add device method with improved UI
   Future<void> _addDevice() async {
     final TextEditingController nameController = TextEditingController();
     final TextEditingController locationController = TextEditingController();
+    String selectedLocation = 'Salon';
 
     final result = await showDialog<bool>(
       context: context,
       builder:
-          (context) => AlertDialog(
-            title: const Text('Ajouter un appareil'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom de l\'appareil',
-                    hintText: 'Ex: Ventilateur, Télévision...',
+          (context) => StatefulBuilder(
+            builder:
+                (context, setDialogState) => AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: locationController,
-                  decoration: const InputDecoration(
-                    labelText: 'Emplacement',
-                    hintText: 'Ex: Salon, Cuisine...',
+                  title: const Text('Ajouter un appareil'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: nameController,
+                        decoration: InputDecoration(
+                          labelText: 'Nom de l\'appareil',
+                          hintText: 'Ex: Ventilateur, Télévision...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          prefixIcon: const Icon(Icons.devices),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: selectedLocation,
+                        decoration: InputDecoration(
+                          labelText: 'Emplacement',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          prefixIcon: const Icon(Icons.location_on),
+                        ),
+                        items:
+                            [
+                                  'Salon',
+                                  'Cuisine',
+                                  'Chambre',
+                                  'Salle de bain',
+                                  'Bureau',
+                                  'Autres',
+                                ]
+                                .map(
+                                  (location) => DropdownMenuItem(
+                                    value: location,
+                                    child: Text(location),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedLocation = value!;
+                            locationController.text = value;
+                          });
+                        },
+                      ),
+                    ],
                   ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Annuler'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor:
+                            Theme.of(context).colorScheme.onPrimary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Ajouter'),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Annuler'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Ajouter'),
-              ),
-            ],
           ),
     );
 
     if (result == true && mounted) {
       final name = nameController.text.trim();
-      final location = locationController.text.trim();
+      final location = selectedLocation;
 
-      if (name.isNotEmpty && location.isNotEmpty) {
+      if (name.isNotEmpty) {
         try {
+          // Rest of the add device logic remains the same
           final user = _supabase.auth.currentUser;
           if (user != null) {
             // Add device to database
@@ -123,19 +196,16 @@ class _DevicesScreenState extends State<DevicesScreen> {
               'description': 'L\'appareil "$name" a été ajouté avec succès.',
               'severity': 'info',
               'user_id': user.id,
-              'is_read': false, // Make sure the notification starts as unread
+              'is_read': false,
             };
 
             // Insert alert and fetch the created alert data
-            final alertResponse = await _supabase
-                .from('alerts')
-                .insert(alertData)
-                .select()
-                .single();
-
-
-              // Trigger notification service to refresh
-            await _supabase.from('alerts').insert(alertData);
+            final alertResponse =
+                await _supabase
+                    .from('alerts')
+                    .insert(alertData)
+                    .select()
+                    .single();
 
             // Refresh device list
             await _loadDevices();
@@ -143,7 +213,13 @@ class _DevicesScreenState extends State<DevicesScreen> {
             // Show success message
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Appareil "$name" ajouté avec succès')),
+                SnackBar(
+                  content: Text('Appareil "$name" ajouté avec succès'),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
               );
             }
           }
@@ -151,9 +227,13 @@ class _DevicesScreenState extends State<DevicesScreen> {
           debugPrint('Error adding device: $e');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Erreur lors de l\'ajout de l\'appareil'),
+              SnackBar(
+                content: const Text('Erreur lors de l\'ajout de l\'appareil'),
                 backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             );
           }
@@ -165,11 +245,16 @@ class _DevicesScreenState extends State<DevicesScreen> {
     locationController.dispose();
   }
 
+  // Delete device method remains mostly the same
   Future<void> _deleteDevice(DeviceModel device) async {
+    // Rest of the delete device method remains the same
     final confirmed = await showDialog<bool>(
       context: context,
       builder:
           (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             title: const Text('Confirmer la suppression'),
             content: Text(
               'Êtes-vous sûr de vouloir supprimer "${device.name}" ?',
@@ -179,15 +264,22 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 onPressed: () => Navigator.of(context).pop(false),
                 child: const Text('Annuler'),
               ),
-              TextButton(
+              ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
                 child: const Text('Supprimer'),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
               ),
             ],
           ),
     );
 
+    // Rest of the delete implementation remains the same
     if (confirmed == true && mounted) {
       try {
         final user = _supabase.auth.currentUser;
@@ -204,13 +296,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
             'is_read': false,
           };
 
-           // Insert alert and fetch the created alert data
-          final alertResponse = await _supabase
-              .from('alerts')
-              .insert(alertData)
-              .select()
-              .single();
-
+          // Insert alert
           await _supabase.from('alerts').insert(alertData);
 
           // Refresh device list
@@ -221,6 +307,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Appareil "${device.name}" supprimé avec succès'),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             );
           }
@@ -229,9 +319,15 @@ class _DevicesScreenState extends State<DevicesScreen> {
         debugPrint('Error deleting device: $e');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Erreur lors de la suppression de l\'appareil'),
+            SnackBar(
+              content: const Text(
+                'Erreur lors de la suppression de l\'appareil',
+              ),
               backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           );
         }
@@ -239,6 +335,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     }
   }
 
+  // Toggle device method remains the same
   Future<void> _toggleDevice(DeviceModel device, bool newState) async {
     // In a real application, you would update the device state in the database
     // and possibly communicate with the actual IoT device
@@ -248,145 +345,589 @@ class _DevicesScreenState extends State<DevicesScreen> {
           '${newState ? 'Activation' : 'Désactivation'} de ${device.name}...',
         ),
         duration: const Duration(seconds: 1),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
 
+  List<DeviceModel> _getFilteredDevices() {
+    if (_selectedCategory == 'Tous') {
+      return _devices;
+    }
+    return _devices
+        .where((device) => device.location == _selectedCategory)
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+    final filteredDevices = _getFilteredDevices();
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.background,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 8),
+              // Replace custom header with CommonHeader widget
+              CommonHeader(title: 'Mes Appareils'),
+
+              const SizedBox(height: 24),
+
+              // Category tabs
+              TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                labelColor: Theme.of(context).colorScheme.primary,
+                unselectedLabelColor: Theme.of(
+                  context,
+                ).colorScheme.onSurface.withOpacity(0.7),
+                indicatorSize: TabBarIndicatorSize.label,
+                dividerColor: Colors.transparent,
+                tabs:
+                    _categories.map((category) => Tab(text: category)).toList(),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Device count
+              Text(
+                '${filteredDevices.length} appareil${filteredDevices.length > 1 ? 's' : ''}',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Device grid/list
+              Expanded(
+                child:
+                    _isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : filteredDevices.isEmpty
+                        ? _buildEmptyState()
+                        : AnimationLimiter(
+                          child: GridView.builder(
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: 0.85,
+                                  crossAxisSpacing: 16,
+                                  mainAxisSpacing: 16,
+                                ),
+                            itemCount: filteredDevices.length,
+                            itemBuilder: (context, index) {
+                              final device = filteredDevices[index];
+                              return AnimationConfiguration.staggeredGrid(
+                                position: index,
+                                duration: const Duration(milliseconds: 375),
+                                columnCount: 2,
+                                child: ScaleAnimation(
+                                  child: FadeInAnimation(
+                                    child: _buildDeviceCard(device),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _addDevice,
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Theme.of(
+                context,
+              ).colorScheme.surfaceVariant.withOpacity(0.5),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.devices_other,
+              size: 48,
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Aucun appareil trouvé',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _selectedCategory == 'Tous'
+                ? 'Ajoutez des appareils pour commencer'
+                : 'Aucun appareil dans cette catégorie',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _addDevice,
+            icon: const Icon(Icons.add),
+            label: const Text('Ajouter un appareil'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeviceCard(DeviceModel device) {
+    // Simuler un état aléatoire pour la démo
+    final bool isActive = device.id.hashCode % 2 == 0;
+    final String consumption = '${(device.id.hashCode % 100) / 10}W';
+
+    return GestureDetector(
+      onTap: () {
+        // Ouvrir les détails de l'appareil
+        _showDeviceDetails(device);
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CommonHeader(title: 'Gestion des appareils'),
-            const SizedBox(height: 16),
+            // Header with icon and toggle
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color:
+                    isActive
+                        ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                        : Theme.of(context).colorScheme.surfaceVariant,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color:
+                          isActive
+                              ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.2)
+                              : Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      _getDeviceIcon(device.name),
+                      color:
+                          isActive
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withOpacity(0.6),
+                      size: 24,
+                    ),
+                  ),
+                  Switch(
+                    value: isActive,
+                    onChanged: (value) => _toggleDevice(device, value),
+                    activeColor: Theme.of(context).colorScheme.primary,
+                  ),
+                ],
+              ),
+            ),
 
-            // Add device button
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            // Device info
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    device.name,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        size: 14,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        device.location,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          isActive
+                              ? Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1)
+                              : Theme.of(context).colorScheme.surfaceVariant,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      isActive ? 'Actif • $consumption' : 'Inactif',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color:
+                            isActive
+                                ? Theme.of(context).colorScheme.primary
+                                : Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.6),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeviceDetails(DeviceModel device) {
+    // Simuler un état aléatoire pour la démo
+    final bool isActive = device.id.hashCode % 2 == 0;
+    final String consumption = '${(device.id.hashCode % 100) / 10}W';
+    final String dailyUsage = '${(device.id.hashCode % 24) / 10} heures';
+    final String monthlyConsumption = '${device.id.hashCode % 50} kWh';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => Container(
+            height: MediaQuery.of(context).size.height * 0.7,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(24),
+                topRight: Radius.circular(24),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ElevatedButton.icon(
-                  onPressed: _addDevice,
-                  icon: const Icon(Icons.add),
-                  label: const Text('Ajouter un appareil'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                // Handle
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+
+                // Header
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color:
+                              isActive
+                                  ? Theme.of(
+                                    context,
+                                  ).colorScheme.primary.withOpacity(0.1)
+                                  : Theme.of(
+                                    context,
+                                  ).colorScheme.surfaceVariant,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(
+                          _getDeviceIcon(device.name),
+                          color:
+                              isActive
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.6),
+                          size: 32,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              device.name,
+                              style: Theme.of(context).textTheme.headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.location_on,
+                                  size: 16,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  device.location,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface.withOpacity(0.6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: isActive,
+                        onChanged: (value) {
+                          _toggleDevice(device, value);
+                          Navigator.pop(context);
+                        },
+                        activeColor: Theme.of(context).colorScheme.primary,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(),
+
+                // Stats
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Statistiques',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          _buildStatCard(
+                            'Consommation actuelle',
+                            consumption,
+                            Icons.bolt,
+                            Colors.orange,
+                          ),
+                          const SizedBox(width: 16),
+                          _buildStatCard(
+                            'Utilisation quotidienne',
+                            dailyUsage,
+                            Icons.access_time,
+                            Colors.blue,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildStatCard(
+                        'Consommation mensuelle',
+                        monthlyConsumption,
+                        Icons.calendar_month,
+                        Colors.green,
+                        fullWidth: true,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(),
+
+                // Actions
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Actions',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          _buildActionButton(
+                            'Programmer',
+                            Icons.schedule,
+                            Colors.purple,
+                            () {},
+                          ),
+                          const SizedBox(width: 16),
+                          _buildActionButton(
+                            'Historique',
+                            Icons.history,
+                            Colors.teal,
+                            () {},
+                          ),
+                          const SizedBox(width: 16),
+                          _buildActionButton(
+                            'Supprimer',
+                            Icons.delete,
+                            Colors.red,
+                            () {
+                              Navigator.pop(context);
+                              _deleteDevice(device);
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+          ),
+    );
+  }
 
-            // Device list
-            Expanded(
-              child:
-                  _isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _devices.isEmpty
-                      ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.devices_other,
-                              size: 64,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withOpacity(0.5),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Aucun appareil trouvé',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.titleMedium?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.5),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Ajoutez des appareils pour commencer',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.5),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                      : ListView.builder(
-                        itemCount: _devices.length,
-                        itemBuilder: (context, index) {
-                          final device = _devices[index];
-                          return Dismissible(
-                            key: Key(device.id),
-                            background: Container(
-                              color: Colors.red,
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 20),
-                              child: const Icon(
-                                Icons.delete,
-                                color: Colors.white,
-                              ),
-                            ),
-                            direction: DismissDirection.endToStart,
-                            confirmDismiss: (direction) async {
-                              return await showDialog<bool>(
-                                context: context,
-                                builder:
-                                    (context) => AlertDialog(
-                                      title: const Text(
-                                        'Confirmer la suppression',
-                                      ),
-                                      content: Text(
-                                        'Êtes-vous sûr de vouloir supprimer "${device.name}" ?',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed:
-                                              () => Navigator.of(
-                                                context,
-                                              ).pop(false),
-                                          child: const Text('Annuler'),
-                                        ),
-                                        TextButton(
-                                          onPressed:
-                                              () => Navigator.of(
-                                                context,
-                                              ).pop(true),
-                                          child: const Text('Supprimer'),
-                                          style: TextButton.styleFrom(
-                                            foregroundColor: Colors.red,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                              );
-                            },
-                            onDismissed: (direction) {
-                              _deleteDevice(device);
-                            },
-                            child: DeviceCard(
-                              name: device.name,
-                              location: device.location,
-                              isActive:
-                                  false, // You would get this from your database or IoT service
-                              consumption:
-                                  '0W', // You would get this from your database or IoT service
-                              icon: _getDeviceIcon(device.name),
-                              onToggle: (value) => _toggleDevice(device, value),
-                            ),
-                          );
-                        },
-                      ),
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color, {
+    bool fullWidth = false,
+  }) {
+    return Expanded(
+      flex: fullWidth ? 2 : 1,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color.withOpacity(0.8),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionButton(
+    String label,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color.withOpacity(0.8),
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -404,7 +945,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     if (name.contains('frigo') ||
         name.contains('congélateur') ||
         name.contains('congelateur'))
-      return Icons.ac_unit;
+      return Icons.kitchen;
     if (name.contains('lumière') ||
         name.contains('ampoule') ||
         name.contains('lampe'))
@@ -412,77 +953,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
     if (name.contains('chauffage')) return Icons.whatshot;
     if (name.contains('climatiseur') || name.contains('clim'))
       return Icons.ac_unit;
+    if (name.contains('lave') || name.contains('machine'))
+      return Icons.local_laundry_service;
+    if (name.contains('four')) return Icons.microwave;
     return Icons.devices_other;
-  }
-}
-
-// Device Card Widget
-class DeviceCard extends StatelessWidget {
-  final String name;
-  final String location;
-  final bool isActive;
-  final String consumption;
-  final IconData icon;
-  final Function(bool)? onToggle;
-
-  const DeviceCard({
-    super.key,
-    required this.name,
-    required this.location,
-    required this.isActive,
-    required this.consumption,
-    required this.icon,
-    this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color:
-                    isActive
-                        ? Theme.of(context).colorScheme.primary.withAlpha(25)
-                        : Theme.of(context).colorScheme.surface.withAlpha(25),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color:
-                    isActive
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withAlpha(128),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: Theme.of(context).textTheme.titleMedium),
-                  Text(
-                    'Emplacement: $location',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  Text(
-                    'Consommation: $consumption',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            Switch(value: isActive, onChanged: onToggle),
-          ],
-        ),
-      ),
-    );
   }
 }
