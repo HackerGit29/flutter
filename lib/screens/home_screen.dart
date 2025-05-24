@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:aricie/models/temperature_model.dart';
 import 'package:flutter/material.dart';
 import 'package:aricie/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,6 +13,7 @@ import 'settings/settings_screen.dart';
 import '../services/notification_service.dart';
 import '../models/energy_data_model.dart';
 import '../widgets/chatbot_floating_button.dart';
+import '../services/mqtt_service.dart'; 
 
 
 class HomeScreen extends StatefulWidget {
@@ -80,6 +84,7 @@ class DashboardTab extends StatefulWidget {
 class _DashboardTabState extends State<DashboardTab> {
   final _supabase = Supabase.instance.client;
   final _supabaseService = SupabaseService();
+  final _mqttService = MqttService(); // Ajout du service MQTT
   bool _isLoading = true;
 
   // Energy stats data
@@ -97,37 +102,48 @@ class _DashboardTabState extends State<DashboardTab> {
   // Current date
   final String _currentDate = DateFormat('dd MMMM').format(DateTime.now());
 
+
+  // Subscriptions
+  late StreamSubscription<TemperatureModel> _temperatureSubscription;
+  late StreamSubscription<double> _humiditySubscription;
+
   @override
   void initState() {
     super.initState();
     _supabaseService.initialize(); // Initialiser le service Supabase
+    _initMqttService();
     _loadEnergyStats();
 
     // Écouter les changements de données en temps réel
-    _supabaseService.latestTemperature.addListener(_updateTemperature);
-    _supabaseService.latestHumidity.addListener(_updateHumidity);
     _supabaseService.energyConsumption.addListener(_updateConsumption);
+  }
+
+
+  void _initMqttService() async {
+    await _mqttService.initialize();
+    
+    // S'abonner au stream de température
+    _temperatureSubscription = _mqttService.temperatureStream.listen((tempModel) {
+      setState(() {
+        _temperature = tempModel.temperature ?? 0.0;
+      });
+    });
+    
+    // S'abonner au stream d'humidité
+    _humiditySubscription = _mqttService.humidityStream.listen((value) {
+      setState(() {
+        _humidity = value;
+      });
+    });
   }
 
   @override
   void dispose() {
     // Supprimer les écouteurs
-    _supabaseService.latestTemperature.removeListener(_updateTemperature);
-    _supabaseService.latestHumidity.removeListener(_updateHumidity);
     _supabaseService.energyConsumption.removeListener(_updateConsumption);
+    _temperatureSubscription.cancel();
+    _humiditySubscription.cancel();
     super.dispose();
-  }
-
-  void _updateTemperature() {
-    setState(() {
-      _temperature = _supabaseService.latestTemperature.value;
-    });
-  }
-
-  void _updateHumidity() {
-    setState(() {
-      _humidity = _supabaseService.latestHumidity.value;
-    });
   }
 
   void _updateConsumption() {
@@ -293,6 +309,7 @@ class _DashboardTabState extends State<DashboardTab> {
                       const SizedBox(height: 24),
 
                       // Consumption summary carousel
+                      // Consumption summary carousel
                       CarouselSlider(
                         options: CarouselOptions(
                           height: 180,
@@ -307,6 +324,8 @@ class _DashboardTabState extends State<DashboardTab> {
                           enlargeCenterPage: true,
                         ),
                         items: [
+                          _buildTemperatureCard(), 
+                          _buildHumidityCard(),   
                           _buildConsumptionCard(
                             'Consommation Journalière',
                             _dailyStats['consumption']?.toStringAsFixed(1) ??
@@ -722,4 +741,163 @@ class _DashboardTabState extends State<DashboardTab> {
       ),
     );
   }
+
+  
+Widget _buildTemperatureCard() {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.blue.shade100,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.thermostat, color: Colors.blue),
+            const SizedBox(width: 8),
+            Text(
+              'Température',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.blue,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+             _temperature.toStringAsFixed(1),
+              style: const TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 6),
+              child: Text(
+                '°C',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.update, color: Colors.blue, size: 16),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Temps réel',
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildHumidityCard() {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.teal.shade100,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.05),
+          blurRadius: 10,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.water_drop, color: Colors.teal),
+            const SizedBox(width: 8),
+            Text(
+              'Humidité',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.teal,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              _humidity.toStringAsFixed(1),
+              style: const TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 6),
+              child: Text(
+                '%',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+              ),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.teal.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.update, color: Colors.teal, size: 16),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Temps réel',
+                    style: TextStyle(
+                      color: Colors.teal,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 }

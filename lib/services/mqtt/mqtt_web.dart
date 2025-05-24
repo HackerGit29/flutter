@@ -40,7 +40,10 @@ class MqttWebClient implements MqttClientInterface {
   }
   
   @override
-  Stream<List<dynamic>> get updates => _updatesController.stream;
+  Stream<List<MqttReceivedMessage<MqttMessage?>>?> get updates => 
+      _updatesController.stream.map((data) => 
+          data.map((item) => MqttReceivedMessage<MqttMessage?>('', item as MqttMessage?)).toList()
+      );
   
   @override
   void setOnConnected(Function onConnected) {

@@ -7,6 +7,8 @@ class MqttNativeClient implements MqttClientInterface {
   late MqttServerClient _client;
   late String _url;
   late String _clientId;
+  final _updatesController = StreamController<List<dynamic>>.broadcast();
+
   
   @override
   Future<void> initialize(String url, String clientId) async {
@@ -80,7 +82,10 @@ class MqttNativeClient implements MqttClientInterface {
   }
   
   @override
-  Stream<List<dynamic>> get updates => _client.updates!;
+  Stream<List<MqttReceivedMessage<MqttMessage?>>?> get updates => 
+      _updatesController.stream.map((data) => 
+          data.map((item) => MqttReceivedMessage<MqttMessage?>('', item as MqttMessage?)).toList()
+      );
   
   @override
   void setOnConnected(Function onConnected) {

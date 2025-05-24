@@ -40,7 +40,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 .shimmer(duration: 1200.ms),
             const SizedBox(height: 24),
             Text(
-              'Smart Energy Manager',
+              'Aricie',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.primary,
