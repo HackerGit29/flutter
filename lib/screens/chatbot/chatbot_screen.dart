@@ -5,7 +5,7 @@ import '../../models/chat_message.dart';
 import '../../widgets/chat/typing_indicator.dart';
 import '../../widgets/chat/message_bubble.dart';
 import '../../widgets/chat/chat_input.dart';
-import '../../services/dialogflow_service.dart';
+import '../../services/agent_service.dart';
 import 'package:uuid/uuid.dart';
 
 class ChatbotScreen extends StatefulWidget {
@@ -20,7 +20,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> with SingleTickerProvider
   final List<ChatMessage> _messages = [];
   bool _isTyping = false;
   late AnimationController _animationController;
-  final DialogflowService _dialogflowService = DialogflowService.instance;
+  final AgentService _AgentService = AgentService.instance;
   late String _sessionId;
   
   @override
@@ -31,18 +31,18 @@ class _ChatbotScreenState extends State<ChatbotScreen> with SingleTickerProvider
       duration: const Duration(seconds: 2),
     );
     
-    // Generate a unique session ID for this conversation
+    // Génération d'un ID de session unique pour cette conversation
     _sessionId = const Uuid().v4();
     
-    _initializeDialogflow();
+    _initializeFlowise();
   }
 
-  Future<void> _initializeDialogflow() async {
-    await _dialogflowService.initialize();
-    // Add welcome message with delay
+  Future<void> _initializeFlowise() async {
+    await _AgentService.initialize();
+    // Ajout du message de bienvenue avec délai
     Future.delayed(const Duration(milliseconds: 600), () {
       _addBotMessage(
-        "Bonjour ! Je suis votre assistant intelligent. Comment puis-je vous aider aujourd'hui ?",
+        "Bonjour ! Je suis Aricie, votre assistante. Comment puis-je vous aider aujourd'hui ?",
       );
     });
   }
@@ -68,12 +68,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> with SingleTickerProvider
     _scrollToBottom();
     
     if (isUser) {
-      // Simulate bot typing
+      // Simulation de la frappe du bot
       setState(() {
         _isTyping = true;
       });
       
-      // Simulate response delay
+      // Simulation d'un délai de réponse
       Future.delayed(const Duration(milliseconds: 1500), () {
         _respondToMessage(text);
       });
@@ -95,11 +95,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> with SingleTickerProvider
     _scrollToBottom();
   }
   
-  // Updated method to use DialogFlow
+  // Méthode mise à jour pour utiliser l'Agent IA
   Future<void> _respondToMessage(String userMessage) async {
     try {
-      final response = await _dialogflowService.getResponse(userMessage, _sessionId);
-      // Extract the text response from the response map
+      final response = await _AgentService.getResponse(userMessage, _sessionId);
+      // Extraction de la réponse textuelle de la map de réponse
       _addBotMessage(response['text'] ?? "Je n'ai pas compris votre demande.");
     } catch (e) {
       _addBotMessage("Désolé, je rencontre des difficultés techniques. Veuillez réessayer plus tard.");

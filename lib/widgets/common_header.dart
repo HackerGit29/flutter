@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import '../screens/devices/device_settings_screen.dart';
 import '../screens/profile/profile_screen.dart';
-import '../screens/notifications/notifications_screen.dart';
-import 'notification_badge.dart';
 
 class CommonHeader extends StatelessWidget {
   final String title;
@@ -25,17 +23,6 @@ class CommonHeader extends StatelessWidget {
         ),
         Row(
           children: [
-            NotificationBadge(
-              child: const Icon(Icons.notifications_outlined),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                );
-              },
-            ),
             IconButton(
               icon: const Icon(Icons.settings_outlined),
               onPressed: () {

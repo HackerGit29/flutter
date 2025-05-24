@@ -1,15 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:math';
-import '../../models/device_model.dart';
+import '../../services/supabase_service.dart';
 import '../../models/energy_data_model.dart';
-import '../../models/temperature_model.dart';
-import '../../models/humidity_model.dart';
-import '../../widgets/common_header.dart';
-import '../../widgets/stat_card.dart';
-import '../../widgets/metric_chart.dart';
-import '../../widgets/device_card.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -19,461 +11,472 @@ class StatisticsScreen extends StatefulWidget {
 }
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
-  final List<String> _timeFrames = ['Jour', 'Semaine', 'Mois', 'Année'];
+  final SupabaseService _supabaseService = SupabaseService();
   String _selectedTimeFrame = 'Jour';
-  String _selectedRoom = 'Tous';
-
+  final List<String> _timeFrames = ['Jour', 'Semaine', 'Mois', 'Année'];
+  
+  // Données pour les graphiques
+  List<Map<String, dynamic>> _energyHistory = [];
+  Map<String, dynamic> _currentConsumption = {'value': 0.0, 'unit': 'kWh'};
+  bool _isLoading = true;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+    
+    // Écouter les mises à jour en temps réel
+    _supabaseService.energyConsumption.addListener(_onEnergyDataUpdated);
+  }
+  
+  @override
+  void dispose() {
+    _supabaseService.energyConsumption.removeListener(_onEnergyDataUpdated);
+    super.dispose();
+  }
+  
+  void _onEnergyDataUpdated() {
+    // Mettre à jour les données actuelles quand de nouvelles données arrivent
+    _loadCurrentConsumption();
+  }
+  
+  Future<void> _loadData() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    await Future.wait([
+      _loadCurrentConsumption(),
+      _loadEnergyHistory(),
+    ]);
+    
+    setState(() {
+      _isLoading = false;
+    });
+  }
+  
+  Future<void> _loadCurrentConsumption() async {
+    final consumption = await _supabaseService.getEnergyConsumption(_selectedTimeFrame);
+    
+    setState(() {
+      _currentConsumption = consumption;
+    });
+  }
+  
+  Future<void> _loadEnergyHistory() async {
+    final history = await _supabaseService.getEnergyConsumptionHistory(_selectedTimeFrame);
+    
+    setState(() {
+      _energyHistory = history;
+    });
+  }
+  
+  void _changeTimeFrame(String timeFrame) {
+    setState(() {
+      _selectedTimeFrame = timeFrame;
+    });
+    _loadData();
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
+      appBar: AppBar(
+        title: const Text('Statistiques de consommation'),
+        elevation: 0,
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const CommonHeader(title: 'Statistiques'),
-                    const SizedBox(height: 16),
+                    // Sélecteur de période
                     _buildTimeFrameSelector(),
                     const SizedBox(height: 24),
-                    _buildOverallStats(),
+                    
+                    // Carte de consommation actuelle
+                    _buildCurrentConsumptionCard(),
                     const SizedBox(height: 24),
-                    _buildRoomSelector(),
+                    
+                    // Graphique de consommation
+                    _buildConsumptionChart(),
+                    const SizedBox(height: 24),
+                    
+                    // Détails des appareils
+                    _buildDeviceDetails(),
                   ],
                 ),
               ),
             ),
-            _buildDevicesList(),
+    );
+  }
+  
+  Widget _buildTimeFrameSelector() {
+    return Container(
+      height: 40,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: _timeFrames.map((timeFrame) {
+          final isSelected = timeFrame == _selectedTimeFrame;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => _changeTimeFrame(timeFrame),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  timeFrame,
+                  style: TextStyle(
+                    color: isSelected
+                        ? Theme.of(context).colorScheme.onPrimary
+                        : Theme.of(context).colorScheme.onSurface,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+  
+  Widget _buildCurrentConsumptionCard() {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Consommation totale',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  _currentConsumption['value'].toStringAsFixed(1),
+                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    _currentConsumption['unit'],
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Période: $_selectedTimeFrame',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildTimeFrameSelector() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      child: Row(
-        children:
-            _timeFrames.map((frame) {
-              final isSelected = frame == _selectedTimeFrame;
-              return Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: ChoiceChip(
-                  label: Text(frame),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    if (selected) setState(() => _selectedTimeFrame = frame);
-                  },
-                  backgroundColor: Colors.transparent,
-                  selectedColor: Theme.of(
-                    context,
-                  ).colorScheme.primary.withOpacity(0.1),
-                  labelStyle: TextStyle(
-                    color:
-                        isSelected
-                            ? Theme.of(context).colorScheme.primary
-                            : Theme.of(context).colorScheme.onSurface,
-                  ),
-                ),
-              );
-            }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildOverallStats() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Vue d\'ensemble',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 180,
-          child: ListView(
-            physics: const BouncingScrollPhysics(),
-            scrollDirection: Axis.horizontal,
-            children: [
-              StatCard(
-                title: 'Consommation',
-                value: '2.4 kWh',
-                icon: Icons.bolt,
-                color: Colors.orange,
-                trend: 15,
-                onTap: () => _showMetricDetails('energy'),
-              ),
-              StatCard(
-                title: 'Température',
-                value: '22°C',
-                icon: Icons.thermostat,
-                color: Colors.red,
-                trend: -5,
-                onTap: () => _showMetricDetails('temperature'),
-              ),
-              StatCard(
-                title: 'Humidité',
-                value: '45%',
-                icon: Icons.water_drop,
-                color: Colors.blue,
-                trend: 0,
-                onTap: () => _showMetricDetails('humidity'),
-              ),
-            ],
+  
+  Widget _buildConsumptionChart() {
+    if (_energyHistory.isEmpty) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Center(
+            child: Text('Aucune donnée disponible pour cette période'),
           ),
-        ),
-        const SizedBox(height: 24),
-        MetricChart(
-          data: _getChartData(),
-          title: 'Consommation journalière',
-          color: Theme.of(context).colorScheme.primary,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRoomSelector() {
-    final rooms = ['Tous', 'Salon', 'Cuisine', 'Chambre', 'Bureau'];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Pièces',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
-          child: Row(
-            children:
-                rooms.map((room) {
-                  final isSelected = room == _selectedRoom;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(room),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        if (selected) setState(() => _selectedRoom = room);
-                      },
-                      backgroundColor: Colors.transparent,
-                      selectedColor: Theme.of(
-                        context,
-                      ).colorScheme.primary.withOpacity(0.1),
-                      labelStyle: TextStyle(
-                        color:
-                            isSelected
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  );
-                }).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
- 
-  // Add these variables at the top of the class
-  final _supabase = Supabase.instance.client;
-  List<DeviceModel> _devices = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDevices();
-  }
-
-
-  List<DeviceModel> _getDevices() {
-    // Filter devices based on selected room if needed
-    if (_selectedRoom == 'Tous') {
-      return _devices;
-    } else {
-      return _devices.where((device) => device.location == _selectedRoom).toList();
-    }
-  }
-
-  Future<void> _loadDevices() async {
-    try {
-      setState(() => _isLoading = true);
-      
-      final user = _supabase.auth.currentUser;
-      if (user == null) return;
-
-      final response = await _supabase
-          .from('devices')
-          .select()
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false);
-
-      final devices = (response as List)
-          .map((json) => DeviceModel.fromJson(json))
-          .toList();
-
-      setState(() => _devices = devices);
-    } catch (e) {
-      // Handle error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur lors du chargement des appareils: ${e.toString()}'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  // Update the _buildDevicesList method to handle loading state
-  Widget _buildDevicesList() {
-    if (_isLoading) {
-      return const SliverFillRemaining(
-        child: Center(
-          child: CircularProgressIndicator(),
         ),
       );
     }
     
-    final devices = _getDevices();
+    // Préparer les données pour le graphique
+    final List<FlSpot> spots = [];
+    double maxY = 0;
     
-    if (devices.isEmpty) {
-      return SliverFillRemaining(
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.devices_other,
-                size: 64,
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Aucun appareil trouvé',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                _selectedRoom == 'Tous' 
-                    ? 'Ajoutez des appareils dans les paramètres'
-                    : 'Aucun appareil dans cette pièce',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return SliverPadding(
-      padding: const EdgeInsets.all(16),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 1.3,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-        ),
-        delegate: SliverChildBuilderDelegate(
-          (context, index) => DeviceCard(
-            device: devices[index],
-            onTap: () => _showDeviceDetails(devices[index]),
-          ),
-          childCount: devices.length,
-        ),
-      ),
-    );
-  }
-
-  List<FlSpot> _getChartData() {
-    // Génération de données de consommation basées sur le timeframe sélectionné
-    final now = DateTime.now();
-    final data = <EnergyDataModel>[];
-
-    int days;
+    // Déterminer le champ à utiliser en fonction de la période
+    String valueField;
     switch (_selectedTimeFrame) {
       case 'Jour':
-        days = 1;
+        valueField = 'total_day';
         break;
       case 'Semaine':
-        days = 7;
+        valueField = 'total_week';
         break;
       case 'Mois':
-        days = 30;
+        valueField = 'total_month';
         break;
       case 'Année':
-        days = 365;
+        valueField = 'total_year';
         break;
       default:
-        days = 7;
+        valueField = 'total_day';
     }
-
-    // Création de données simulées pour la période sélectionnée
-    for (int i = 0; i < days; i++) {
-      final date = now.subtract(Duration(days: days - i - 1));
-      data.add(
-        EnergyDataModel(
-          status: true, // Adding required status parameter
-          userId: '1', // Adding required userId parameter
-          id: 'energy_$i',
-          deviceId: '1',
-          consumption: 2.0 + Random().nextDouble() * 3.0,
-          createdAt: date,
-        ),
-      );
+    
+    // Limiter à 10 points de données pour la lisibilité
+    final displayData = _energyHistory.take(10).toList();
+    
+    for (int i = 0; i < displayData.length; i++) {
+      final value = (displayData[i][valueField] ?? 0.0) as double;
+      spots.add(FlSpot(i.toDouble(), value));
+      if (value > maxY) maxY = value;
     }
-
-    // Conversion en FlSpot pour le graphique
-    return data.asMap().entries.map((entry) {
-      return FlSpot(entry.key.toDouble(), entry.value.consumption);
-    }).toList();
-  }
-
-  void _showMetricDetails(String metric) {
-    // Navigation vers la page de détails avec les données appropriées
-    final data = <dynamic>[];
-    String title;
-    Color color;
-
-    switch (metric) {
-      case 'energy':
-        // Génération de données de consommation d'énergie
-        final now = DateTime.now();
-        for (int i = 0; i < 30; i++) {
-          final date = now.subtract(Duration(days: 30 - i - 1));
-          data.add(
-            EnergyDataModel(
-              status: true,
-              userId: '1',
-              id: 'energy_$i',
-              deviceId: '1',
-              consumption: 1.5 + Random().nextDouble() * 4.0,
-              createdAt: date,
+    
+    // Ajouter 10% à la valeur maximale pour l'espace
+    maxY = maxY * 1.1;
+    
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Évolution de la consommation',
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-          );
-        }
-        title = 'Consommation d\'énergie';
-        color = Colors.orange;
-        break;
-
-      case 'temperature':
-        // Génération de données de température
-        final now = DateTime.now();
-        for (int i = 0; i < 30; i++) {
-          final date = now.subtract(Duration(days: 30 - i - 1));
-          data.add(
-            TemperatureModel(
-              userId: '1',
-              id: 'temp_$i',
-              deviceId: '3',
-              temperature: 18.0 + Random().nextDouble() * 10.0,
-              createdAt: date,
-            ),
-          );
-        }
-        title = 'Température';
-        color = Colors.red;
-        break;
-
-      case 'humidity':
-        // Génération de données d'humidité
-        final now = DateTime.now();
-        for (int i = 0; i < 30; i++) {
-          final date = now.subtract(Duration(days: 30 - i - 1));
-          data.add(
-            HumidityModel(
-              userId: '1',
-              id: 'hum_$i',
-              deviceId: '3',
-              humidity: 30.0 + Random().nextDouble() * 40.0,
-              createdAt: date,
-            ),
-          );
-        }
-        title = 'Humidité';
-        color = Colors.blue;
-        break;
-
-      default:
-        title = 'Détails';
-        color = Theme.of(context).colorScheme.primary;
-    }
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => Scaffold(
-              appBar: AppBar(title: Text(title)),
-              body: MetricChart(
-                data: _getFlSpotFromData(data, metric),
-                title: title,
-                color: color,
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 200,
+              child: LineChart(
+                LineChartData(
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    horizontalInterval: maxY / 5,
+                  ),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    rightTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 30,
+                        interval: 1,
+                        getTitlesWidget: (value, meta) {
+                          if (value.toInt() >= displayData.length || value.toInt() < 0) {
+                            return const SizedBox();
+                          }
+                          
+                          String label = '';
+                          final data = displayData[value.toInt()];
+                          switch (_selectedTimeFrame) {
+                            case 'Jour':
+                              if (data['date'] != null) {
+                                final date = DateTime.parse(data['date']);
+                                label = '${date.day}/${date.month}';
+                              }
+                              break;
+                            case 'Semaine':
+                              label = 'S${data['week']}';
+                              break;
+                            case 'Mois':
+                              final monthNames = ['', 'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
+                              label = monthNames[data['month'] ?? 0];
+                              break;
+                            case 'Année':
+                              label = '${data['year']}';
+                              break;
+                            default:
+                              label = '$value';
+                          }
+                          
+                          return SideTitleWidget(
+                              meta: meta,
+                            space: 4,
+                            child: Text(
+                              label,
+                              style: const TextStyle(
+                                fontSize: 10,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: maxY / 5,
+                        getTitlesWidget: (value, meta) {
+                          return SideTitleWidget(
+                              meta: meta,
+                            child: Text(
+                              value.toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontSize: 10,
+                              ),
+                            ),
+                          );
+                        },
+                        reservedSize: 40,
+                      ),
+                    ),
+                  ),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border.all(color: const Color(0xff37434d), width: 1),
+                  ),
+                  minX: 0,
+                  maxX: displayData.length - 1.0,
+                  minY: 0,
+                  maxY: maxY,
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: spots,
+                      isCurved: true,
+                      color: Theme.of(context).colorScheme.primary,
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: FlDotData(show: true),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+          ],
+        ),
       ),
     );
   }
-
-  void _showDeviceDetails(DeviceModel device) {
-    // Navigation vers la page de détails de l'appareil
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) {
-          // TODO: Implement or import DeviceDetailScreen
-          // For now, return a placeholder screen
-          return Scaffold(
-            appBar: AppBar(title: Text(device.name)),
-            body: Center(child: Text('Device details coming soon')),
-          );
-        },
+  
+  Widget _buildDeviceDetails() {
+    // Récupérer les dernières données des appareils
+    final latestData = _energyHistory.isNotEmpty ? _energyHistory.first : null;
+    
+    if (latestData == null) {
+      return const SizedBox();
+    }
+    
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Consommation par appareil',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            _buildDeviceConsumptionItem(
+              'Appareil 1',
+              latestData['device1'] ?? 0.0,
+              Colors.blue,
+            ),
+            const Divider(),
+            _buildDeviceConsumptionItem(
+              'Appareil 2',
+              latestData['device2'] ?? 0.0,
+              Colors.orange,
+            ),
+            const Divider(),
+            _buildDeviceConsumptionItem(
+              'Appareil 3',
+              latestData['device3'] ?? 0.0,
+              Colors.green,
+            ),
+          ],
+        ),
       ),
     );
   }
-
-  List<FlSpot> _getFlSpotFromData(List data, String metric) {
-    if (data.isEmpty) return [];
-
-    return data.asMap().entries.map((entry) {
-      final index = entry.key.toDouble();
-      final item = entry.value;
-      double value;
-
-      switch (metric) {
-        case 'energy':
-          value = (item as EnergyDataModel).consumption;
-          break;
-        case 'temperature':
-          value = (item as TemperatureModel).temperature;
-          break;
-        case 'humidity':
-          value = (item as HumidityModel).humidity;
-          break;
-        default:
-          value = 0.0;
-      }
-
-      return FlSpot(index, value);
-    }).toList();
+  
+  Widget _buildDeviceConsumptionItem(String name, double value, Color color) {
+    // Calculer le pourcentage par rapport à la consommation totale
+    final totalValue = _currentConsumption['value'] as double;
+    final percentage = totalValue > 0 ? (value / totalValue * 100) : 0.0;
+    
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                name,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              Text(
+                '${value.toStringAsFixed(1)} kWh',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Stack(
+            children: [
+              Container(
+                height: 8,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              Container(
+                height: 8,
+                width: MediaQuery.of(context).size.width * percentage / 100 * 0.8, // Ajuster pour la largeur de la carte
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${percentage.toStringAsFixed(1)}%',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
   }
 }

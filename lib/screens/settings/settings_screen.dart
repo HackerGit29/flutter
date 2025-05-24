@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mqtt_client/mqtt_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
@@ -497,6 +498,12 @@ class _SettingsScreenState extends State<SettingsScreen>
             lottieAsset = 'assets/animations/disconnected.json';
             _animationController.stop();
             break;
+          case MqttConnectionState.disconnecting:
+            // TODO: Handle this case.
+            throw UnimplementedError();
+          case MqttConnectionState.faulted:
+            // TODO: Handle this case.
+            throw UnimplementedError();
         }
 
         return AnimatedContainer(
@@ -542,7 +549,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
               if (connectionState == MqttConnectionState.disconnected)
                 ElevatedButton(
-                  onPressed: () => _mqttService.connect(),
+                  onPressed: () => _mqttService.initialize(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Theme.of(context).colorScheme.onPrimary,

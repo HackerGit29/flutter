@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:aricie/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -6,10 +7,10 @@ import 'package:intl/intl.dart';
 import 'statistics/statistics_screen.dart';
 import 'devices/devices_screen.dart';
 import 'settings/settings_screen.dart';
-import 'notifications/notifications_screen.dart';
 import '../services/notification_service.dart';
 import '../models/energy_data_model.dart';
 import '../widgets/chatbot_floating_button.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -77,8 +78,8 @@ class DashboardTab extends StatefulWidget {
 }
 
 class _DashboardTabState extends State<DashboardTab> {
-  final NotificationService _notificationService = NotificationService();
   final _supabase = Supabase.instance.client;
+  final _supabaseService = SupabaseService();
   bool _isLoading = true;
 
   // Energy stats data
@@ -89,34 +90,119 @@ class _DashboardTabState extends State<DashboardTab> {
   // Device consumption data
   List<Map<String, dynamic>> _deviceConsumption = [];
 
+  // Données en temps réel
+  double _temperature = 0.0;
+  double _humidity = 0.0;
+
   // Current date
   final String _currentDate = DateFormat('dd MMMM').format(DateTime.now());
 
   @override
   void initState() {
     super.initState();
-    _notificationService.registerContext(context);
+    _supabaseService.initialize(); // Initialiser le service Supabase
     _loadEnergyStats();
+
+    // Écouter les changements de données en temps réel
+    _supabaseService.latestTemperature.addListener(_updateTemperature);
+    _supabaseService.latestHumidity.addListener(_updateHumidity);
+    _supabaseService.energyConsumption.addListener(_updateConsumption);
   }
 
   @override
   void dispose() {
-    _notificationService.unregisterContext(context);
+    // Supprimer les écouteurs
+    _supabaseService.latestTemperature.removeListener(_updateTemperature);
+    _supabaseService.latestHumidity.removeListener(_updateHumidity);
+    _supabaseService.energyConsumption.removeListener(_updateConsumption);
     super.dispose();
+  }
+
+  void _updateTemperature() {
+    setState(() {
+      _temperature = _supabaseService.latestTemperature.value;
+    });
+  }
+
+  void _updateHumidity() {
+    setState(() {
+      _humidity = _supabaseService.latestHumidity.value;
+    });
+  }
+
+  void _updateConsumption() {
+    setState(() {
+      final data = _supabaseService.energyConsumption.value;
+      _dailyStats = {'consumption': data['total_day'] ?? 0.0};
+      _weeklyStats = {'consumption': data['total_week'] ?? 0.0};
+      _monthlyStats = {'consumption': data['total_month'] ?? 0.0};
+
+      // Mettre à jour la consommation par appareil
+      _deviceConsumption = [
+        {
+          'device_id': '1',
+          'consumption': data['device1'] ?? 0.0,
+          'devices': {'name': 'Appareil 1'},
+        },
+        {
+          'device_id': '2',
+          'consumption': data['device2'] ?? 0.0,
+          'devices': {'name': 'Appareil 2'},
+        },
+        {
+          'device_id': '3',
+          'consumption': data['device3'] ?? 0.0,
+          'devices': {'name': 'Appareil 3'},
+        },
+      ];
+    });
   }
 
   Future<void> _loadEnergyStats() async {
     setState(() => _isLoading = true);
 
     try {
-      final user = _supabase.auth.currentUser;
-      if (user != null) {
-        // Get daily stats
+      // Utiliser le service Supabase pour récupérer les données
+      final consumptionData = _supabaseService.energyConsumption.value;
+
+      if (consumptionData.isNotEmpty) {
+        setState(() {
+          _dailyStats = {'consumption': consumptionData['total_day'] ?? 0.0};
+          _weeklyStats = {'consumption': consumptionData['total_week'] ?? 0.0};
+          _monthlyStats = {
+            'consumption': consumptionData['total_month'] ?? 0.0,
+          };
+
+          // Mettre à jour la consommation par appareil
+          _deviceConsumption = [
+            {
+              'device_id': '1',
+              'consumption': consumptionData['device1'] ?? 0.0,
+              'devices': {'name': 'Appareil 1'},
+            },
+            {
+              'device_id': '2',
+              'consumption': consumptionData['device2'] ?? 0.0,
+              'devices': {'name': 'Appareil 2'},
+            },
+            {
+              'device_id': '3',
+              'consumption': consumptionData['device3'] ?? 0.0,
+              'devices': {'name': 'Appareil 3'},
+            },
+          ];
+
+          _temperature = _supabaseService.latestTemperature.value;
+          _humidity = _supabaseService.latestHumidity.value;
+
+          _isLoading = false;
+        });
+      } else {
+        // Fallback à la méthode existante si les données ne sont pas disponibles
         final dailyResponse =
             await _supabase
                 .from('energy_stats')
                 .select()
-                .eq('user_id', user.id)
                 .eq('period_type', 'daily')
                 .order('period_start', ascending: false)
                 .limit(1)
@@ -127,7 +213,6 @@ class _DashboardTabState extends State<DashboardTab> {
             await _supabase
                 .from('energy_stats')
                 .select()
-                .eq('user_id', user.id)
                 .eq('period_type', 'weekly')
                 .order('period_start', ascending: false)
                 .limit(1)
@@ -138,7 +223,6 @@ class _DashboardTabState extends State<DashboardTab> {
             await _supabase
                 .from('energy_stats')
                 .select()
-                .eq('user_id', user.id)
                 .eq('period_type', 'monthly')
                 .order('period_start', ascending: false)
                 .limit(1)
@@ -148,7 +232,6 @@ class _DashboardTabState extends State<DashboardTab> {
         final deviceResponse = await _supabase
             .from('energy_stats')
             .select('device_id, consumption, devices(name)')
-            .eq('user_id', user.id)
             .eq('period_type', 'daily')
             .order('consumption', ascending: false)
             .limit(5);
@@ -202,40 +285,7 @@ class _DashboardTabState extends State<DashboardTab> {
                                 ),
                               ],
                             ),
-                            Stack(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.notifications_outlined,
-                                    size: 28,
-                                  ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (_) => const NotificationsScreen(),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                Positioned(
-                                  right: 8,
-                                  top: 8,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    constraints: const BoxConstraints(
-                                      minWidth: 12,
-                                      minHeight: 12,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                            
                           ],
                         ),
                       ),
