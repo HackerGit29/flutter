@@ -10,7 +10,6 @@ import 'package:intl/intl.dart';
 import 'statistics/statistics_screen.dart';
 import 'devices/devices_screen.dart';
 import 'settings/settings_screen.dart';
-import '../services/notification_service.dart';
 import '../models/energy_data_model.dart';
 import '../widgets/chatbot_floating_button.dart';
 import '../services/mqtt_service.dart'; 
@@ -84,7 +83,7 @@ class DashboardTab extends StatefulWidget {
 class _DashboardTabState extends State<DashboardTab> {
   final _supabase = Supabase.instance.client;
   final _supabaseService = SupabaseService();
-  final _mqttService = MqttService(); // Ajout du service MQTT
+  final _mqttService = MqttService(); 
   bool _isLoading = true;
 
   // Energy stats data
@@ -99,13 +98,22 @@ class _DashboardTabState extends State<DashboardTab> {
   double _temperature = 0.0;
   double _humidity = 0.0;
 
+   // Données d'énergie en temps réel depuis MQTT
+  double _energyDevice1 = 0.0;
+  double _energyDevice2 = 0.0;
+  double _energyDevice3 = 0.0;
+
   // Current date
   final String _currentDate = DateFormat('dd MMMM').format(DateTime.now());
+
 
 
   // Subscriptions
   late StreamSubscription<TemperatureModel> _temperatureSubscription;
   late StreamSubscription<double> _humiditySubscription;
+  late StreamSubscription<EnergyDataModel> _energySubscription1;
+  late StreamSubscription<EnergyDataModel> _energySubscription2;
+  late StreamSubscription<EnergyDataModel> _energySubscription3;
 
   @override
   void initState() {
@@ -135,6 +143,52 @@ class _DashboardTabState extends State<DashboardTab> {
         _humidity = value;
       });
     });
+
+    // S'abonner aux streams d'énergie pour les 3 appareils
+    _energySubscription1 = _mqttService.energyDataStream1.listen((energyModel) {
+      setState(() {
+        _energyDevice1 = energyModel.totalDay ?? 0.0;
+        _updateDeviceConsumptionFromMqtt();
+      });
+    });
+
+    _energySubscription2 = _mqttService.energyDataStream2.listen((energyModel) {
+      setState(() {
+        _energyDevice2 = energyModel.totalDay ?? 0.0;
+        _updateDeviceConsumptionFromMqtt();
+      });
+    });
+
+     _energySubscription3 = _mqttService.energyDataStream3.listen((energyModel) {
+      setState(() {
+        _energyDevice3 = energyModel.totalDay ?? 0.0;
+        _updateDeviceConsumptionFromMqtt();
+      });
+    });
+    
+
+  }
+
+
+  // Nouvelle méthode pour mettre à jour les données d'appareil depuis MQTT
+  void _updateDeviceConsumptionFromMqtt() {
+    _deviceConsumption = [
+      {
+        'device_id': '1',
+        'consumption': _energyDevice1,
+        'devices': {'name': 'Appareil 1'},
+      },
+      {
+        'device_id': '2',
+        'consumption': _energyDevice2,
+        'devices': {'name': 'Appareil 2'},
+      },
+      {
+        'device_id': '3',
+        'consumption': _energyDevice3,
+        'devices': {'name': 'Appareil 3'},
+      },
+    ];
   }
 
   @override
@@ -143,6 +197,9 @@ class _DashboardTabState extends State<DashboardTab> {
     _supabaseService.energyConsumption.removeListener(_updateConsumption);
     _temperatureSubscription.cancel();
     _humiditySubscription.cancel();
+    _energySubscription1.cancel();
+    _energySubscription2.cancel();
+    _energySubscription3.cancel();
     super.dispose();
   }
 
@@ -153,24 +210,6 @@ class _DashboardTabState extends State<DashboardTab> {
       _weeklyStats = {'consumption': data['total_week'] ?? 0.0};
       _monthlyStats = {'consumption': data['total_month'] ?? 0.0};
 
-      // Mettre à jour la consommation par appareil
-      _deviceConsumption = [
-        {
-          'device_id': '1',
-          'consumption': data['device1'] ?? 0.0,
-          'devices': {'name': 'Appareil 1'},
-        },
-        {
-          'device_id': '2',
-          'consumption': data['device2'] ?? 0.0,
-          'devices': {'name': 'Appareil 2'},
-        },
-        {
-          'device_id': '3',
-          'consumption': data['device3'] ?? 0.0,
-          'devices': {'name': 'Appareil 3'},
-        },
-      ];
     });
   }
 
@@ -189,64 +228,39 @@ class _DashboardTabState extends State<DashboardTab> {
             'consumption': consumptionData['total_month'] ?? 0.0,
           };
 
-          // Mettre à jour la consommation par appareil
-          _deviceConsumption = [
-            {
-              'device_id': '1',
-              'consumption': consumptionData['device1'] ?? 0.0,
-              'devices': {'name': 'Appareil 1'},
-            },
-            {
-              'device_id': '2',
-              'consumption': consumptionData['device2'] ?? 0.0,
-              'devices': {'name': 'Appareil 2'},
-            },
-            {
-              'device_id': '3',
-              'consumption': consumptionData['device3'] ?? 0.0,
-              'devices': {'name': 'Appareil 3'},
-            },
-          ];
-
-          _temperature = _supabaseService.latestTemperature.value;
-          _humidity = _supabaseService.latestHumidity.value;
-
           _isLoading = false;
         });
       } else {
         // Fallback à la méthode existante si les données ne sont pas disponibles
         final dailyResponse =
             await _supabase
-                .from('energy_stats')
-                .select()
-                .eq('period_type', 'daily')
-                .order('period_start', ascending: false)
+                .from('energy_consumption')
+                .select('total_day')
+                .order('total_day', ascending: false)
                 .limit(1)
                 .single();
 
         // Get weekly stats
         final weeklyResponse =
             await _supabase
-                .from('energy_stats')
-                .select()
-                .eq('period_type', 'weekly')
-                .order('period_start', ascending: false)
+                .from('energy_consumption')
+                .select('total_week')
+                .order('total_week', ascending: false)
                 .limit(1)
                 .single();
 
         // Get monthly stats
         final monthlyResponse =
             await _supabase
-                .from('energy_stats')
-                .select()
-                .eq('period_type', 'monthly')
-                .order('period_start', ascending: false)
+                .from('energy_consumption')
+                .select('total_month')
+                .order('total_month', ascending: false)
                 .limit(1)
                 .single();
 
         // Get device consumption
         final deviceResponse = await _supabase
-            .from('energy_stats')
+            .from('energy_consumption')
             .select('device_id, consumption, devices(name)')
             .eq('period_type', 'daily')
             .order('consumption', ascending: false)
@@ -308,7 +322,6 @@ class _DashboardTabState extends State<DashboardTab> {
 
                       const SizedBox(height: 24),
 
-                      // Consumption summary carousel
                       // Consumption summary carousel
                       CarouselSlider(
                         options: CarouselOptions(
@@ -392,7 +405,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
                       const SizedBox(height: 16),
 
-                      // Device consumption grid
+                      // Realtime device consumption 
                       GridView.builder(
                         padding: const EdgeInsets.symmetric(horizontal: 16.0),
                         shrinkWrap: true,
@@ -404,14 +417,14 @@ class _DashboardTabState extends State<DashboardTab> {
                               crossAxisSpacing: 16,
                               mainAxisSpacing: 16,
                             ),
-                        itemCount: _deviceConsumption.length.clamp(0, 4),
+                        itemCount: 3,
                         itemBuilder: (context, index) {
-                          final device = _deviceConsumption[index];
-                          final deviceName =
-                              device['devices']['name'] ?? 'Appareil';
-                          final consumption =
-                              device['consumption']?.toStringAsFixed(1) ??
-                              '0.0';
+                          // Utiliser directement les données MQTT
+                          final deviceNames = ['Appareil 1', 'Appareil 2', 'Appareil 3'];
+                          final energyValues = [_energyDevice1, _energyDevice2, _energyDevice3];
+                          
+                          final deviceName = deviceNames[index];
+                          final consumption = energyValues[index].toStringAsFixed(1);
 
                           return _buildDeviceCard(
                             deviceName,
@@ -459,7 +472,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
                       // Tips section
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        padding: const EdgeInsets.symmetric(horizontal: 26.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

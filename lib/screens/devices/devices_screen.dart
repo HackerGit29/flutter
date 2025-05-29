@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:aricie/services/mqtt_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -17,9 +20,16 @@ class _DevicesScreenState extends State<DevicesScreen>
     with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
   final _notificationService = NotificationService();
+  final _mqttService = MqttService(); // Ajout du service MQTT
   List<DeviceModel> _devices = [];
   bool _isLoading = true;
   late TabController _tabController;
+  
+  // Map pour stocker l'état des appareils
+  final Map<String, bool> _deviceStates = {};
+  
+  // Abonnements aux streams
+  List<StreamSubscription> _subscriptions = [];
   final List<String> _categories = [
     'Tous',
     'Salon',
@@ -40,11 +50,56 @@ class _DevicesScreenState extends State<DevicesScreen>
         });
       }
     });
+    
+    // Initialiser le service MQTT avant de charger les appareils
+    _initializeMqtt();
     _loadDevices();
+  }
+
+  Future<void> _initializeMqtt() async {
+    await _mqttService.initialize();
+    
+    // Ne pas envoyer de commandes initiales, mais plutôt lire l'état actuel
+    
+    // Initialiser les états avec les valeurs actuelles du service MQTT
+    setState(() {
+      _deviceStates['1'] = _mqttService.deviceStatus1.toLowerCase() == 'on';
+      _deviceStates['2'] = _mqttService.deviceStatus2.toLowerCase() == 'on';
+      _deviceStates['3'] = _mqttService.deviceStatus3.toLowerCase() == 'on';
+    });
+    
+    // S'abonner aux streams de statut des appareils
+    _subscriptions.add(
+      _mqttService.deviceStatusStream1.listen((status) {
+        setState(() {
+          _deviceStates['1'] = status.toLowerCase() == 'on';
+        });
+      })
+    );
+    
+    _subscriptions.add(
+      _mqttService.deviceStatusStream2.listen((status) {
+        setState(() {
+          _deviceStates['2'] = status.toLowerCase() == 'on';
+        });
+      })
+    );
+    
+    _subscriptions.add(
+      _mqttService.deviceStatusStream3.listen((status) {
+        setState(() {
+          _deviceStates['3'] = status.toLowerCase() == 'on';
+        });
+      })
+    );
   }
 
   @override
   void dispose() {
+    // Annuler tous les abonnements
+    for (var subscription in _subscriptions) {
+      subscription.cancel();
+    }
     _tabController.dispose();
     super.dispose();
   }
@@ -229,7 +284,7 @@ class _DevicesScreenState extends State<DevicesScreen>
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text('Erreur lors de l\'ajout de l\'appareil'),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -323,7 +378,7 @@ class _DevicesScreenState extends State<DevicesScreen>
               content: const Text(
                 'Erreur lors de la suppression de l\'appareil',
               ),
-              backgroundColor: Colors.red,
+            backgroundColor: Theme.of(context).colorScheme.primary,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -335,14 +390,24 @@ class _DevicesScreenState extends State<DevicesScreen>
     }
   }
 
-  // Toggle device method remains the same
+  // Toggle device method
   Future<void> _toggleDevice(DeviceModel device, bool newState) async {
-    // In a real application, you would update the device state in the database
-    // and possibly communicate with the actual IoT device
+    // Déterminer l'ID de l'appareil (1, 2 ou 3)
+    final deviceId = (device.id.hashCode % 3) + 1;
+    
+    // Envoyer la commande via MQTT
+    await _mqttService.sendControlCommand(newState ? 'on' : 'off', deviceId);
+    
+    // Mettre à jour l'état local (sera également mis à jour par le stream)
+    setState(() {
+      _deviceStates[deviceId.toString()] = newState;
+    });
+    
+    // Afficher un message à l'utilisateur
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '${newState ? 'Activation' : 'Désactivation'} de ${device.name}...',
+          '${newState ? 'Activation' : 'Désactivation'} de ${device.name}...'
         ),
         duration: const Duration(seconds: 1),
         behavior: SnackBarBehavior.floating,
@@ -504,8 +569,13 @@ class _DevicesScreenState extends State<DevicesScreen>
   }
 
   Widget _buildDeviceCard(DeviceModel device) {
-    // Simuler un état aléatoire pour la démo
-    final bool isActive = device.id.hashCode % 2 == 0;
+    // Déterminer l'ID de l'appareil (1, 2 ou 3)
+    final deviceId = (device.id.hashCode % 3) + 1;
+    
+    // Utiliser l'état réel de l'appareil, ou false par défaut
+    final bool isActive = _deviceStates[deviceId.toString()] ?? false;
+    
+    // Simuler une consommation pour la démo
     final String consumption = '${(device.id.hashCode % 100) / 10}W';
 
     return GestureDetector(
@@ -648,8 +718,9 @@ class _DevicesScreenState extends State<DevicesScreen>
   }
 
   void _showDeviceDetails(DeviceModel device) {
-    // Simuler un état aléatoire pour la démo
-    final bool isActive = device.id.hashCode % 2 == 0;
+    // Utiliser l'état réel de l'appareil au lieu de simuler
+    final deviceId = (device.id.hashCode % 3) + 1;
+    final bool isActive = _deviceStates[deviceId.toString()] ?? false;
     final String consumption = '${(device.id.hashCode % 100) / 10}W';
     final String dailyUsage = '${(device.id.hashCode % 24) / 10} heures';
     final String monthlyConsumption = '${device.id.hashCode % 50} kWh';
@@ -668,7 +739,10 @@ class _DevicesScreenState extends State<DevicesScreen>
                 topRight: Radius.circular(24),
               ),
             ),
+
+          child: SingleChildScrollView(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Handle
@@ -781,14 +855,14 @@ class _DevicesScreenState extends State<DevicesScreen>
                             'Consommation actuelle',
                             consumption,
                             Icons.bolt,
-                            Colors.orange,
+                            Colors.white,
                           ),
                           const SizedBox(width: 16),
                           _buildStatCard(
                             'Utilisation quotidienne',
                             dailyUsage,
                             Icons.access_time,
-                            Colors.blue,
+                            Colors.white,
                           ),
                         ],
                       ),
@@ -797,7 +871,7 @@ class _DevicesScreenState extends State<DevicesScreen>
                         'Consommation mensuelle',
                         monthlyConsumption,
                         Icons.calendar_month,
-                        Colors.green,
+                        Colors.white,
                         fullWidth: true,
                       ),
                     ],
@@ -824,21 +898,21 @@ class _DevicesScreenState extends State<DevicesScreen>
                           _buildActionButton(
                             'Programmer',
                             Icons.schedule,
-                            Colors.purple,
+                            Colors.white,
                             () {},
                           ),
                           const SizedBox(width: 16),
                           _buildActionButton(
                             'Historique',
                             Icons.history,
-                            Colors.teal,
+                            Colors.white,
                             () {},
                           ),
                           const SizedBox(width: 16),
                           _buildActionButton(
                             'Supprimer',
                             Icons.delete,
-                            Colors.red,
+                            Colors.white,
                             () {
                               Navigator.pop(context);
                               _deleteDevice(device);
@@ -852,6 +926,7 @@ class _DevicesScreenState extends State<DevicesScreen>
               ],
             ),
           ),
+        ),
     );
   }
 

@@ -1,5 +1,7 @@
+import 'package:aricie/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -45,16 +47,17 @@ class ProfileScreen extends StatelessWidget {
             },
           ),
           const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('Déconnexion'),
-            onTap: () async {
-              await Supabase.instance.client.auth.signOut();
-              if (context.mounted) {
-                Navigator.of(context).pushReplacementNamed('/login');
-              }
-            },
-          ),
+          // Importez le service d'authentification
+          
+          // Dans la classe _ProfileScreenState, modifiez le ListTile de déconnexion :
+                        ListTile(
+                          leading: const Icon(Icons.logout),
+                          title: const Text('Déconnexion'),
+                          onTap: () async {
+                            final authService = AuthService();
+                            await authService.signOut(context);
+                          },
+                        ),
         ],
       ),
     );

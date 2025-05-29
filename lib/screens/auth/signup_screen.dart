@@ -104,8 +104,8 @@ class _SignupScreenState extends State<SignupScreen> {
                    Center(
                     child: Image.asset(
                       'assets/images/logo.png',
-                      width: 64,
-                      height: 64,
+                      width: 96,
+                      height: 96,
                       fit: BoxFit.contain,
                     ),
                   ),

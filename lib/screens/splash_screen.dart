@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'onboarding_screen.dart';
+import 'home_screen.dart';
+import '../services/auth_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -10,15 +12,34 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  final _authService = AuthService();
+
   @override
   void initState() {
     super.initState();
-    // Navigate to onboarding screen after 3 seconds
-    Future.delayed(const Duration(seconds: 3), () {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-      );
-    });
+    _checkSession();
+  }
+
+  Future<void> _checkSession() async {
+    // Attendre un court délai pour l'animation du splash
+    await Future.delayed(const Duration(seconds: 1));
+    
+    // Vérifier si l'utilisateur est déjà connecté
+    final isLoggedIn = await _authService.isLoggedIn();
+    
+    if (mounted) {
+      if (isLoggedIn) {
+        // Rediriger vers l'écran d'accueil si l'utilisateur est connecté
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      } else {
+        // Sinon, afficher l'écran d'onboarding
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+        );
+      }
+    }
   }
 
   @override
@@ -28,28 +49,17 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.eco,
-              size: 80,
-              color: Theme.of(context).colorScheme.primary,
-            )
-                .animate()
-                .fadeIn(duration: 600.ms)
-                .scale(delay: 200.ms)
-                .then()
-                .shimmer(duration: 1200.ms),
-            const SizedBox(height: 24),
-            Text(
-              'Aricie',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-            )
-                .animate()
-                .fadeIn(delay: 400.ms, duration: 800.ms)
-                .slideY(begin: 0.2, end: 0),
-            const SizedBox(height: 8),
+            // Logo
+            Center(
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 96,
+                height: 96,
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(height: 40),
+           
             Text(
               'Gérez votre énergie intelligemment',
               style: Theme.of(context).textTheme.bodyLarge,

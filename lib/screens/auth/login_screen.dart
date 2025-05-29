@@ -1,3 +1,4 @@
+import 'package:aricie/services/auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../home_screen.dart';
@@ -24,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  // Dans la classe _LoginScreenState, modifiez la méthode _signIn :
   Future<void> _signIn() async {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -38,11 +40,16 @@ class _LoginScreenState extends State<LoginScreen> {
           password: _passwordController.text,
         );
 
-        // Navigate to home screen on successful authentication
-        if (response.user != null && mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-          );
+        // Sauvegarder la session si l'authentification réussit
+        if (response.user != null) {
+          final authService = AuthService();
+          await authService.saveSession(response.user!);
+          
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+            );
+          }
         }
       } on AuthException catch (e) {
         // Handle Supabase auth-specific exceptions
@@ -95,8 +102,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   Center(
                     child: Image.asset(
                       'assets/images/logo.png',
-                      width: 64,
-                      height: 64,
+                      width: 96,
+                      height: 96,
                       fit: BoxFit.contain,
                     ),
                   ),
