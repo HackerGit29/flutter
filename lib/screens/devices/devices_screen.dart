@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:aricie/services/mqtt_service.dart';
 import 'package:flutter/material.dart';
+import 'package:mqtt_client/mqtt_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -57,11 +58,25 @@ class _DevicesScreenState extends State<DevicesScreen>
   }
 
   Future<void> _initializeMqtt() async {
+    print('Initialisation du service MQTT...');
     await _mqttService.initialize();
     
-    // Ne pas envoyer de commandes initiales, mais plutôt lire l'état actuel
+    print('Vérification de l\'état de connexion MQTT...');
+    bool isConnected = await _checkMqttConnection();
+    if (!isConnected) {
+      print('Échec de connexion au broker MQTT');
+      // Afficher un message d'erreur à l'utilisateur
+      
+    } else {
+      print('✅ Connecté au broker MQTT');
+    }
     
     // Initialiser les états avec les valeurs actuelles du service MQTT
+    print('📱 États initiaux des appareils:');
+    print('Appareil 1: ${_mqttService.deviceStatus1}');
+    print('Appareil 2: ${_mqttService.deviceStatus2}');
+    print('Appareil 3: ${_mqttService.deviceStatus3}');
+    
     setState(() {
       _deviceStates['1'] = _mqttService.deviceStatus1.toLowerCase() == 'on';
       _deviceStates['2'] = _mqttService.deviceStatus2.toLowerCase() == 'on';
@@ -71,6 +86,7 @@ class _DevicesScreenState extends State<DevicesScreen>
     // S'abonner aux streams de statut des appareils
     _subscriptions.add(
       _mqttService.deviceStatusStream1.listen((status) {
+        print('📱 Mise à jour statut appareil 1: $status');
         setState(() {
           _deviceStates['1'] = status.toLowerCase() == 'on';
         });
@@ -79,6 +95,7 @@ class _DevicesScreenState extends State<DevicesScreen>
     
     _subscriptions.add(
       _mqttService.deviceStatusStream2.listen((status) {
+        print('📱 Mise à jour statut appareil 2: $status');
         setState(() {
           _deviceStates['2'] = status.toLowerCase() == 'on';
         });
@@ -87,6 +104,7 @@ class _DevicesScreenState extends State<DevicesScreen>
     
     _subscriptions.add(
       _mqttService.deviceStatusStream3.listen((status) {
+        print('📱 Mise à jour statut appareil 3: $status');
         setState(() {
           _deviceStates['3'] = status.toLowerCase() == 'on';
         });
@@ -390,10 +408,55 @@ class _DevicesScreenState extends State<DevicesScreen>
     }
   }
 
+  // Méthode pour obtenir l'ID physique de l'appareil
+  int _getPhysicalDeviceId(DeviceModel device) {
+    // Utiliser un attribut spécifique pour déterminer l'ID physique
+    // Par exemple, extraire un numéro du nom de l'appareil si possible
+    if (device.name.toLowerCase().contains('frigo') || 
+        device.name.toLowerCase().contains('appareil 1')) {
+      return 1;
+    } else if (device.name.toLowerCase().contains('ampoule') || 
+              device.name.toLowerCase().contains('appareil 2')) {
+      return 2;
+    } else if (device.name.toLowerCase().contains('ventilateur') || 
+              device.name.toLowerCase().contains('appareil 3')) {
+      return 3;
+    }
+    
+    // Si aucun pattern spécifique n'est trouvé, utiliser un hash plus stable
+    // Utiliser les 4 premiers caractères de l'ID pour plus de stabilité
+    String idPrefix = device.id.length >= 4 ? device.id.substring(0, 4) : device.id;
+    int hash = 0;
+    for (int i = 0; i < idPrefix.length; i++) {
+      hash = (hash * 31 + idPrefix.codeUnitAt(i)) % 3;
+    }
+    return hash + 1; // 1, 2 ou 3
+  }
+
   // Toggle device method
   Future<void> _toggleDevice(DeviceModel device, bool newState) async {
-    // Déterminer l'ID de l'appareil (1, 2 ou 3)
-    final deviceId = (device.id.hashCode % 3) + 1;
+    // Utiliser la nouvelle méthode de mappage
+    final deviceId = _getPhysicalDeviceId(device);
+    
+    print('Envoi de commande: Appareil $deviceId - ${newState ? "on" : "off"}');
+    
+    // Vérifier l'état de la connexion MQTT avant d'envoyer
+    bool isConnected = await _checkMqttConnection();
+    if (!isConnected) {
+      print('MQTT non connecté - Tentative de reconnexion...');
+      await _mqttService.initialize();
+      isConnected = await _checkMqttConnection();
+      if (!isConnected) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de connexion au broker MQTT'),
+            backgroundColor: Colors.white,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+    }
     
     // Envoyer la commande via MQTT
     await _mqttService.sendControlCommand(newState ? 'on' : 'off', deviceId);
@@ -414,6 +477,31 @@ class _DevicesScreenState extends State<DevicesScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
+  }
+  
+  // Vérifier l'état de la connexion MQTT
+  Future<bool> _checkMqttConnection() async {
+    Completer<bool> completer = Completer<bool>();
+    
+    // Écouter l'état de la connexion pendant 2 secondes maximum
+    StreamSubscription? subscription;
+    subscription = _mqttService.connectionState.listen((state) {
+      if (state == MqttConnectionState.connected) {
+        subscription?.cancel();
+        if (!completer.isCompleted) completer.complete(true);
+      } else if (state == MqttConnectionState.disconnected) {
+        subscription?.cancel();
+        if (!completer.isCompleted) completer.complete(false);
+      }
+    });
+    
+    // Timeout après 2 secondes
+    Future.delayed(const Duration(seconds: 2), () {
+      subscription?.cancel();
+      if (!completer.isCompleted) completer.complete(false);
+    });
+    
+    return completer.future;
   }
 
   List<DeviceModel> _getFilteredDevices() {
@@ -569,8 +657,8 @@ class _DevicesScreenState extends State<DevicesScreen>
   }
 
   Widget _buildDeviceCard(DeviceModel device) {
-    // Déterminer l'ID de l'appareil (1, 2 ou 3)
-    final deviceId = (device.id.hashCode % 3) + 1;
+    // Utiliser la nouvelle méthode de mappage
+    final deviceId = _getPhysicalDeviceId(device);
     
     // Utiliser l'état réel de l'appareil, ou false par défaut
     final bool isActive = _deviceStates[deviceId.toString()] ?? false;

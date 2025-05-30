@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../home_screen.dart';
 import 'signup_screen.dart'; // Importer la page d'inscription
+import 'package:aricie/services/notification_service.dart'; // Importer le service de notification
+import 'package:shared_preferences/shared_preferences.dart'; // Pour vérifier la première connexion
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  final _notificationService = NotificationService(); // Service de notification
 
   @override
   void dispose() {
@@ -44,6 +47,22 @@ class _LoginScreenState extends State<LoginScreen> {
         if (response.user != null) {
           final authService = AuthService();
           await authService.saveSession(response.user!);
+          
+          // Vérifier si c'est la première connexion
+          final prefs = await SharedPreferences.getInstance();
+          final isFirstLogin = !(prefs.getBool('has_logged_in_before') ?? false);
+          
+          if (isFirstLogin) {
+            // Marquer que l'utilisateur s'est connecté
+            await prefs.setBool('has_logged_in_before', true);
+            
+            // Afficher la notification de bienvenue
+            _notificationService.showNotification(
+              id: 1,
+              title: 'Bienvenue dans Aricie!',
+              body: 'Merci de vous être connecté. Découvrez comment gérer votre énergie intelligemment.',
+            );
+          }
           
           if (mounted) {
             Navigator.of(context).pushReplacement(

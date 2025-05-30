@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:aricie/services/notification_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:aricie/models/energy_data_model.dart';
 import 'package:aricie/models/temperature_model.dart';
@@ -45,6 +46,12 @@ class MqttService {
   final _wsUrl = 'mqtt://test.mosquitto.org:1883';
   final _clientId = 'dart_client_${Random().nextInt(1000)}';
 
+  // Service de notification
+  final _notificationService = NotificationService();
+  
+  // État précédent de la connexion pour éviter les notifications répétées
+  MqttConnectionState? _previousConnectionState;
+
   // Controllers for streams
   final _connectionStateController =
       StreamController<MqttConnectionState>.broadcast();
@@ -84,6 +91,17 @@ class MqttService {
       } catch (e) {
         print('Erreur de connexion: $e');
         _connectionStateController.add(MqttConnectionState.disconnected);
+        _previousConnectionState = MqttConnectionState.disconnected;
+        
+        // Notification de déconnexion
+        if (!kIsWeb) {
+          _notificationService.showNotification(
+            id: 3,
+            title: 'Problème de connexion',
+            body: 'Impossible de se connecter au broker MQTT. Vérifiez votre connexion internet.',
+          );
+        }
+        
         _scheduleReconnect();
       }
 
@@ -96,6 +114,19 @@ class MqttService {
 
     // Notifier l'UI que la connexion est établie
     _connectionStateController.add(MqttConnectionState.connected);
+    
+    // Si l'état précédent était déconnecté, envoyer une notification de reconnexion
+    if (_previousConnectionState == MqttConnectionState.disconnected) {
+      if (!kIsWeb) {
+        _notificationService.showNotification(
+          id: 4,
+          title: 'Connexion rétablie',
+          body: 'La connexion avec le broker MQTT a été rétablie.',
+        );
+      }
+    }
+    
+    _previousConnectionState = MqttConnectionState.connected;
 
     // S'abonner aux topics de température et humidité
     _client.subscribe(TOPIC_TEMPERATURE, 1);
@@ -296,6 +327,19 @@ class MqttService {
   void _onDisconnected() {
     print('Déconnecté du broker');
     _connectionStateController.add(MqttConnectionState.disconnected);
+    
+    // Notification de déconnexion seulement si l'état précédent était connecté
+    if (_previousConnectionState == MqttConnectionState.connected) {
+      if (!kIsWeb) {
+        _notificationService.showNotification(
+          id: 2,
+          title: 'Connexion interrompue',
+          body: 'La connexion avec le broker MQTT s\'est interrompue. Tentative de reconnexion en cours...',
+        );
+      }
+    }
+    
+    _previousConnectionState = MqttConnectionState.disconnected;
     _scheduleReconnect();
   }
 
