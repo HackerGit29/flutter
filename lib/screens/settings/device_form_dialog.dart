@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:aricie/core/di/injection_container.dart';
+import 'package:aricie/domain/usecases/auth/get_current_user.dart';
 import '../../models/device_model.dart';
 
 class DeviceFormDialog extends StatefulWidget {
@@ -22,7 +24,6 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _locationController;
-  final _supabase = Supabase.instance.client;
   bool _isLoading = false;
 
   @override
@@ -57,7 +58,8 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
     });
 
     try {
-      final user = _supabase.auth.currentUser;
+      final userResult = await GetCurrentUser(sl()).call();
+      final user = userResult.getOrElse(() => null);
       if (user == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -76,41 +78,39 @@ class _DeviceFormDialogState extends State<DeviceFormDialog> {
         'user_id': user.id,
       };
 
-      DeviceModel? result;
+      DeviceModel? savedDevice;
 
       if (widget.device == null) {
-        // Create new device
         final response =
-            await _supabase
+            await Supabase.instance.client
                 .from('devices')
                 .insert(deviceData)
                 .select()
                 .single();
 
-        result = DeviceModel.fromJson(response);
+        savedDevice = DeviceModel.fromJson(response);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${result.name} ajouté avec succès')),
+          SnackBar(content: Text('${savedDevice.name} ajouté avec succès')),
         );
       } else {
-        // Update existing device
         final response =
-            await _supabase
+            await Supabase.instance.client
                 .from('devices')
                 .update(deviceData)
                 .eq('id', widget.device!.id)
                 .select()
                 .single();
 
-        result = DeviceModel.fromJson(response);
+        savedDevice = DeviceModel.fromJson(response);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${result.name} mis à jour avec succès')),
+          SnackBar(content: Text('${savedDevice.name} mis à jour avec succès')),
         );
       }
 
       if (mounted) {
-        Navigator.of(context).pop(result);
+        Navigator.of(context).pop(savedDevice);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(

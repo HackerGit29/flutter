@@ -1,15 +1,38 @@
-import 'package:aricie/services/auth_service.dart';
+import 'package:aricie/core/di/injection_container.dart';
+import 'package:aricie/domain/usecases/auth/logout_user.dart';
+import 'package:aricie/domain/usecases/auth/get_current_user.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
 
+class _ProfileScreenState extends State<ProfileScreen> {
+  String? _email;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final result = await GetCurrentUser(sl()).call();
+    result.fold(
+      (_) {},
+      (user) {
+        if (user != null) {
+          setState(() => _email = user.email);
+        }
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profil'),
@@ -20,13 +43,13 @@ class ProfileScreen extends StatelessWidget {
           CircleAvatar(
             radius: 50,
             child: Text(
-              user?.email?.substring(0, 1).toUpperCase() ?? 'U',
+              _email?.substring(0, 1).toUpperCase() ?? 'U',
               style: Theme.of(context).textTheme.headlineLarge,
             ),
           ),
           const SizedBox(height: 24),
           Text(
-            user?.email ?? 'Utilisateur',
+            _email ?? 'Utilisateur',
             style: Theme.of(context).textTheme.titleLarge,
             textAlign: TextAlign.center,
           ),
@@ -47,17 +70,21 @@ class ProfileScreen extends StatelessWidget {
             },
           ),
           const Divider(),
-          // Importez le service d'authentification
-          
-          // Dans la classe _ProfileScreenState, modifiez le ListTile de déconnexion :
-                        ListTile(
-                          leading: const Icon(Icons.logout),
-                          title: const Text('Déconnexion'),
-                          onTap: () async {
-                            final authService = AuthService();
-                            await authService.signOut(context);
-                          },
-                        ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Déconnexion'),
+            onTap: () async {
+              final result = await LogoutUser(sl()).call();
+              result.fold(
+                (_) {},
+                (_) {
+                  if (mounted) {
+                    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+                  }
+                },
+              );
+            },
+          ),
         ],
       ),
     );

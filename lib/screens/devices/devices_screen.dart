@@ -1,13 +1,14 @@
 import 'dart:async';
 
+import 'package:aricie/core/di/injection_container.dart';
+import 'package:aricie/domain/usecases/devices/get_user_devices.dart';
+import 'package:aricie/domain/usecases/devices/add_device.dart';
+import 'package:aricie/domain/usecases/devices/remove_device.dart';
 import 'package:aricie/services/mqtt_service.dart';
 import 'package:flutter/material.dart';
 import 'package:mqtt_client/mqtt_client.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../models/device_model.dart';
-import '../../services/notification_service.dart';
 import '../../widgets/common_header.dart';
 
 class DevicesScreen extends StatefulWidget {
@@ -19,9 +20,7 @@ class DevicesScreen extends StatefulWidget {
 
 class _DevicesScreenState extends State<DevicesScreen>
     with SingleTickerProviderStateMixin {
-  final _supabase = Supabase.instance.client;
-  final _notificationService = NotificationService();
-  final _mqttService = MqttService(); // Ajout du service MQTT
+  final _mqttService = MqttService();
   List<DeviceModel> _devices = [];
   bool _isLoading = true;
   late TabController _tabController;
@@ -122,35 +121,26 @@ class _DevicesScreenState extends State<DevicesScreen>
     super.dispose();
   }
 
-  // Rest of the loading devices method remains the same
   Future<void> _loadDevices() async {
     setState(() {
       _isLoading = true;
     });
 
-    try {
-      final user = _supabase.auth.currentUser;
-      if (user != null) {
-        final response = await _supabase
-            .from('devices')
-            .select()
-            .eq('user_id', user.id)
-            .order('created_at', ascending: false);
-
+    final result = await GetUserDevices(sl()).call();
+    result.fold(
+      (failure) {
+        debugPrint('Error loading devices: ${failure.message}');
         setState(() {
-          _devices =
-              (response as List)
-                  .map((data) => DeviceModel.fromJson(data))
-                  .toList();
           _isLoading = false;
         });
-      }
-    } catch (e) {
-      debugPrint('Error loading devices: $e');
-      setState(() {
-        _isLoading = false;
-      });
-    }
+      },
+      (devices) {
+        setState(() {
+          _devices = devices.map((d) => DeviceModel.fromJson(d.toJson())).toList();
+          _isLoading = false;
+        });
+      },
+    );
   }
 
   // Add device method with improved UI
@@ -245,45 +235,24 @@ class _DevicesScreenState extends State<DevicesScreen>
       final location = selectedLocation;
 
       if (name.isNotEmpty) {
-        try {
-          // Rest of the add device logic remains the same
-          final user = _supabase.auth.currentUser;
-          if (user != null) {
-            // Add device to database
-            final deviceData = {
-              'name': name,
-              'location': location,
-              'user_id': user.id,
-            };
-
-            final response =
-                await _supabase
-                    .from('devices')
-                    .insert(deviceData)
-                    .select()
-                    .single();
-
-            // Create alert for new device
-            final alertData = {
-              'title': 'Nouvel appareil ajouté',
-              'description': 'L\'appareil "$name" a été ajouté avec succès.',
-              'severity': 'info',
-              'user_id': user.id,
-              'is_read': false,
-            };
-
-            // Insert alert and fetch the created alert data
-            final alertResponse =
-                await _supabase
-                    .from('alerts')
-                    .insert(alertData)
-                    .select()
-                    .single();
-
-            // Refresh device list
+        final result = await AddDevice(sl()).call(name, location);
+        result.fold(
+          (failure) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Erreur: ${failure.message}'),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              );
+            }
+          },
+          (_) async {
             await _loadDevices();
-
-            // Show success message
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -295,27 +264,10 @@ class _DevicesScreenState extends State<DevicesScreen>
                 ),
               );
             }
-          }
-        } catch (e) {
-          debugPrint('Error adding device: $e');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Erreur lors de l\'ajout de l\'appareil'),
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            );
-          }
-        }
+          },
+        );
       }
     }
-
-    nameController.dispose();
-    locationController.dispose();
   }
 
   // Delete device method remains mostly the same
@@ -354,28 +306,27 @@ class _DevicesScreenState extends State<DevicesScreen>
 
     // Rest of the delete implementation remains the same
     if (confirmed == true && mounted) {
-      try {
-        final user = _supabase.auth.currentUser;
-        if (user != null) {
-          // Delete device from database
-          await _supabase.from('devices').delete().eq('id', device.id);
-
-          // Create alert for device deletion
-          final alertData = {
-            'title': 'Appareil supprimé',
-            'description': 'L\'appareil "${device.name}" a été supprimé.',
-            'severity': 'warning',
-            'user_id': user.id,
-            'is_read': false,
-          };
-
-          // Insert alert
-          await _supabase.from('alerts').insert(alertData);
-
-          // Refresh device list
+      final result = await RemoveDevice(sl()).call(device.id);
+      result.fold(
+        (failure) {
+          debugPrint('Error deleting device: ${failure.message}');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  'Erreur lors de la suppression de l\'appareil',
+                ),
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          }
+        },
+        (_) async {
           await _loadDevices();
-
-          // Show success message
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -387,24 +338,8 @@ class _DevicesScreenState extends State<DevicesScreen>
               ),
             );
           }
-        }
-      } catch (e) {
-        debugPrint('Error deleting device: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                'Erreur lors de la suppression de l\'appareil',
-              ),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-          );
-        }
-      }
+        },
+      );
     }
   }
 

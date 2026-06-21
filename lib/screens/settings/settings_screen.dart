@@ -1,3 +1,7 @@
+import 'package:aricie/core/di/injection_container.dart';
+import 'package:aricie/domain/usecases/devices/get_user_devices.dart';
+import 'package:aricie/domain/usecases/devices/add_device.dart';
+import 'package:aricie/domain/usecases/devices/remove_device.dart';
 import 'package:flutter/material.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -18,7 +22,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen>
     with SingleTickerProviderStateMixin {
-  final _supabase = Supabase.instance.client;
   final MqttService _mqttService = MqttService();
   late AnimationController _animationController;
   List<DeviceModel> _devices = [];
@@ -26,27 +29,19 @@ class _SettingsScreenState extends State<SettingsScreen>
   bool _isExpanded = false;
 
   Future<void> _loadDevices() async {
-    try {
-      setState(() => _isLoading = true);
+    setState(() => _isLoading = true);
 
-      final user = _supabase.auth.currentUser;
-      if (user == null) return;
+    final result = await GetUserDevices(sl()).call();
+    result.fold(
+      (failure) => _showError('Erreur lors du chargement des appareils'),
+      (devices) {
+        setState(() {
+          _devices = devices.map((d) => DeviceModel.fromJson(d.toJson())).toList();
+        });
+      },
+    );
 
-      final response = await _supabase
-          .from('devices')
-          .select()
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false);
-
-      final devices =
-          (response as List).map((json) => DeviceModel.fromJson(json)).toList();
-
-      setState(() => _devices = devices);
-    } catch (e) {
-      _showError('Erreur lors du chargement des appareils');
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    setState(() => _isLoading = false);
   }
 
   Future<void> _addDevice() async {
@@ -56,32 +51,15 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
 
     if (result != null) {
-      try {
-        final user = _supabase.auth.currentUser;
-        if (user == null) return;
-
-        final newDevice = DeviceModel(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: result['name']!,
-          location: result['location']!,
-          userId: user.id,
-          createdAt: DateTime.now(),
-        );
-
-        final response =
-            await _supabase
-                .from('devices')
-                .insert(newDevice.toJson())
-                .select()
-                .single();
-
-        final device = DeviceModel.fromJson(response);
-        setState(() {
-          _devices.insert(0, device);
-        });
-      } catch (e) {
-        _showError('Erreur lors de l\'ajout de l\'appareil');
-      }
+      final addResult = await AddDevice(sl()).call(result['name']!, result['location']!);
+      addResult.fold(
+        (failure) => _showError('Erreur lors de l\'ajout de l\'appareil'),
+        (device) {
+          setState(() {
+            _devices.insert(0, DeviceModel.fromJson(device.toJson()));
+          });
+        },
+      );
     }
   }
 
@@ -102,7 +80,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           location: result['location'],
         );
 
-        await _supabase
+        await Supabase.instance.client
             .from('devices')
             .update(updatedDevice.toJson())
             .eq('id', device.id);
@@ -120,15 +98,15 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _deleteDevice(DeviceModel device) async {
-    try {
-      await _supabase.from('devices').delete().eq('id', device.id);
-
-      setState(() {
-        _devices.removeWhere((d) => d.id == device.id);
-      });
-    } catch (e) {
-      _showError('Erreur lors de la suppression de l\'appareil');
-    }
+    final result = await RemoveDevice(sl()).call(device.id);
+    result.fold(
+      (failure) => _showError('Erreur lors de la suppression de l\'appareil'),
+      (_) {
+        setState(() {
+          _devices.removeWhere((d) => d.id == device.id);
+        });
+      },
+    );
   }
 
   void _showError(String message) {

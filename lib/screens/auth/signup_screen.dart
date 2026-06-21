@@ -1,7 +1,8 @@
+import 'package:aricie/core/di/injection_container.dart';
+import 'package:aricie/domain/usecases/auth/register_user.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../home_screen.dart';
-import 'login_screen.dart'; // Importer la page de connexion
+import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -38,43 +39,35 @@ class _SignupScreenState extends State<SignupScreen> {
         _isLoading = true;
       });
 
-      try {
-        // Implement Supabase authentication
-        final supabase = Supabase.instance.client;
-        final AuthResponse response = await supabase.auth.signUp(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-          data: {'full_name': _nameController.text.trim()},
-        );
+      final result = await RegisterUser(sl()).call(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
 
-        // Navigate to home screen on successful authentication
-        if (response.user != null && mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-          );
-        }
-      } on AuthException catch (e) {
-        // Handle Supabase auth-specific exceptions
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erreur d\'inscription: ${e.message}'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Erreur: ${e.toString()}')));
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+      result.fold(
+        (failure) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(failure.message),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        },
+        (_) {
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+            );
+          }
+        },
+      );
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
