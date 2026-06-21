@@ -35,8 +35,8 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) => User(
     id: json['id'] as String,
     email: json['email'] as String,
-    role: Role.values.firstWhere((r) => r.name == json['role'] ?? 'user'),
-    status: UserStatus.values.firstWhere((s) => s.name == json['status'] ?? 'active'),
+    role: Role.values.firstWhere((r) => r.name == ((json['role'] as String?) ?? 'user')),
+    status: UserStatus.values.firstWhere((s) => s.name == ((json['status'] as String?) ?? 'active')),
     createdAt: DateTime.parse(json['created_at'] as String),
     subscriptionId: json['subscription_id'] as String?,
   );

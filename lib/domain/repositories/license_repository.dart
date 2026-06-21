@@ -1,6 +1,5 @@
 import 'package:aricie/core/errors/failures.dart';
 import 'package:aricie/domain/entities/subscription.dart';
-import 'package:aricie/domain/entities/license.dart';
 import 'package:dartz/dartz.dart';
 
 abstract class LicenseRepository {

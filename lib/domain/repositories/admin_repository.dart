@@ -2,7 +2,6 @@ import 'package:aricie/core/errors/failures.dart';
 import 'package:aricie/domain/entities/user.dart';
 import 'package:aricie/domain/entities/device.dart';
 import 'package:aricie/domain/entities/sync_log.dart';
-import 'package:aricie/domain/entities/admin_action.dart';
 import 'package:dartz/dartz.dart';
 
 abstract class AdminRepository {

@@ -17,7 +17,7 @@ class Subscription {
   });
 
   bool get isVip => type == SubscriptionType.vip;
-  bool get isValid => isActive && (endDate == null || DateTime.now().isBefore(endDate));
+  bool get isValid => isActive && (endDate == null || DateTime.now().isBefore(endDate!));
 
   factory Subscription.fromJson(Map<String, dynamic> json) => Subscription(
     id: json['id'] as String,

@@ -12,7 +12,7 @@ class License {
 
   bool get isValid {
     final now = DateTime.now();
-    return now.isAfter(activationDate) && (expirationDate == null || now.isBefore(expirationDate));
+    return now.isAfter(activationDate) && (expirationDate == null || now.isBefore(expirationDate!));
   }
 
   factory License.fromJson(Map<String, dynamic> json) => License(
