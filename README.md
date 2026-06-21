@@ -1,16 +1,46 @@
-# innovation
+# aricie — MindCare Energy
 
-A new Flutter project.
+Application Flutter de suivi et gestion de consommation énergétique avec objets connectés.
 
-## Getting Started
+## Stack
 
-This project is a starting point for a Flutter application.
+| Couche | Technologie |
+|---|---|
+| App | Flutter 3.29.0 (FVM) |
+| Auth | Supabase Auth |
+| Base de données | Supabase PostgreSQL |
+| IoT | MQTT (mosquitto) via `mqtt_client` |
+| IA | Flowise agent (chatbot) |
+| Design | Soft Wellness Minimalism (voir `DESIGN.md`) |
 
-A few resources to get you started if this is your first Flutter project:
+## Architecture 2026
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Le projet évolue vers une architecture multi-utilisateurs avec :
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- **Rôles** : Admin / Utilisateur standard / VIP
+- **Périmètres stricts** : Chaque utilisateur possède ses boîtiers, isolation totale
+- **Abonnements** : Système de licence FREE/VIP
+- **Synchronisation** : Paire unique boîtier ↔ utilisateur via UID matériel
+- **Nouvelle BDD** : Tables `licences`, `subscriptions`, `sync_logs`, `admin_actions`, `roles`
+
+Voir `AGENTS.md` pour les détails techniques et commandes.
+
+## Démarrage rapide
+
+```bash
+fvm flutter pub get
+fvm flutter run
+```
+
+## Screens
+
+`Splash → Onboarding → Auth (Login/Signup) → Dashboard`
+- Dashboard : température, humidité, consommation (temps réel MQTT)
+- Statistiques : historique, tendances
+- Appareils : gestion CRUD, contrôle on/off via MQTT
+- Paramètres : thème, état MQTT, liste appareils
+- Chatbot : Flowise AI intégré
+
+## Licence
+
+Projet privé — MindCare Energy
