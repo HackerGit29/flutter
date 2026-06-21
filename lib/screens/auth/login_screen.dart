@@ -1,10 +1,9 @@
-import 'package:aricie/services/auth_service.dart';
+import 'package:aricie/core/di/injection_container.dart';
+import 'package:aricie/domain/usecases/auth/login_user.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../home_screen.dart';
-import 'signup_screen.dart'; // Importer la page d'inscription
-import 'package:aricie/services/notification_service.dart'; // Importer le service de notification
-import 'package:shared_preferences/shared_preferences.dart'; // Pour vérifier la première connexion
+import 'signup_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,7 +18,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
-  final _notificationService = NotificationService(); // Service de notification
 
   @override
   void dispose() {
@@ -36,50 +34,38 @@ class _LoginScreenState extends State<LoginScreen> {
       });
 
       try {
-        // Implement Supabase authentication
-        final supabase = Supabase.instance.client;
-        final AuthResponse response = await supabase.auth.signInWithPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
+        final loginUser = LoginUser(sl());
+        final result = await loginUser.call(
+          _emailController.text.trim(),
+          _passwordController.text,
         );
 
-        // Sauvegarder la session si l'authentification réussit
-        if (response.user != null) {
-          final authService = AuthService();
-          await authService.saveSession(response.user!);
-          
-          // Vérifier si c'est la première connexion
-          final prefs = await SharedPreferences.getInstance();
-          final isFirstLogin = !(prefs.getBool('has_logged_in_before') ?? false);
-          
-          if (isFirstLogin) {
-            // Marquer que l'utilisateur s'est connecté
-            await prefs.setBool('has_logged_in_before', true);
-            
-            // Afficher la notification de bienvenue
-            _notificationService.showNotification(
-              id: 1,
-              title: 'Bienvenue dans Aricie!',
-              body: 'Merci de vous être connecté. Découvrez comment gérer votre énergie intelligemment.',
-            );
-          }
-          
-          if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const HomeScreen()),
-            );
-          }
-        }
-      } on AuthException catch (e) {
-        // Handle Supabase auth-specific exceptions
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Erreur de connexion: ${e.message}'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        result.fold(
+          (failure) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(failure.message),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          },
+          (user) async {
+            final prefs = await SharedPreferences.getInstance();
+            final isFirstLogin = !(prefs.getBool('has_logged_in_before') ?? false);
+
+            if (isFirstLogin) {
+              await prefs.setBool('has_logged_in_before', true);
+            }
+
+            if (mounted) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const HomeScreen()),
+              );
+            }
+          },
+        );
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
