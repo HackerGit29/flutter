@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:aricie/theme/app_theme.dart';
 import '../../services/supabase_service.dart';
 import '../../models/energy_data_model.dart';
 
@@ -91,21 +92,21 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               onRefresh: _loadData,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppSpacing.s4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Sélecteur de période
                     _buildTimeFrameSelector(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.s6),
                     
                     // Carte de consommation actuelle
                     _buildCurrentConsumptionCard(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.s6),
                     
                     // Graphique de consommation
                     _buildConsumptionChart(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: AppSpacing.s6),
                     
                     // Détails des appareils
                     _buildDeviceDetails(),
@@ -120,8 +121,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(20),
+        color: Theme.of(context).colorScheme.surfaceVariant.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
       child: Row(
         children: _timeFrames.map((timeFrame) {
@@ -134,7 +135,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   color: isSelected
                       ? Theme.of(context).colorScheme.primary
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
                 ),
                 alignment: Alignment.center,
                 child: Text(
@@ -158,10 +159,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.s4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -169,7 +170,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               'Consommation totale',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.s2),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -180,7 +181,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: AppSpacing.s1),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
@@ -190,7 +191,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.s2),
             Text(
               'Période: $_selectedTimeFrame',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -205,10 +206,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   
   Widget _buildConsumptionChart() {
     if (_energyHistory.isEmpty) {
-      return const Card(
+      return Card(
         child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Center(
+          padding: const EdgeInsets.all(AppSpacing.s4),
+          child: const Center(
             child: Text('Aucune donnée disponible pour cette période'),
           ),
         ),
@@ -253,10 +254,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.s4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -264,7 +265,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               'Évolution de la consommation',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.s4),
             SizedBox(
               height: 200,
               child: LineChart(
@@ -349,7 +350,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   ),
                   borderData: FlBorderData(
                     show: true,
-                    border: Border.all(color: const Color(0xff37434d), width: 1),
+                    border: Border.all(color: AppColors.textPrimary, width: 1),
                   ),
                   minX: 0,
                   maxX: displayData.length - 1.0,
@@ -389,10 +390,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.s4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -400,23 +401,23 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               'Consommation par appareil',
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.s4),
             _buildDeviceConsumptionItem(
               'Appareil 1',
               latestData['device1'] ?? 0.0,
-              Colors.blue,
+              AppColors.accentBlue,
             ),
             const Divider(),
             _buildDeviceConsumptionItem(
               'Appareil 2',
               latestData['device2'] ?? 0.0,
-              Colors.orange,
+              AppColors.accentCoral,
             ),
             const Divider(),
             _buildDeviceConsumptionItem(
               'Appareil 3',
               latestData['device3'] ?? 0.0,
-              Colors.green,
+              AppColors.accentMint,
             ),
           ],
         ),
@@ -430,7 +431,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final percentage = totalValue > 0 ? (value / totalValue * 100) : 0.0;
     
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.s2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -449,28 +450,28 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.s2),
           Stack(
             children: [
               Container(
                 height: 8,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(4),
+                  color: AppColors.textMuted.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
               ),
               Container(
                 height: 8,
-                width: MediaQuery.of(context).size.width * percentage / 100 * 0.8, // Ajuster pour la largeur de la carte
+                width: MediaQuery.of(context).size.width * percentage / 100 * 0.8,
                 decoration: BoxDecoration(
                   color: color,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.s1),
           Text(
             '${percentage.toStringAsFixed(1)}%',
             style: Theme.of(context).textTheme.bodySmall,

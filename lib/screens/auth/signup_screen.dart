@@ -1,5 +1,6 @@
 import 'package:aricie/core/di/injection_container.dart';
 import 'package:aricie/domain/usecases/auth/register_user.dart';
+import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../home_screen.dart';
 import 'login_screen.dart';
@@ -82,11 +83,10 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(AppSpacing.s6),
             child: Form(
               key: _formKey,
               child: Column(
@@ -102,30 +102,26 @@ class _SignupScreenState extends State<SignupScreen> {
                       fit: BoxFit.contain,
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: AppSpacing.s10),
                   
                   // Titre de la page
-                  const Text(
+                  Text(
                     'Créer un compte',
-                    style: TextStyle(
-                      fontSize: 24,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                      height: 1.2,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
+                  const SizedBox(height: AppSpacing.s2),
+                  Text(
                     'Inscrivez-vous pour accéder à toutes les fonctionnalités',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF64748B),
-                      height: 1.5,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppColors.textSecondary,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: AppSpacing.s8),
                   
                   // Full Name
                   Column(
@@ -133,7 +129,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     children: [
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.s4),
                   
                   // Email Address
                   Column(
@@ -141,7 +137,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     children: [
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.s4),
                   
                   // Password
                   Column(
@@ -154,21 +150,11 @@ class _SignupScreenState extends State<SignupScreen> {
                   if (_passwordStrength.isNotEmpty) ...[
                   ],
                   
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.s6),
                   
                   // Sign Up Button
                   ElevatedButton(
                     onPressed: _isLoading ? null : _signUp,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      elevation: 4,
-                      shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.4),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                     child: _isLoading
                         ? const SizedBox(
                             width: 24,
@@ -192,7 +178,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
+                                  color: AppColors.textInverse.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Icon(
@@ -204,7 +190,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                   ),
                   
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.s4),
                   
                   // Already have an account
                   Row(
@@ -213,13 +199,13 @@ class _SignupScreenState extends State<SignupScreen> {
                       const Text(
                         'Vous avez déjà un compte?',
                         style: TextStyle(
-                          color: Color(0xFF64748B),
+                          color: AppColors.textSecondary,
                         ),
                       ),
                       TextButton(
                         onPressed: _navigateToLogin,
                         style: TextButton.styleFrom(
-                          foregroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: AppColors.interactive,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
                         child: const Text('Se connecter'),
@@ -227,7 +213,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     ],
                   ),
                   
-                  const SizedBox(height: 40),
+                  const SizedBox(height: AppSpacing.s10),
                   
                   // Copyright
                   Column(
@@ -235,41 +221,41 @@ class _SignupScreenState extends State<SignupScreen> {
                       Text(
                         'Copyright ${DateTime.now().year} Aricie ©',
                         style: const TextStyle(
-                          color: Color(0xFF64748B),
+                          color: AppColors.textSecondary,
                           fontSize: 12,
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.s2),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           TextButton(
                             onPressed: () {},
                             style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF4F46E5),
+                              foregroundColor: AppColors.interactive,
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              textStyle: const TextStyle(fontSize: 12),
+                              textStyle: TextStyle(fontSize: 12),
                             ),
                             child: const Text('Politique de confidentialité'),
                           ),
                           const Text(
                             '•',
                             style: TextStyle(
-                              color: Color(0xFF64748B),
+                              color: AppColors.textSecondary,
                               fontSize: 12,
                             ),
                           ),
                           TextButton(
                             onPressed: () {},
                             style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF4F46E5),
+                              foregroundColor: AppColors.interactive,
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              textStyle: const TextStyle(fontSize: 12),
+                              textStyle: TextStyle(fontSize: 12),
                             ),
                             child: const Text('Conditions d\'utilisation'),
                           ),

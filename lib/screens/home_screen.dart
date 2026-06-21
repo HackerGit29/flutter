@@ -7,13 +7,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:aricie/theme/app_theme.dart';
 import 'statistics/statistics_screen.dart';
 import 'devices/devices_screen.dart';
 import 'settings/settings_screen.dart';
 import '../models/energy_data_model.dart';
 import '../widgets/chatbot_floating_button.dart';
-import '../services/mqtt_service.dart'; 
-
+import '../services/mqtt_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -83,7 +83,7 @@ class DashboardTab extends StatefulWidget {
 class _DashboardTabState extends State<DashboardTab> {
   final _supabase = Supabase.instance.client;
   final _supabaseService = SupabaseService();
-  final _mqttService = MqttService(); 
+  final _mqttService = MqttService();
   bool _isLoading = true;
 
   // Energy stats data
@@ -106,8 +106,6 @@ class _DashboardTabState extends State<DashboardTab> {
   // Current date
   final String _currentDate = DateFormat('dd MMMM').format(DateTime.now());
 
-
-
   // Subscriptions
   late StreamSubscription<TemperatureModel> _temperatureSubscription;
   late StreamSubscription<double> _humiditySubscription;
@@ -126,17 +124,16 @@ class _DashboardTabState extends State<DashboardTab> {
     _supabaseService.energyConsumption.addListener(_updateConsumption);
   }
 
-
   void _initMqttService() async {
     await _mqttService.initialize();
-    
+
     // S'abonner au stream de température
     _temperatureSubscription = _mqttService.temperatureStream.listen((tempModel) {
       setState(() {
         _temperature = tempModel.temperature ?? 0.0;
       });
     });
-    
+
     // S'abonner au stream d'humidité
     _humiditySubscription = _mqttService.humidityStream.listen((value) {
       setState(() {
@@ -165,10 +162,7 @@ class _DashboardTabState extends State<DashboardTab> {
         _updateDeviceConsumptionFromMqtt();
       });
     });
-    
-
   }
-
 
   // Nouvelle méthode pour mettre à jour les données d'appareil depuis MQTT
   void _updateDeviceConsumptionFromMqtt() {
@@ -209,7 +203,6 @@ class _DashboardTabState extends State<DashboardTab> {
       _dailyStats = {'consumption': data['total_day'] ?? 0.0};
       _weeklyStats = {'consumption': data['total_week'] ?? 0.0};
       _monthlyStats = {'consumption': data['total_month'] ?? 0.0};
-
     });
   }
 
@@ -288,13 +281,13 @@ class _DashboardTabState extends State<DashboardTab> {
               ? const Center(child: CircularProgressIndicator())
               : SingleChildScrollView(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.s4),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Header with date and notification
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s4),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -311,16 +304,15 @@ class _DashboardTabState extends State<DashboardTab> {
                                 Text(
                                   _currentDate,
                                   style: Theme.of(context).textTheme.titleMedium
-                                      ?.copyWith(color: Colors.grey),
+                                      ?.copyWith(color: AppColors.textMuted),
                                 ),
                               ],
                             ),
-                            
                           ],
                         ),
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.s6),
 
                       // Consumption summary carousel
                       CarouselSlider(
@@ -337,46 +329,46 @@ class _DashboardTabState extends State<DashboardTab> {
                           enlargeCenterPage: true,
                         ),
                         items: [
-                          _buildTemperatureCard(), 
-                          _buildHumidityCard(),   
+                          _buildTemperatureCard(),
+                          _buildHumidityCard(),
                           _buildConsumptionCard(
                             'Consommation Journalière',
                             _dailyStats['consumption']?.toStringAsFixed(1) ??
                                 '0.0',
                             '+5%',
-                            Colors.red,
+                            AppColors.accentDot,
                             Icons.arrow_upward,
-                            Colors.orange.shade100,
-                            Colors.orange,
+                            AppColors.accentCoral.withValues(alpha: 0.3),
+                            AppColors.accentCoral,
                           ),
                           _buildConsumptionCard(
                             'Consommation Hebdomadaire',
                             _weeklyStats['consumption']?.toStringAsFixed(1) ??
                                 '0.0',
                             '-3%',
-                            Colors.green,
+                            AppColors.accentMint,
                             Icons.arrow_downward,
-                            Colors.blue.shade100,
-                            Colors.blue,
+                            AppColors.accentBlue.withValues(alpha: 0.3),
+                            AppColors.accentTeal,
                           ),
                           _buildConsumptionCard(
                             'Consommation Mensuelle',
                             _monthlyStats['consumption']?.toStringAsFixed(1) ??
                                 '0.0',
                             '+10%',
-                            Colors.red,
+                            AppColors.accentDot,
                             Icons.arrow_upward,
-                            Colors.purple.shade100,
-                            Colors.purple,
+                            AppColors.accentPurple.withValues(alpha: 0.3),
+                            AppColors.accentPurple,
                           ),
                         ],
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.s6),
 
                       // Section title
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s4),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -403,26 +395,26 @@ class _DashboardTabState extends State<DashboardTab> {
                         ),
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.s4),
 
-                      // Realtime device consumption 
+                      // Realtime device consumption
                       GridView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s4),
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
                               childAspectRatio: 1.5,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
+                              crossAxisSpacing: AppSpacing.s4,
+                              mainAxisSpacing: AppSpacing.s4,
                             ),
                         itemCount: 3,
                         itemBuilder: (context, index) {
                           // Utiliser directement les données MQTT
                           final deviceNames = ['Appareil 1', 'Appareil 2', 'Appareil 3'];
                           final energyValues = [_energyDevice1, _energyDevice2, _energyDevice3];
-                          
+
                           final deviceName = deviceNames[index];
                           final consumption = energyValues[index].toStringAsFixed(1);
 
@@ -434,11 +426,11 @@ class _DashboardTabState extends State<DashboardTab> {
                         },
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.s6),
 
                       // Weekly consumption chart
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s4),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -447,20 +439,14 @@ class _DashboardTabState extends State<DashboardTab> {
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSpacing.s4),
                             Container(
                               height: 200,
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(AppSpacing.s4),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).cardColor,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.05),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
+                                color: AppColors.bgPrimary,
+                                borderRadius: BorderRadius.circular(AppRadius.md),
+                                boxShadow: [AppShadows.sm],
                               ),
                               child: _buildWeeklyChart(),
                             ),
@@ -468,11 +454,11 @@ class _DashboardTabState extends State<DashboardTab> {
                         ),
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSpacing.s6),
 
                       // Tips section
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 26.0),
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s6),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -481,12 +467,12 @@ class _DashboardTabState extends State<DashboardTab> {
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: AppSpacing.s4),
                             _buildTipCard(
                               'Réduisez votre consommation en éteignant les appareils en veille',
                               Icons.lightbulb_outline,
-                              Colors.amber.shade100,
-                              Colors.amber,
+                              AppColors.accentGold.withValues(alpha: 0.3),
+                              AppColors.accentGold,
                             ),
                           ],
                         ),
@@ -509,17 +495,11 @@ class _DashboardTabState extends State<DashboardTab> {
   ) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.s5),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: [AppShadows.sm],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -527,18 +507,15 @@ class _DashboardTabState extends State<DashboardTab> {
           Row(
             children: [
               Icon(Icons.electric_bolt, color: iconColor),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.s2),
               Text(
                 title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: iconColor,
-                ),
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(color: iconColor),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.s4),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -547,9 +524,10 @@ class _DashboardTabState extends State<DashboardTab> {
                 style: const TextStyle(
                   fontSize: 36,
                   fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: AppSpacing.s1),
               const Padding(
                 padding: EdgeInsets.only(bottom: 6),
                 child: Text(
@@ -559,15 +537,15 @@ class _DashboardTabState extends State<DashboardTab> {
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s2, vertical: AppSpacing.s1),
                 decoration: BoxDecoration(
-                  color: changeColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  color: changeColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
                 child: Row(
                   children: [
                     Icon(changeIcon, color: changeColor, size: 16),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: AppSpacing.s1),
                     Text(
                       change,
                       style: TextStyle(
@@ -591,17 +569,11 @@ class _DashboardTabState extends State<DashboardTab> {
     IconData icon,
   ) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.s4),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: AppColors.bgPrimary,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: [AppShadows.sm],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -610,11 +582,11 @@ class _DashboardTabState extends State<DashboardTab> {
           const Spacer(),
           Text(
             deviceName,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+            style: Theme.of(context).textTheme.titleMedium,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.s1),
           Text(
             '$consumption kWh',
             style: TextStyle(
@@ -659,7 +631,7 @@ class _DashboardTabState extends State<DashboardTab> {
               getTitlesWidget: (value, meta) {
                 return Text(
                   '${value.toInt()} kWh',
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                 );
               },
             ),
@@ -674,7 +646,7 @@ class _DashboardTabState extends State<DashboardTab> {
                 }
                 return Text(
                   days[value.toInt()],
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 12),
                 );
               },
             ),
@@ -698,7 +670,7 @@ class _DashboardTabState extends State<DashboardTab> {
             gradient: LinearGradient(
               colors: [
                 Theme.of(context).colorScheme.primary,
-                Theme.of(context).colorScheme.primary.withOpacity(0.5),
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.5),
               ],
             ),
             barWidth: 4,
@@ -708,8 +680,8 @@ class _DashboardTabState extends State<DashboardTab> {
               show: true,
               gradient: LinearGradient(
                 colors: [
-                  Theme.of(context).colorScheme.primary.withOpacity(0.2),
-                  Theme.of(context).colorScheme.primary.withOpacity(0.0),
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.0),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -728,26 +700,27 @@ class _DashboardTabState extends State<DashboardTab> {
     Color iconColor,
   ) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.s4),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: [AppShadows.sm],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppSpacing.s3),
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
+              color: iconColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
             child: Icon(icon, color: iconColor),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.s4),
           Expanded(
             child: Text(
               tip,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              style: Theme.of(context).textTheme.bodyLarge,
             ),
           ),
         ],
@@ -755,40 +728,30 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  
 Widget _buildTemperatureCard() {
   return Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(20),
+    padding: const EdgeInsets.all(AppSpacing.s5),
     decoration: BoxDecoration(
-      color: Colors.blue.shade100,
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ],
+      color: AppColors.accentBlue.withValues(alpha: 0.3),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      boxShadow: [AppShadows.sm],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(Icons.thermostat, color: Colors.blue),
-            const SizedBox(width: 8),
+            Icon(Icons.thermostat, color: AppColors.accentTeal),
+            const SizedBox(width: AppSpacing.s2),
             Text(
               'Température',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.blue,
-              ),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: AppColors.accentTeal),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.s4),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -797,9 +760,10 @@ Widget _buildTemperatureCard() {
               style: const TextStyle(
                 fontSize: 36,
                 fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: AppSpacing.s1),
             const Padding(
               padding: EdgeInsets.only(bottom: 6),
               child: Text(
@@ -809,19 +773,19 @@ Widget _buildTemperatureCard() {
             ),
             const Spacer(),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s2, vertical: AppSpacing.s1),
               decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.accentTeal.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.update, color: Colors.blue, size: 16),
-                  const SizedBox(width: 4),
+                  Icon(Icons.update, color: AppColors.accentTeal, size: 16),
+                  const SizedBox(width: AppSpacing.s1),
                   Text(
                     'Temps réel',
                     style: TextStyle(
-                      color: Colors.blue,
+                      color: AppColors.accentTeal,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -838,36 +802,27 @@ Widget _buildTemperatureCard() {
 Widget _buildHumidityCard() {
   return Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(20),
+    padding: const EdgeInsets.all(AppSpacing.s5),
     decoration: BoxDecoration(
-      color: Colors.teal.shade100,
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.05),
-          blurRadius: 10,
-          offset: const Offset(0, 4),
-        ),
-      ],
+      color: AppColors.accentMint.withValues(alpha: 0.3),
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      boxShadow: [AppShadows.sm],
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Icon(Icons.water_drop, color: Colors.teal),
-            const SizedBox(width: 8),
+            Icon(Icons.water_drop, color: AppColors.accentTeal),
+            const SizedBox(width: AppSpacing.s2),
             Text(
               'Humidité',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.teal,
-              ),
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: AppColors.accentTeal),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.s4),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -876,9 +831,10 @@ Widget _buildHumidityCard() {
               style: const TextStyle(
                 fontSize: 36,
                 fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: AppSpacing.s1),
             const Padding(
               padding: EdgeInsets.only(bottom: 6),
               child: Text(
@@ -888,19 +844,19 @@ Widget _buildHumidityCard() {
             ),
             const Spacer(),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s2, vertical: AppSpacing.s1),
               decoration: BoxDecoration(
-                color: Colors.teal.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.accentTeal.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.update, color: Colors.teal, size: 16),
-                  const SizedBox(width: 4),
+                  Icon(Icons.update, color: AppColors.accentTeal, size: 16),
+                  const SizedBox(width: AppSpacing.s1),
                   Text(
                     'Temps réel',
                     style: TextStyle(
-                      color: Colors.teal,
+                      color: AppColors.accentTeal,
                       fontWeight: FontWeight.bold,
                     ),
                   ),

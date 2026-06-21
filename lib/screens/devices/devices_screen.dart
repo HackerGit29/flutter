@@ -5,6 +5,7 @@ import 'package:aricie/domain/usecases/devices/get_user_devices.dart';
 import 'package:aricie/domain/usecases/devices/add_device.dart';
 import 'package:aricie/domain/usecases/devices/remove_device.dart';
 import 'package:aricie/services/mqtt_service.dart';
+import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:mqtt_client/mqtt_client.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
@@ -156,7 +157,7 @@ class _DevicesScreenState extends State<DevicesScreen>
             builder:
                 (context, setDialogState) => AlertDialog(
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
                   title: const Text('Ajouter un appareil'),
                   content: Column(
@@ -168,18 +169,18 @@ class _DevicesScreenState extends State<DevicesScreen>
                           labelText: 'Nom de l\'appareil',
                           hintText: 'Ex: Ventilateur, Télévision...',
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
                           ),
                           prefixIcon: const Icon(Icons.devices),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.s4),
                       DropdownButtonFormField<String>(
                         value: selectedLocation,
                         decoration: InputDecoration(
                           labelText: 'Emplacement',
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
                           ),
                           prefixIcon: const Icon(Icons.location_on),
                         ),
@@ -220,7 +221,7 @@ class _DevicesScreenState extends State<DevicesScreen>
                         foregroundColor:
                             Theme.of(context).colorScheme.onPrimary,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
                         ),
                       ),
                       child: const Text('Ajouter'),
@@ -245,7 +246,7 @@ class _DevicesScreenState extends State<DevicesScreen>
                   backgroundColor: Theme.of(context).colorScheme.primary,
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                 ),
               );
@@ -259,7 +260,7 @@ class _DevicesScreenState extends State<DevicesScreen>
                   content: Text('Appareil "$name" ajouté avec succès'),
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                 ),
               );
@@ -278,7 +279,7 @@ class _DevicesScreenState extends State<DevicesScreen>
       builder:
           (context) => AlertDialog(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             title: const Text('Confirmer la suppression'),
             content: Text(
@@ -292,10 +293,10 @@ class _DevicesScreenState extends State<DevicesScreen>
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.accentDot,
+                  foregroundColor: AppColors.textInverse,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                 ),
                 child: const Text('Supprimer'),
@@ -319,7 +320,7 @@ class _DevicesScreenState extends State<DevicesScreen>
                 backgroundColor: Theme.of(context).colorScheme.primary,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
               ),
             );
@@ -333,7 +334,7 @@ class _DevicesScreenState extends State<DevicesScreen>
                 content: Text('Appareil "${device.name}" supprimé avec succès'),
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
               ),
             );
@@ -385,7 +386,7 @@ class _DevicesScreenState extends State<DevicesScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur de connexion au broker MQTT'),
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.textInverse,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -409,7 +410,7 @@ class _DevicesScreenState extends State<DevicesScreen>
         ),
         duration: const Duration(seconds: 1),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
       ),
     );
   }
@@ -456,43 +457,39 @@ class _DevicesScreenState extends State<DevicesScreen>
       backgroundColor: Theme.of(context).colorScheme.background,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.s2),
               // Replace custom header with CommonHeader widget
               CommonHeader(title: 'Mes Appareils'),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.s6),
 
               // Category tabs
               TabBar(
                 controller: _tabController,
                 isScrollable: true,
                 labelColor: Theme.of(context).colorScheme.primary,
-                unselectedLabelColor: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withOpacity(0.7),
+                unselectedLabelColor: AppColors.textPrimary.withValues(alpha: 0.7),
                 indicatorSize: TabBarIndicatorSize.label,
                 dividerColor: Colors.transparent,
                 tabs:
                     _categories.map((category) => Tab(text: category)).toList(),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.s4),
 
               // Device count
               Text(
                 '${filteredDevices.length} appareil${filteredDevices.length > 1 ? 's' : ''}',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.7),
+                  color: AppColors.textPrimary.withValues(alpha: 0.7),
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.s4),
 
               // Device grid/list
               Expanded(
@@ -507,8 +504,8 @@ class _DevicesScreenState extends State<DevicesScreen>
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
                                   childAspectRatio: 0.85,
-                                  crossAxisSpacing: 16,
-                                  mainAxisSpacing: 16,
+                                  crossAxisSpacing: AppSpacing.s4,
+                                  mainAxisSpacing: AppSpacing.s4,
                                 ),
                             itemCount: filteredDevices.length,
                             itemBuilder: (context, index) {
@@ -544,35 +541,33 @@ class _DevicesScreenState extends State<DevicesScreen>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppSpacing.s6),
             decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.surfaceVariant.withOpacity(0.5),
+              color: AppColors.bgSecondary.withValues(alpha: 0.5),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.devices_other,
               size: 48,
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
+              color: AppColors.interactive.withValues(alpha: 0.7),
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.s6),
           Text(
             'Aucun appareil trouvé',
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.s2),
           Text(
             _selectedCategory == 'Tous'
                 ? 'Ajoutez des appareils pour commencer'
                 : 'Aucun appareil dans cette catégorie',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              color: AppColors.textPrimary.withValues(alpha: 0.7),
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: AppSpacing.s6),
           ElevatedButton.icon(
             onPressed: _addDevice,
             icon: const Icon(Icons.add),
@@ -580,9 +575,9 @@ class _DevicesScreenState extends State<DevicesScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s6, vertical: AppSpacing.s3),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
             ),
           ),
@@ -609,53 +604,43 @@ class _DevicesScreenState extends State<DevicesScreen>
       child: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          boxShadow: const [AppShadows.md],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header with icon and toggle
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.s4),
               decoration: BoxDecoration(
                 color:
                     isActive
-                        ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                        ? AppColors.interactive.withValues(alpha: 0.1)
                         : Theme.of(context).colorScheme.surfaceVariant,
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
+                  topLeft: Radius.circular(AppRadius.lg),
+                  topRight: Radius.circular(AppRadius.lg),
                 ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(10),
+                    padding: const EdgeInsets.all(AppSpacing.s3),
                     decoration: BoxDecoration(
                       color:
                           isActive
-                              ? Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(0.2)
+                              ? AppColors.interactive.withValues(alpha: 0.2)
                               : Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
                     child: Icon(
                       _getDeviceIcon(device.name),
                       color:
                           isActive
                               ? Theme.of(context).colorScheme.primary
-                              : Theme.of(
-                                context,
-                              ).colorScheme.onSurface.withOpacity(0.6),
+                              : AppColors.textPrimary.withValues(alpha: 0.6),
                       size: 24,
                     ),
                   ),
@@ -670,7 +655,7 @@ class _DevicesScreenState extends State<DevicesScreen>
 
             // Device info
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppSpacing.s4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -682,41 +667,35 @@ class _DevicesScreenState extends State<DevicesScreen>
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.s1),
                   Row(
                     children: [
                       Icon(
                         Icons.location_on,
                         size: 14,
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withOpacity(0.6),
+                        color: AppColors.textPrimary.withValues(alpha: 0.6),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: AppSpacing.s1),
                       Text(
                         device.location,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withOpacity(0.6),
+                          color: AppColors.textPrimary.withValues(alpha: 0.6),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSpacing.s2),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+                      horizontal: AppSpacing.s2,
+                      vertical: AppSpacing.s1,
                     ),
                     decoration: BoxDecoration(
                       color:
                           isActive
-                              ? Theme.of(
-                                context,
-                              ).colorScheme.primary.withOpacity(0.1)
+                              ? AppColors.interactive.withValues(alpha: 0.1)
                               : Theme.of(context).colorScheme.surfaceVariant,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
                     child: Text(
                       isActive ? 'Actif • $consumption' : 'Inactif',
@@ -724,9 +703,7 @@ class _DevicesScreenState extends State<DevicesScreen>
                         color:
                             isActive
                                 ? Theme.of(context).colorScheme.primary
-                                : Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withOpacity(0.6),
+                                : AppColors.textPrimary.withValues(alpha: 0.6),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -758,8 +735,8 @@ class _DevicesScreenState extends State<DevicesScreen>
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(24),
-                topRight: Radius.circular(24),
+                topLeft: Radius.circular(AppRadius.xl),
+                topRight: Radius.circular(AppRadius.xl),
               ),
             ),
 
@@ -771,11 +748,11 @@ class _DevicesScreenState extends State<DevicesScreen>
                 // Handle
                 Center(
                   child: Container(
-                    margin: const EdgeInsets.only(top: 12),
+                    margin: const EdgeInsets.only(top: AppSpacing.s3),
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.3),
+                      color: AppColors.textMuted.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -783,34 +760,28 @@ class _DevicesScreenState extends State<DevicesScreen>
 
                 // Header
                 Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(AppSpacing.s6),
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(AppSpacing.s3),
                         decoration: BoxDecoration(
                           color:
                               isActive
-                                  ? Theme.of(
-                                    context,
-                                  ).colorScheme.primary.withOpacity(0.1)
-                                  : Theme.of(
-                                    context,
-                                  ).colorScheme.surfaceVariant,
-                          borderRadius: BorderRadius.circular(16),
+                                  ? AppColors.interactive.withValues(alpha: 0.1)
+                                  : Theme.of(context).colorScheme.surfaceVariant,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
                         child: Icon(
                           _getDeviceIcon(device.name),
                           color:
                               isActive
                                   ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(0.6),
+                                  : AppColors.textPrimary.withValues(alpha: 0.6),
                           size: 32,
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: AppSpacing.s4),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -825,19 +796,15 @@ class _DevicesScreenState extends State<DevicesScreen>
                                 Icon(
                                   Icons.location_on,
                                   size: 16,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(0.6),
+                                  color: AppColors.textPrimary.withValues(alpha: 0.6),
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: AppSpacing.s1),
                                 Text(
                                   device.location,
                                   style: Theme.of(
                                     context,
                                   ).textTheme.bodyMedium?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurface.withOpacity(0.6),
+                                    color: AppColors.textPrimary.withValues(alpha: 0.6),
                                   ),
                                 ),
                               ],
@@ -861,7 +828,7 @@ class _DevicesScreenState extends State<DevicesScreen>
 
                 // Stats
                 Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(AppSpacing.s6),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -871,30 +838,30 @@ class _DevicesScreenState extends State<DevicesScreen>
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.s4),
                       Row(
                         children: [
                           _buildStatCard(
                             'Consommation actuelle',
                             consumption,
                             Icons.bolt,
-                            Colors.white,
+                            AppColors.textInverse,
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: AppSpacing.s4),
                           _buildStatCard(
                             'Utilisation quotidienne',
                             dailyUsage,
                             Icons.access_time,
-                            Colors.white,
+                            AppColors.textInverse,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.s4),
                       _buildStatCard(
                         'Consommation mensuelle',
                         monthlyConsumption,
                         Icons.calendar_month,
-                        Colors.white,
+                        AppColors.textInverse,
                         fullWidth: true,
                       ),
                     ],
@@ -905,7 +872,7 @@ class _DevicesScreenState extends State<DevicesScreen>
 
                 // Actions
                 Padding(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(AppSpacing.s6),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -915,27 +882,27 @@ class _DevicesScreenState extends State<DevicesScreen>
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.s4),
                       Row(
                         children: [
                           _buildActionButton(
                             'Programmer',
                             Icons.schedule,
-                            Colors.white,
+                            AppColors.textInverse,
                             () {},
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: AppSpacing.s4),
                           _buildActionButton(
                             'Historique',
                             Icons.history,
-                            Colors.white,
+                            AppColors.textInverse,
                             () {},
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: AppSpacing.s4),
                           _buildActionButton(
                             'Supprimer',
                             Icons.delete,
-                            Colors.white,
+                            AppColors.textInverse,
                             () {
                               Navigator.pop(context);
                               _deleteDevice(device);
@@ -963,10 +930,10 @@ class _DevicesScreenState extends State<DevicesScreen>
     return Expanded(
       flex: fullWidth ? 2 : 1,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppSpacing.s4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -974,17 +941,17 @@ class _DevicesScreenState extends State<DevicesScreen>
             Row(
               children: [
                 Icon(icon, color: color, size: 20),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.s2),
                 Text(
                   title,
                   style: TextStyle(
-                    color: color.withOpacity(0.8),
+                    color: color.withValues(alpha: 0.8),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.s2),
             Text(
               value,
               style: TextStyle(
@@ -1011,18 +978,18 @@ class _DevicesScreenState extends State<DevicesScreen>
         child: Column(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(AppSpacing.s3),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.s2),
             Text(
               label,
               style: TextStyle(
-                color: color.withOpacity(0.8),
+                color: color.withValues(alpha: 0.8),
                 fontWeight: FontWeight.w500,
               ),
               textAlign: TextAlign.center,

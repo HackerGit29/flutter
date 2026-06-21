@@ -1,5 +1,6 @@
 import 'package:aricie/core/di/injection_container.dart';
 import 'package:aricie/domain/usecases/auth/login_user.dart';
+import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import '../home_screen.dart';
 import 'signup_screen.dart';
@@ -92,11 +93,10 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(AppSpacing.s6),
             child: Form(
               key: _formKey,
               child: Column(
@@ -112,30 +112,26 @@ class _LoginScreenState extends State<LoginScreen> {
                       fit: BoxFit.contain,
                     ),
                   ),
-                  const SizedBox(height: 40),
-                 
+                  const SizedBox(height: AppSpacing.s10),
+                  
                   // Titre de la page
-                  const Text(
+                  Text(
                     'Connexion',
-                    style: TextStyle(
-                      fontSize: 24,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
-                      height: 1.2,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
+                  const SizedBox(height: AppSpacing.s2),
+                  Text(
                     'Connectez-vous à votre compte',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF64748B),
-                      height: 1.5,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppColors.textSecondary,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: AppSpacing.s8),
                   
                   // Email Address
                   Column(
@@ -146,10 +142,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF64748B),
+                          color: AppColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.s2),
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
@@ -157,11 +153,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           hintText: 'Entrez votre adresse email',
                           prefixIcon: const Icon(Icons.email_outlined),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
                             borderSide: BorderSide.none,
                           ),
                           filled: true,
-                          fillColor: const Color(0xFFF1F5F9),
+                          fillColor: AppColors.bgTertiary,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 16,
@@ -182,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.s4),
                   
                   // Password
                   Column(
@@ -193,10 +189,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: Color(0xFF64748B),
+                          color: AppColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.s2),
                       TextFormField(
                         controller: _passwordController,
                         obscureText: _obscurePassword,
@@ -216,11 +212,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             },
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
                             borderSide: BorderSide.none,
                           ),
                           filled: true,
-                          fillColor: const Color(0xFFF1F5F9),
+                          fillColor: AppColors.bgTertiary,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 16,
@@ -244,7 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         // TODO: Implémenter la récupération de mot de passe
                       },
                       style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF4F46E5),
+                        foregroundColor: AppColors.interactive,
                         padding: EdgeInsets.zero,
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -253,21 +249,11 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.s6),
                   
                   // Sign In Button
                   ElevatedButton(
                     onPressed: _isLoading ? null : _signIn,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                      elevation: 4,
-                      shadowColor: Theme.of(context).colorScheme.primary.withOpacity(0.4),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
                     child: _isLoading
                         ? const SizedBox(
                             width: 24,
@@ -291,7 +277,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.2),
+                                  color: AppColors.textInverse.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Icon(
@@ -303,7 +289,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                   ),
                   
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSpacing.s4),
                   
                   // Don't have an account
                   Row(
@@ -312,13 +298,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       const Text(
                         'Vous n\'avez pas de compte?',
                         style: TextStyle(
-                          color: Color(0xFF64748B),
+                          color: AppColors.textSecondary,
                         ),
                       ),
                       TextButton(
                         onPressed: _navigateToSignup,
                         style: TextButton.styleFrom(
-                          foregroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: AppColors.interactive,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
                         child: const Text('S\'inscrire'),
@@ -326,7 +312,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                   
-                  const SizedBox(height: 40),
+                  const SizedBox(height: AppSpacing.s10),
                   
                   // Copyright
                   Column(
@@ -334,41 +320,41 @@ class _LoginScreenState extends State<LoginScreen> {
                       Text(
                         'Copyright ${DateTime.now().year} Aricie ©',
                         style: const TextStyle(
-                          color: Color(0xFF64748B),
+                          color: AppColors.textSecondary,
                           fontSize: 12,
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: AppSpacing.s2),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           TextButton(
                             onPressed: () {},
                             style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF4F46E5),
+                              foregroundColor: AppColors.interactive,
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              textStyle: const TextStyle(fontSize: 12),
+                              textStyle: TextStyle(fontSize: 12),
                             ),
                             child: const Text('Politique de confidentialité'),
                           ),
                           const Text(
                             '•',
                             style: TextStyle(
-                              color: Color(0xFF64748B),
+                              color: AppColors.textSecondary,
                               fontSize: 12,
                             ),
                           ),
                           TextButton(
                             onPressed: () {},
                             style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF4F46E5),
+                              foregroundColor: AppColors.interactive,
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              textStyle: const TextStyle(fontSize: 12),
+                              textStyle: TextStyle(fontSize: 12),
                             ),
                             child: const Text('Conditions d\'utilisation'),
                           ),

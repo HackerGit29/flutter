@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:aricie/theme/app_theme.dart';
 import 'onboarding_screen.dart';
 import 'home_screen.dart';
 import '../services/auth_service.dart';
@@ -45,6 +46,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.interactive,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -58,7 +60,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 fit: BoxFit.contain,
               ),
             ),
-            const SizedBox(height: 40),
+            SizedBox(height: AppSpacing.s10),
            
             Text(
               'Gérez votre énergie intelligemment',

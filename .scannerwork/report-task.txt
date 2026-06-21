@@ -1,0 +1,6 @@
+projectKey=aricie
+serverUrl=http://localhost:9000
+serverVersion=26.6.0.123539
+dashboardUrl=http://localhost:9000/dashboard?id=aricie
+ceTaskId=0bb50c74-fc41-4d1d-85fb-da064f139294
+ceTaskUrl=http://localhost:9000/api/ce/task?id=0bb50c74-fc41-4d1d-85fb-da064f139294

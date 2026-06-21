@@ -7,6 +7,7 @@ import 'package:mqtt_client/mqtt_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
+import 'package:aricie/theme/app_theme.dart';
 import '../../models/device_model.dart';
 import '../../services/mqtt_service.dart';
 import '../../widgets/common_header.dart';
@@ -113,7 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: AppColors.accentDot,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -152,22 +153,22 @@ class _SettingsScreenState extends State<SettingsScreen>
       backgroundColor: Theme.of(context).colorScheme.background,
       body: SafeArea(
         child: AnimatedPadding(
-          padding: EdgeInsets.all(_isExpanded ? 16.0 : 0.0),
+          padding: EdgeInsets.all(_isExpanded ? AppSpacing.s4 : 0.0),
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeOutQuint,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const CommonHeader(title: 'Paramètres'),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.s4),
 
               // Theme Selector
               _buildThemeSelector(themeProvider),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.s6),
 
               // MQTT Status Indicator
               _buildMqttStatusIndicator(),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.s6),
 
               // Devices Section
               Row(
@@ -183,20 +184,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                       onPressed: _addDevice,
                       icon: const Icon(Icons.add),
                       label: const Text('Ajouter'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor:
-                            Theme.of(context).colorScheme.onPrimary,
-                        elevation: 4,
-                        shadowColor: Theme.of(
-                          context,
-                        ).colorScheme.primary.withOpacity(0.4),
-                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.s4),
 
               // Device List
               Expanded(
@@ -219,7 +211,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 width: 180,
                                 height: 180,
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: AppSpacing.s4),
                               Text(
                                 'Aucun appareil trouvé',
                                 style: Theme.of(
@@ -227,11 +219,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 ).textTheme.titleMedium?.copyWith(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.onSurface.withOpacity(0.7),
+                                  ).colorScheme.onSurface.withValues(alpha: 0.7),
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: AppSpacing.s2),
                               Text(
                                 'Ajoutez des appareils pour commencer',
                                 style: Theme.of(
@@ -239,7 +231,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 ).textTheme.bodyMedium?.copyWith(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.onSurface.withOpacity(0.5),
+                                  ).colorScheme.onSurface.withValues(alpha: 0.5),
                                 ),
                               ),
                             ],
@@ -277,24 +269,18 @@ class _SettingsScreenState extends State<SettingsScreen>
   Widget _buildThemeSelector(ThemeProvider themeProvider) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.s4),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: [AppShadows.sm],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(AppSpacing.s2),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -303,19 +289,19 @@ class _SettingsScreenState extends State<SettingsScreen>
               size: 24,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: AppSpacing.s4),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Thème', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.s1),
                 Text(
                   themeProvider.isDarkMode ? 'Mode sombre' : 'Mode clair',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(
                       context,
-                    ).colorScheme.onSurface.withOpacity(0.6),
+                    ).colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -337,13 +323,13 @@ class _SettingsScreenState extends State<SettingsScreen>
     return Dismissible(
       key: Key(device.id),
       background: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: AppSpacing.s3),
         decoration: BoxDecoration(
-          color: Colors.red,
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.accentDot,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
+        padding: const EdgeInsets.only(right: AppSpacing.s5),
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       direction: DismissDirection.endToStart,
@@ -364,7 +350,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(true),
                     child: const Text('Supprimer'),
-                    style: TextButton.styleFrom(foregroundColor: Colors.red),
+                    style: TextButton.styleFrom(foregroundColor: AppColors.accentDot),
                   ),
                 ],
               ),
@@ -374,20 +360,20 @@ class _SettingsScreenState extends State<SettingsScreen>
         _deleteDevice(device);
       },
       child: Card(
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: const EdgeInsets.only(bottom: AppSpacing.s3),
         elevation: 2,
-        shadowColor: Theme.of(context).colorScheme.shadow.withOpacity(0.3),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shadowColor: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
+            horizontal: AppSpacing.s4,
+            vertical: AppSpacing.s2,
           ),
           leading: Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(AppSpacing.s2),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
             child: Icon(
               _getDeviceIcon(device.location),
@@ -404,7 +390,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           subtitle: Text(
             'Emplacement: ${device.location}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
           trailing: Row(
@@ -457,13 +443,13 @@ class _SettingsScreenState extends State<SettingsScreen>
 
         switch (connectionState) {
           case MqttConnectionState.connected:
-            statusColor = Colors.green;
+            statusColor = AppColors.accentMint;
             statusText = 'Connecté';
             lottieAsset = 'assets/animations/connected.json';
             _animationController.stop();
             break;
           case MqttConnectionState.connecting:
-            statusColor = Colors.orange;
+            statusColor = AppColors.accentCoral;
             statusText = 'Connexion en cours...';
             lottieAsset = 'assets/animations/disconnected.json';
             if (!_animationController.isAnimating) {
@@ -471,7 +457,7 @@ class _SettingsScreenState extends State<SettingsScreen>
             }
             break;
           case MqttConnectionState.disconnected:
-            statusColor = Colors.red;
+            statusColor = AppColors.accentDot;
             statusText = 'Déconnecté';
             lottieAsset = 'assets/animations/disconnected.json';
             _animationController.stop();
@@ -486,17 +472,11 @@ class _SettingsScreenState extends State<SettingsScreen>
 
         return AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppSpacing.s4),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            boxShadow: [AppShadows.sm],
           ),
           child: Row(
             children: [
@@ -505,7 +485,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 height: 50,
                 child: Lottie.asset(lottieAsset, fit: BoxFit.contain),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSpacing.s4),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -514,7 +494,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                       'État du broker MQTT',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.s1),
                     Text(
                       statusText,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -528,14 +508,6 @@ class _SettingsScreenState extends State<SettingsScreen>
               if (connectionState == MqttConnectionState.disconnected)
                 ElevatedButton(
                   onPressed: () => _mqttService.initialize(),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                    elevation: 2,
-                    shadowColor: Theme.of(
-                      context,
-                    ).colorScheme.primary.withOpacity(0.3),
-                  ),
                   child: const Text('Reconnecter'),
                 ),
             ],

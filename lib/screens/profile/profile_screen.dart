@@ -1,6 +1,7 @@
 import 'package:aricie/core/di/injection_container.dart';
 import 'package:aricie/domain/usecases/auth/logout_user.dart';
 import 'package:aricie/domain/usecases/auth/get_current_user.dart';
+import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -34,11 +35,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.bgApp,
       appBar: AppBar(
         title: const Text('Profil'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(AppSpacing.s4),
         children: [
           CircleAvatar(
             radius: 50,
@@ -47,13 +49,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: Theme.of(context).textTheme.headlineLarge,
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: AppSpacing.s6),
           Text(
             _email ?? 'Utilisateur',
             style: Theme.of(context).textTheme.titleLarge,
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 32),
+          SizedBox(height: AppSpacing.s8),
           ListTile(
             leading: const Icon(Icons.person_outline),
             title: const Text('Modifier le profil'),
@@ -61,7 +63,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // TODO: Implement edit profile
             },
           ),
-          const Divider(),
+          Divider(color: AppColors.textMuted),
           ListTile(
             leading: const Icon(Icons.notifications_outlined),
             title: const Text('Préférences de notification'),
@@ -69,7 +71,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               // TODO: Implement notification preferences
             },
           ),
-          const Divider(),
+          Divider(color: AppColors.textMuted),
           ListTile(
             leading: const Icon(Icons.logout),
             title: const Text('Déconnexion'),
