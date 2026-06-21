@@ -43,8 +43,9 @@ class MqttService {
   String _deviceStatus3 = 'off';
 
   // Configuration de connexion
-  final _wsUrl = 'mqtt://test.mosquitto.org:1883';
+  final _wsUrl = 'wss://broker.aricie.energy:8883'; // ponytail: switched to wss/tls
   final _clientId = 'dart_client_${Random().nextInt(1000)}';
+  final bool _useTls = true;
 
   // Service de notification
   final _notificationService = NotificationService();

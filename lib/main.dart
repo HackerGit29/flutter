@@ -7,6 +7,7 @@ import 'screens/splash_screen.dart';
 import 'providers/theme_provider.dart';
 import 'theme/app_theme.dart';
 import 'services/notification_service.dart';
+import 'core/constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,10 +29,17 @@ void main() async {
   // Initialiser Supabase et les notifications en arrière-plan
   Future.microtask(() async {
     // Initialize Supabase
+    final supabaseUrl = AppConstants.supabaseUrl;
+    final supabaseAnonKey = AppConstants.supabaseAnonKey;
+    if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+      throw ArgumentError(
+        'Supabase URL et clé anonyme requises. '
+        'Lancez avec: --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...',
+      );
+    }
     await Supabase.initialize(
-      url: 'https://csawyexvpblmvahftjuo.supabase.co',
-      anonKey:
-          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzYXd5ZXh2cGJsbXZhaGZ0anVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYwNzI5NjIsImV4cCI6MjA1MTY0ODk2Mn0.qM2kNcXuXD5BcLhUjS0tNsLwHOGtYmxlJGXiSIYg5o4',
+      url: supabaseUrl,
+      anonKey: supabaseAnonKey,
     );
 
     // Initialiser le service de notification

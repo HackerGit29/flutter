@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart';
 
 class DeviceCrypto {
+  // ponytail: placeholder for Ed25519 asymmetric signing. 
+  // Real implementation requires 'cryptography' package.
   static String generateChallenge(String nonce) {
     final bytes = utf8.encode(nonce);
     final hash = sha256.convert(bytes);
@@ -10,6 +12,8 @@ class DeviceCrypto {
 
   static bool verifySignature(String payload, String signature, String publicKey) {
     try {
+      // ponytail: This is still a naive hash. In production, use:
+      // var verifier = Ed25519().verify(publicKey, signature, payload);
       final expected = generateChallenge(payload + publicKey);
       return expected == signature;
     } catch (_) {

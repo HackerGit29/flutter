@@ -2,16 +2,17 @@
 
 ## Quick start
 ```bash
-fvm flutter run           # Start dev app
-fvm flutter test           # Run widget tests (no integration test suite yet)
+fvm flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
+fvm flutter test
 fvm flutter analyze        # Lint check (uses flutter_lints)
 fvm flutter build apk      # Release build
 ```
+> `SUPABASE_URL` et `SUPABASE_ANON_KEY` sont requis via `--dart-define`. Obtenez-les depuis le tableau de bord Supabase (Projet > Settings > API).
 
 ## Stack
 - **App**: Flutter 3.29.0 (FVM-managed, see `.fvmrc`)
 - **State**: Provider (theme) + Riverpod (listed in pubspec, partially adopted)
-- **Backend**: Supabase (auth, realtime streams, PostgreSQL — url/key in `lib/main.dart:31-34`)
+- **Backend**: Supabase (auth, realtime streams, PostgreSQL — credentials via `--dart-define`)
 - **IoT**: MQTT via `mqtt_client` to `test.mosquitto.org` (dev broker)
 - **AI**: Flowise agent at `https://micro.uksouth.cloudapp.azure.com/...` (chatbot)
 - **Design**: DESIGN.md — Soft Wellness Minimalism, pastel palette, DM Sans typography
@@ -33,6 +34,9 @@ fvm flutter build apk      # Release build
 | `lib/services/auth_service.dart` | Supabase auth + SharedPreferences session cache |
 | `lib/theme/app_theme.dart` | light/dark theme definition |
 | `lib/screens/home_screen.dart` | Main dashboard with tabs (Dashboard, Stats, Devices, Settings) |
+| `lib/core/constants.dart` | Env-based config (SUPABASE_URL, MQTT, rate limits, via --dart-define) |
+| `lib/core/di/injection_container.dart` | get_it DI container (25+ registrations) |
+| `lib/domain/usecases/` | 26 use-cases across auth, devices, license, admin, sync |
 
 ## Database (Supabase)
 Key tables: `devices`, `temp_data`, `hum_data`, `energy_consumption`, `alerts`
@@ -61,12 +65,11 @@ fvm dart run flutter_launcher_icons        # Regenerate icons
 ```
 
 ## Testing
+- `test/domain/entities/user_test.dart` — unit tests for User entity (4 tests, passing)
 - `test/widget_test.dart` is a placeholder, needs rewrite
 - No integration or unit tests for services yet
 
 ## Gotchas
 - MQTT on web uses stub client: `mqtt/mqtt_web.dart` — features limited
-- Supabase URL/key are hardcoded in `main.dart` — committed, not env-managed
+- Supabase URL/key are required via `--dart-define` at compile time (see Quick start)
 - `mqtt_client` import from `src/typed_buffer.dart` directly (non-standard pattern)
-- Two theme files exist: `lib/theme/app_theme.dart` (used) and `lib/utils/theme.dart` (legacy/orphaned)
-- Two `MyApp` widgets: `lib/main.dart` (used) and `lib/app.dart` (unused)
