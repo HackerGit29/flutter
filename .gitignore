@@ -19,7 +19,7 @@ migrate_working_dir/
 .idea/
 
 .env 
-.env*
+.env.*
 
 
 # The .vscode folder contains launch configuration and tasks you configure in
@@ -49,4 +49,4 @@ app.*.map.json
 /android/app/release
 
 # FVM Version Cache
-.fvm/
+.fvm/.github/rulesets/
