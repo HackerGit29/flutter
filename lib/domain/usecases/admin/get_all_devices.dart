@@ -1,5 +1,5 @@
 import 'package:aricie/core/errors/failures.dart';
-import 'package:aricie/domain/entities/device.dart';
+import 'package:aricie/domain/entities/box.dart';
 import 'package:aricie/domain/repositories/admin_repository.dart';
 import 'package:aricie/domain/repositories/auth_repository.dart';
 import 'package:dartz/dartz.dart';
@@ -9,10 +9,10 @@ class GetAllDevices {
   final AuthRepository _authRepo;
   GetAllDevices(this._adminRepo, this._authRepo);
 
-  Future<Either<Failure, List<Device>>> call() async {
+  Future<Either<Failure, List<Box>>> call() async {
     final currentUser = await _authRepo.getCurrentUser();
     final user = currentUser.getOrElse(() => null);
     if (user == null || !user.isAdmin) return Left(AdminPermissionFailure());
-    return _adminRepo.getAllDevices();
+    return _adminRepo.getAllBoxes();
   }
 }

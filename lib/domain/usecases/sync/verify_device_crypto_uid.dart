@@ -6,7 +6,7 @@ class VerifyDeviceCryptoUid {
   final SyncRepository _repository;
   VerifyDeviceCryptoUid(this._repository);
 
-  Future<Either<Failure, bool>> call(String deviceId, String signature, String nonce) {
-    return _repository.verifyDeviceCryptoUid(deviceId, signature, nonce);
+  Future<Either<Failure, bool>> call(String boxId, String signature, String nonce) {
+    return _repository.verifyBoxCryptoUid(boxId, signature, nonce);
   }
 }

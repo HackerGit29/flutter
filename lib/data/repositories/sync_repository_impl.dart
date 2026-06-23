@@ -10,11 +10,11 @@ class SyncRepositoryImpl implements SyncRepository {
   SyncRepositoryImpl(this._remote);
 
   @override
-  Future<Either<Failure, SyncLog>> requestSync(String deviceId) async {
+  Future<Either<Failure, SyncLog>> requestSync(String boxId) async {
     try {
-      await _remote.updateLastSync(deviceId);
+      await _remote.updateLastSync(boxId);
       final log = await _remote.createSyncLog({
-        'device_id': deviceId,
+        'box_id': boxId,
         'status': 'success',
         'timestamp': DateTime.now().toIso8601String(),
       });
@@ -25,9 +25,9 @@ class SyncRepositoryImpl implements SyncRepository {
   }
 
   @override
-  Future<Either<Failure, bool>> validateDeviceOwnership(String deviceId, String userId) async {
+  Future<Either<Failure, bool>> validateBoxOwnership(String boxId, String userId) async {
     try {
-      final result = await _remote.verifyOwnership(deviceId, userId);
+      final result = await _remote.verifyOwnership(boxId, userId);
       return Right(result);
     } catch (e) {
       return const Right(false);
@@ -35,10 +35,10 @@ class SyncRepositoryImpl implements SyncRepository {
   }
 
   @override
-  Future<Either<Failure, bool>> verifyDeviceCryptoUid(String deviceId, String signature, String nonce) async {
+  Future<Either<Failure, bool>> verifyBoxCryptoUid(String boxId, String signature, String nonce) async {
     try {
-      final device = await _remote.getDeviceById(deviceId);
-      if (device == null) return const Right(false);
+      final box = await _remote.getBoxById(boxId);
+      if (box == null) return const Right(false);
       return const Right(true);
     } catch (e) {
       return const Right(false);
@@ -46,10 +46,10 @@ class SyncRepositoryImpl implements SyncRepository {
   }
 
   @override
-  Future<Either<Failure, SyncLog>> logSyncResult(String deviceId, String userId, String status, Map<String, dynamic>? data) async {
+  Future<Either<Failure, SyncLog>> logSyncResult(String boxId, String userId, String status, Map<String, dynamic>? data) async {
     try {
       final log = await _remote.createSyncLog({
-        'device_id': deviceId,
+        'box_id': boxId,
         'user_id': userId,
         'status': status,
         'data': data,

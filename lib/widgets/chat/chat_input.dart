@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../services/voice_service.dart';
 
 class ChatInput extends StatefulWidget {
   final Function(String) onSendMessage;
+  final bool isVoiceMode;
 
   const ChatInput({
     super.key,
     required this.onSendMessage,
+    this.isVoiceMode = false,
   });
 
   @override
@@ -16,6 +19,8 @@ class ChatInput extends StatefulWidget {
 class _ChatInputState extends State<ChatInput> {
   final TextEditingController _textController = TextEditingController();
   bool _canSend = false;
+  bool _isListening = false;
+  final VoiceService _voiceService = VoiceService.instance;
 
   @override
   void initState() {
@@ -47,6 +52,29 @@ class _ChatInputState extends State<ChatInput> {
     }
   }
 
+  void _toggleListening() async {
+    if (_isListening) {
+      await _voiceService.stopListening();
+      setState(() => _isListening = false);
+      return;
+    }
+
+    setState(() => _isListening = true);
+
+    await _voiceService.startListening(
+      onResult: (text) {
+        if (text.isNotEmpty) {
+          widget.onSendMessage(text);
+        }
+      },
+      onDone: () {
+        if (mounted) {
+          setState(() => _isListening = false);
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -64,32 +92,58 @@ class _ChatInputState extends State<ChatInput> {
       child: SafeArea(
         child: Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.mic_rounded),
-              onPressed: () {
-                // TODO: Implement voice input
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Fonctionnalité de dictée à venir'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-              color: Theme.of(context).colorScheme.primary,
+            // Microphone button
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              decoration: BoxDecoration(
+                color: _isListening
+                    ? Theme.of(context).colorScheme.error.withOpacity(0.2)
+                    : widget.isVoiceMode
+                        ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                        : Colors.transparent,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: _isListening
+                    ? const Icon(Icons.mic_off_rounded)
+                    : Icon(
+                        widget.isVoiceMode
+                            ? Icons.record_voice_over_rounded
+                            : Icons.mic_rounded,
+                      ),
+                onPressed: _toggleListening,
+                color: _isListening
+                    ? Theme.of(context).colorScheme.error
+                    : widget.isVoiceMode
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.primary,
+                tooltip: _isListening
+                    ? 'Arrêter l\'écoute'
+                    : 'Dicter un message',
+              ),
             ),
+            // Text input
             Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surfaceVariant
+                      .withOpacity(0.5),
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: TextField(
                   controller: _textController,
                   decoration: InputDecoration(
-                    hintText: 'Écrivez votre message...',
+                    hintText: _isListening
+                        ? 'Écoute en cours...'
+                        : 'Écrivez votre message...',
                     hintStyle: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withOpacity(0.7),
                     ),
                     border: InputBorder.none,
                   ),
@@ -104,6 +158,7 @@ class _ChatInputState extends State<ChatInput> {
               ),
             ),
             const SizedBox(width: 8),
+            // Send button
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               decoration: BoxDecoration(
@@ -116,7 +171,10 @@ class _ChatInputState extends State<ChatInput> {
                 icon: const Icon(Icons.send_rounded),
                 color: _canSend
                     ? Theme.of(context).colorScheme.onPrimary
-                    : Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.4),
+                    : Theme.of(context)
+                        .colorScheme
+                        .onSurfaceVariant
+                        .withOpacity(0.4),
                 onPressed: _canSend ? _handleSend : null,
               ),
             ).animate(target: _canSend ? 1 : 0).scale(

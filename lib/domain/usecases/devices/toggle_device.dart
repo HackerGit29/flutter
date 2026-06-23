@@ -1,12 +1,13 @@
 import 'package:aricie/core/errors/failures.dart';
-import 'package:aricie/domain/repositories/device_repository.dart';
+import 'package:aricie/domain/entities/appliance.dart';
+import 'package:aricie/domain/repositories/appliance_repository.dart';
 import 'package:dartz/dartz.dart';
 
 class ToggleDevice {
-  final DeviceRepository _repository;
+  final ApplianceRepository _repository;
   ToggleDevice(this._repository);
 
-  Future<Either<Failure, void>> call(String deviceId, bool on) {
-    return _repository.toggleDevice(deviceId, on);
+  Future<Either<Failure, Appliance>> call(String applianceId, bool on) {
+    return _repository.toggleAppliance(applianceId, on);
   }
 }

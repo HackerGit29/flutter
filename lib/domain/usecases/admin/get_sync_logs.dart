@@ -9,10 +9,10 @@ class GetSyncLogs {
   final AuthRepository _authRepo;
   GetSyncLogs(this._adminRepo, this._authRepo);
 
-  Future<Either<Failure, List<SyncLog>>> call({String? userId, String? deviceId}) async {
+  Future<Either<Failure, List<SyncLog>>> call({String? userId, String? boxId}) async {
     final currentUser = await _authRepo.getCurrentUser();
     final user = currentUser.getOrElse(() => null);
     if (user == null || !user.isAdmin) return Left(AdminPermissionFailure());
-    return _adminRepo.getSyncLogs(userId: userId, deviceId: deviceId);
+    return _adminRepo.getSyncLogs(userId: userId, boxId: boxId);
   }
 }

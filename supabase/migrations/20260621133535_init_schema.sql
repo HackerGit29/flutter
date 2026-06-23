@@ -8,29 +8,56 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- devices : ajout colonnes
--- If table doesn't exist yet, create it. If it does, alter it.
--- Based on the project, we might need to create devices table first.
-CREATE TABLE IF NOT EXISTS devices (
+-- boxes : boîtiers physiques avec UID matériel
+CREATE TABLE IF NOT EXISTS boxes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
   uid_hardware TEXT UNIQUE,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'blocked')),
+  name TEXT NOT NULL,
+  location TEXT,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status TEXT DEFAULT 'inactive' CHECK (status IN ('active', 'inactive', 'blocked')),
   last_sync TIMESTAMPTZ,
   public_key TEXT,
   firmware_version TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_boxes_uid_hardware ON boxes(uid_hardware) WHERE uid_hardware IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_boxes_user_id ON boxes(user_id);
 
--- Apply columns if table already exists (fallback for migration)
--- Note: In a clean init, the above CREATE TABLE is enough. 
--- But for existing projects, we'd use ALTER.
--- To be safe for 'init', we use CREATE TABLE and avoid ALTER on non-existent tables.
+-- appliances : relais (1..3 par boîtier)
+CREATE TABLE IF NOT EXISTS appliances (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  box_id UUID NOT NULL REFERENCES boxes(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  relay_index INT NOT NULL CHECK (relay_index BETWEEN 1 AND 3),
+  name TEXT NOT NULL,
+  location TEXT,
+  is_on BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(box_id, relay_index)
+);
+CREATE INDEX IF NOT EXISTS idx_appliances_user_id ON appliances(user_id);
+CREATE INDEX IF NOT EXISTS idx_appliances_box_id ON appliances(box_id);
 
--- devices : index
-CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_uid_hardware ON devices(uid_hardware) WHERE uid_hardware IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_devices_user_id ON devices(user_id);
+-- energy_data : agrégations quotidiennes par appliance
+CREATE TABLE IF NOT EXISTS energy_data (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  appliance_id UUID NOT NULL REFERENCES appliances(id) ON DELETE CASCADE,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  total_day DOUBLE PRECISION DEFAULT 0,
+  total_week DOUBLE PRECISION DEFAULT 0,
+  total_month DOUBLE PRECISION DEFAULT 0,
+  total_year DOUBLE PRECISION DEFAULT 0,
+  week INT NOT NULL,
+  month INT NOT NULL,
+  year INT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(appliance_id, date)
+);
+CREATE INDEX IF NOT EXISTS idx_energy_data_user_id ON energy_data(user_id);
+CREATE INDEX IF NOT EXISTS idx_energy_data_appliance_id ON energy_data(appliance_id);
+CREATE INDEX IF NOT EXISTS idx_energy_data_date ON energy_data(date DESC);
 
 -- subscriptions : un user = une subscription active max
 CREATE TABLE IF NOT EXISTS subscriptions (
@@ -55,10 +82,10 @@ CREATE TABLE IF NOT EXISTS licenses (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- sync_logs
+-- sync_logs : journal des synchronisations boîtier
 CREATE TABLE IF NOT EXISTS sync_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  device_id UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  box_id UUID NOT NULL REFERENCES boxes(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id),
   status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'unauthorized', 'crypto_mismatch', 'device_blocked')),
   data JSONB,
@@ -66,19 +93,19 @@ CREATE TABLE IF NOT EXISTS sync_logs (
   ip_address TEXT,
   timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_sync_logs_device_id ON sync_logs(device_id);
+CREATE INDEX IF NOT EXISTS idx_sync_logs_box_id ON sync_logs(box_id);
 CREATE INDEX IF NOT EXISTS idx_sync_logs_user_id ON sync_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_sync_logs_timestamp ON sync_logs(timestamp DESC);
 
 -- admin_actions
 DO $$ BEGIN
-    CREATE TYPE admin_action_type AS ENUM ('suspend_user', 'activate_user', 'assign_role', 'reset_device', 'force_sync', 'override_ownership', 'block_device', 'activate_license', 'revoke_license');
+    CREATE TYPE admin_action_type AS ENUM ('suspend_user', 'activate_user', 'assign_role', 'reset_device', 'force_sync', 'override_ownership', 'block_device', 'activate_license', 'revoke_license', 'reset_box', 'assign_box');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
 
 DO $$ BEGIN
-    CREATE TYPE target_type AS ENUM ('user', 'device', 'license', 'subscription');
+    CREATE TYPE target_type AS ENUM ('user', 'device', 'license', 'subscription', 'box', 'appliance');
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
@@ -95,94 +122,53 @@ CREATE TABLE IF NOT EXISTS admin_actions (
 CREATE INDEX IF NOT EXISTS idx_admin_actions_admin_id ON admin_actions(admin_id);
 CREATE INDEX IF NOT EXISTS idx_admin_actions_timestamp ON admin_actions(timestamp DESC);
 
--- energy_consumption (legacy)
-CREATE TABLE IF NOT EXISTS energy_consumption (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id),
-  device_id UUID REFERENCES devices(id),
-  period_type TEXT,
-  total_day DOUBLE PRECISION DEFAULT 0,
-  total_week DOUBLE PRECISION DEFAULT 0,
-  total_month DOUBLE PRECISION DEFAULT 0,
-  device1 DOUBLE PRECISION DEFAULT 0,
-  device2 DOUBLE PRECISION DEFAULT 0,
-  device3 DOUBLE PRECISION DEFAULT 0,
-  date DATE DEFAULT CURRENT_DATE,
-  week INT,
-  month INT,
-  year INT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_energy_consumption_user ON energy_consumption(user_id);
-CREATE INDEX IF NOT EXISTS idx_energy_consumption_date ON energy_consumption(date DESC);
-
--- temp_data (legacy IoT)
-CREATE TABLE IF NOT EXISTS temp_data (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  value DOUBLE PRECISION,
-  timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- hum_data (legacy IoT)
-CREATE TABLE IF NOT EXISTS hum_data (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  value DOUBLE PRECISION,
-  timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- alerts (legacy)
-CREATE TABLE IF NOT EXISTS alerts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id),
-  device_id UUID REFERENCES devices(id),
-  type TEXT,
-  message TEXT,
-  severity TEXT DEFAULT 'info',
-  is_read BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_alerts_user ON alerts(user_id);
-CREATE INDEX IF NOT EXISTS idx_alerts_created ON alerts(created_at DESC);
-
--- RLS Policies (Using a function to safely create policies)
--- This is a simplified version; normally we'd check if policy exists.
--- In a fresh migration, we can just call CREATE POLICY.
-
--- devices
--- Note: Policies can only be created if RLS is enabled.
-ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
+-- RLS Policies
+ALTER TABLE boxes ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
-    DROP POLICY IF EXISTS devices_user_select ON devices;
-    CREATE POLICY devices_user_select ON devices FOR SELECT USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+    DROP POLICY IF EXISTS boxes_user_select ON boxes;
+    CREATE POLICY boxes_user_select ON boxes FOR SELECT USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
 EXCEPTION WHEN others THEN null; END $$;
 DO $$ BEGIN
-    DROP POLICY IF EXISTS devices_user_insert ON devices;
-    CREATE POLICY devices_user_insert ON devices FOR INSERT WITH CHECK (user_id = auth.uid());
+    DROP POLICY IF EXISTS boxes_user_insert ON boxes;
+    CREATE POLICY boxes_user_insert ON boxes FOR INSERT WITH CHECK (user_id = auth.uid());
 EXCEPTION WHEN others THEN null; END $$;
 DO $$ BEGIN
-    DROP POLICY IF EXISTS devices_user_update ON devices;
-    CREATE POLICY devices_user_update ON devices FOR UPDATE USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+    DROP POLICY IF EXISTS boxes_user_update ON boxes;
+    CREATE POLICY boxes_user_update ON boxes FOR UPDATE USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
 EXCEPTION WHEN others THEN null; END $$;
 DO $$ BEGIN
-    DROP POLICY IF EXISTS devices_user_delete ON devices;
-    CREATE POLICY devices_user_delete ON devices FOR DELETE USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+    DROP POLICY IF EXISTS boxes_user_delete ON boxes;
+    CREATE POLICY boxes_user_delete ON boxes FOR DELETE USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
 EXCEPTION WHEN others THEN null; END $$;
 
--- subscriptions
+ALTER TABLE appliances ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    DROP POLICY IF EXISTS appliances_user_select ON appliances;
+    CREATE POLICY appliances_user_select ON appliances FOR SELECT USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+EXCEPTION WHEN others THEN null; END $$;
+DO $$ BEGIN
+    DROP POLICY IF EXISTS appliances_user_update ON appliances;
+    CREATE POLICY appliances_user_update ON appliances FOR UPDATE USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+EXCEPTION WHEN others THEN null; END $$;
+
+ALTER TABLE energy_data ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    DROP POLICY IF EXISTS energy_data_user_select ON energy_data;
+    CREATE POLICY energy_data_user_select ON energy_data FOR SELECT USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+EXCEPTION WHEN others THEN null; END $$;
+
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
     DROP POLICY IF EXISTS subscriptions_select ON subscriptions;
     CREATE POLICY subscriptions_select ON subscriptions FOR SELECT USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
 EXCEPTION WHEN others THEN null; END $$;
 
--- sync_logs
 ALTER TABLE sync_logs ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
     DROP POLICY IF EXISTS sync_logs_select ON sync_logs;
     CREATE POLICY sync_logs_select ON sync_logs FOR SELECT USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
 EXCEPTION WHEN others THEN null; END $$;
 
--- admin_actions
 ALTER TABLE admin_actions ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
     DROP POLICY IF EXISTS admin_actions_select ON admin_actions;

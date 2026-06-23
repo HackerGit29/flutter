@@ -4,21 +4,21 @@ class SupabaseSyncDataSource {
   final SupabaseClient _client;
   SupabaseSyncDataSource(this._client);
 
-  Future<Map<String, dynamic>?> getDeviceById(String deviceId) async {
-    final response = await _client.from('devices').select().eq('id', deviceId).maybeSingle();
+  Future<Map<String, dynamic>?> getBoxById(String boxId) async {
+    final response = await _client.from('boxes').select().eq('id', boxId).maybeSingle();
     return response;
   }
 
-  Future<bool> verifyOwnership(String deviceId, String userId) async {
-    final device = await getDeviceById(deviceId);
-    if (device == null) return false;
-    return device['user_id'] == userId;
+  Future<bool> verifyOwnership(String boxId, String userId) async {
+    final box = await getBoxById(boxId);
+    if (box == null) return false;
+    return box['user_id'] == userId;
   }
 
-  Future<void> updateLastSync(String deviceId) async {
-    await _client.from('devices').update({
+  Future<void> updateLastSync(String boxId) async {
+    await _client.from('boxes').update({
       'last_sync': DateTime.now().toIso8601String(),
-    }).eq('id', deviceId);
+    }).eq('id', boxId);
   }
 
   Future<Map<String, dynamic>> createSyncLog(Map<String, dynamic> log) async {

@@ -2,9 +2,10 @@ enum AdminActionType {
   suspendUser, activateUser, assignRole,
   resetDevice, forceSync, overrideOwnership, blockDevice,
   activateLicense, revokeLicense,
+  resetBox, assignBox,
 }
 
-enum TargetType { user, device, license, subscription }
+enum TargetType { user, device, license, subscription, box, appliance }
 
 class AdminAction {
   final String id;
@@ -31,6 +32,8 @@ class AdminAction {
       case 'block_device': return AdminActionType.blockDevice;
       case 'activate_license': return AdminActionType.activateLicense;
       case 'revoke_license': return AdminActionType.revokeLicense;
+      case 'reset_box': return AdminActionType.resetBox;
+      case 'assign_box': return AdminActionType.assignBox;
       default: return AdminActionType.values.firstWhere((a) => a.name == value);
     }
   }
@@ -45,6 +48,8 @@ class AdminAction {
     AdminActionType.blockDevice => 'block_device',
     AdminActionType.activateLicense => 'activate_license',
     AdminActionType.revokeLicense => 'revoke_license',
+    AdminActionType.resetBox => 'reset_box',
+    AdminActionType.assignBox => 'assign_box',
   };
 
   factory AdminAction.fromJson(Map<String, dynamic> json) => AdminAction(

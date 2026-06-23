@@ -12,6 +12,23 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isError = message.isError;
+    final isStreaming = message.isStreaming;
+
+    Color bgColor;
+    Color textColor;
+
+    if (isError) {
+      bgColor = Theme.of(context).colorScheme.errorContainer;
+      textColor = Theme.of(context).colorScheme.onErrorContainer;
+    } else if (message.isUser) {
+      bgColor = Theme.of(context).colorScheme.primary;
+      textColor = Theme.of(context).colorScheme.onPrimary;
+    } else {
+      bgColor = Theme.of(context).colorScheme.surfaceVariant;
+      textColor = Theme.of(context).colorScheme.onSurfaceVariant;
+    }
+
     return Align(
       alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -25,9 +42,7 @@ class MessageBubble extends StatelessWidget {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: message.isUser
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.surfaceVariant,
+          color: bgColor,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(20),
             topRight: const Radius.circular(20),
@@ -49,15 +64,52 @@ class MessageBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (message.actionType != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.power_settings_new_rounded,
+                      size: 14,
+                      color: !message.isUser
+                          ? Theme.of(context).colorScheme.primary
+                          : textColor.withOpacity(0.8),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _actionLabel(message.actionType!),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: !message.isUser
+                            ? Theme.of(context).colorScheme.primary
+                            : textColor.withOpacity(0.8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Text(
               message.text,
               style: TextStyle(
-                color: message.isUser
-                    ? Theme.of(context).colorScheme.onPrimary
-                    : Theme.of(context).colorScheme.onSurfaceVariant,
+                color: textColor,
                 fontSize: 16,
               ),
             ),
+            if (isStreaming)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: textColor.withOpacity(0.6),
+                  ),
+                ),
+              ),
             const SizedBox(height: 4),
             Align(
               alignment: Alignment.bottomRight,
@@ -65,9 +117,7 @@ class MessageBubble extends StatelessWidget {
                 _formatTime(message.timestamp),
                 style: TextStyle(
                   fontSize: 10,
-                  color: message.isUser
-                      ? Theme.of(context).colorScheme.onPrimary.withOpacity(0.7)
-                      : Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.7),
+                  color: textColor.withOpacity(0.7),
                 ),
               ),
             ),
@@ -80,6 +130,21 @@ class MessageBubble extends StatelessWidget {
             curve: Curves.easeOutQuad,
           ),
     );
+  }
+
+  String _actionLabel(String actionType) {
+    switch (actionType) {
+      case 'turn_on_appliance':
+        return 'Allumage en cours...';
+      case 'turn_off_appliance':
+        return 'Extinction en cours...';
+      case 'get_realtime_consumption':
+        return 'Lecture consommation';
+      case 'get_device_status':
+        return 'Vérification appareil';
+      default:
+        return actionType;
+    }
   }
 
   String _formatTime(DateTime dateTime) {

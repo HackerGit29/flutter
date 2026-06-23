@@ -2,7 +2,7 @@ enum SyncStatus { success, failed, unauthorized, cryptoMismatch, deviceBlocked }
 
 class SyncLog {
   final String id;
-  final String deviceId;
+  final String boxId;
   final String userId;
   final SyncStatus status;
   final Map<String, dynamic>? data;
@@ -11,7 +11,7 @@ class SyncLog {
   final DateTime timestamp;
 
   const SyncLog({
-    required this.id, required this.deviceId, required this.userId,
+    required this.id, required this.boxId, required this.userId,
     required this.status, this.data, this.errorMessage, this.ipAddress, required this.timestamp,
   });
 
@@ -33,7 +33,7 @@ class SyncLog {
 
   factory SyncLog.fromJson(Map<String, dynamic> json) => SyncLog(
     id: json['id'] as String,
-    deviceId: json['device_id'] as String,
+    boxId: json['box_id'] as String,
     userId: json['user_id'] as String,
     status: _statusFromDb(json['status'] as String),
     data: json['data'] as Map<String, dynamic>?,
@@ -44,7 +44,7 @@ class SyncLog {
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'device_id': deviceId,
+    'box_id': boxId,
     'user_id': userId,
     'status': _statusToDb(status),
     'data': data,

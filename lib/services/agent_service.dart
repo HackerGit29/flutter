@@ -1,61 +1,134 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/constants.dart';
+
+class AgentStreamEvent {
+  final String event;
+  final Map<String, dynamic> data;
+
+  AgentStreamEvent(this.event, this.data);
+}
 
 class AgentService {
-  static AgentService? _instance;
-  final String _apiUrl = 'https://micro.uksouth.cloudapp.azure.com/api/v1/prediction/f8f99c35-cf84-4a8f-b602-44860a9a0e4e';
+  static final AgentService instance = AgentService._();
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   AgentService._();
 
-  static AgentService get instance {
-    _instance ??= AgentService._();
-    return _instance!;
+  String get _edgeFunctionUrl =>
+      '${AppConstants.supabaseUrl}/functions/v1/agent-orchestrator';
+
+  Future<String> getAccessToken() async {
+    final session = _supabase.auth.currentSession;
+    return session?.accessToken ?? '';
   }
 
-  Future<void> initialize() async {
-    // Aucune initialisation spéciale requise pour Flowise
-    debugPrint('AgentService initialisé');
+  Stream<AgentStreamEvent> streamMessage({
+    required String message,
+    required String sessionId,
+    String mode = 'text',
+  }) async* {
+    final token = await getAccessToken();
+
+    if (token.isEmpty) {
+      yield AgentStreamEvent('error', {
+        'message': 'Vous devez être connecté pour utiliser l\'assistant.',
+      });
+      yield AgentStreamEvent('done', {});
+      return;
+    }
+
+    try {
+      final request = http.Request(
+        'POST',
+        Uri.parse(_edgeFunctionUrl),
+      );
+
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+        'apikey': AppConstants.supabaseAnonKey,
+        'Content-Type': 'application/json',
+      });
+
+      request.body = jsonEncode({
+        'message': message,
+        'session_id': sessionId,
+        'locale': 'fr-CM',
+        'mode': mode,
+      });
+
+      final response = await request.send();
+
+      if (response.statusCode != 200) {
+        final errorBody = await response.stream.bytesToString();
+        debugPrint('AgentService error: $errorBody');
+
+        yield AgentStreamEvent('error', {
+          'message':
+              'Erreur de communication avec l\'assistant (${response.statusCode}).',
+        });
+        yield AgentStreamEvent('done', {});
+        return;
+      }
+
+      String? currentEvent;
+
+      await for (final line
+          in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+        if (line.startsWith('event:')) {
+          currentEvent = line.substring(6).trim();
+          continue;
+        }
+
+        if (line.startsWith('data:')) {
+          final raw = line.substring(5).trim();
+          if (raw.isEmpty) continue;
+
+          try {
+            final parsed = jsonDecode(raw) as Map<String, dynamic>;
+            yield AgentStreamEvent(currentEvent ?? 'message', parsed);
+          } catch (e) {
+            debugPrint('AgentService parse error: $e');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('AgentService stream error: $e');
+      yield AgentStreamEvent('error', {
+        'message':
+            'Une erreur de connexion est survenue. Vérifiez votre connexion internet.',
+      });
+      yield AgentStreamEvent('done', {});
+    }
   }
 
+  /// Méthode legacy pour compatibilité (Flowise).
+  /// Utiliser [streamMessage] pour le nouveau pipeline.
+  @Deprecated('Utiliser streamMessage() à la place')
   Future<Map<String, dynamic>> getResponse(
     String query,
     String sessionId,
   ) async {
-    try {
-      final response = await http.post(
-        Uri.parse(_apiUrl),
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Content-Type': 'application/json',
-        },
-        body: json.encode({
-          'question': query,
-          'sessionId': sessionId, 
-        }),
-      );
+    final events = await streamMessage(
+      message: query,
+      sessionId: sessionId,
+    ).toList();
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        
-        // Adaptation de la réponse au format attendu par l'application
-        return {
-          'text': data['text'] ?? data['answer'] ?? "Je suis désolé, je n'ai pas compris votre demande.",
-          'intent': 'conversation', 
-          'confidence': 1.0, 
-          'parameters': {}, 
-        };
-      } else {
-        throw Exception('Échec de la réponse: ${response.body}');
+    String text = '';
+    for (final event in events) {
+      if (event.event == 'token') {
+        text += event.data['content'] as String? ?? '';
       }
-    } catch (e) {
-      debugPrint('Erreur lors de la communication avec Flowise: $e');
-      return {
-        'text': "Désolé, une erreur s'est produite. Veuillez réessayer.",
-        'intent': 'error',
-        'confidence': 0.0,
-        'parameters': {},
-      };
     }
+
+    return {
+      'text': text.isNotEmpty ? text : 'Je n\'ai pas compris votre demande.',
+      'intent': 'conversation',
+      'confidence': text.isNotEmpty ? 1.0 : 0.0,
+      'parameters': {},
+    };
   }
 }

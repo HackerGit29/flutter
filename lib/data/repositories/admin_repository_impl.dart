@@ -1,7 +1,7 @@
 import 'package:aricie/core/errors/failures.dart';
 import 'package:aricie/data/datasources/supabase_admin_datasource.dart';
 import 'package:aricie/domain/entities/user.dart';
-import 'package:aricie/domain/entities/device.dart';
+import 'package:aricie/domain/entities/box.dart';
 import 'package:aricie/domain/entities/sync_log.dart';
 import 'package:aricie/domain/repositories/admin_repository.dart';
 import 'package:dartz/dartz.dart';
@@ -52,19 +52,19 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
-  Future<Either<Failure, List<Device>>> getAllDevices() async {
+  Future<Either<Failure, List<Box>>> getAllBoxes() async {
     try {
-      final data = await _remote.getAllDevices();
-      return Right(data.map((json) => Device.fromJson(json)).toList());
+      final data = await _remote.getAllBoxes();
+      return Right(data.map((json) => Box.fromJson(json)).toList());
     } catch (e) {
       return Left(ServerFailure());
     }
   }
 
   @override
-  Future<Either<Failure, List<SyncLog>>> getSyncLogs({String? userId, String? deviceId}) async {
+  Future<Either<Failure, List<SyncLog>>> getSyncLogs({String? userId, String? boxId}) async {
     try {
-      final data = await _remote.getSyncLogs(userId: userId, deviceId: deviceId);
+      final data = await _remote.getSyncLogs(userId: userId, boxId: boxId);
       return Right(data.map((json) => SyncLog.fromJson(json)).toList());
     } catch (e) {
       return Left(ServerFailure());
@@ -72,20 +72,20 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
-  Future<Either<Failure, Device>> assignDevice(String deviceId, String newUserId) async {
+  Future<Either<Failure, Box>> assignBox(String boxId, String newUserId) async {
     try {
-      final data = await _remote.updateDeviceUser(deviceId, newUserId);
-      return Right(Device.fromJson(data));
+      final data = await _remote.assignBoxToUser(boxId, newUserId);
+      return Right(Box.fromJson(data));
     } catch (e) {
       return Left(ServerFailure());
     }
   }
 
   @override
-  Future<Either<Failure, Device>> resetDevice(String deviceId) async {
+  Future<Either<Failure, Box>> resetBox(String boxId) async {
     try {
-      final data = await _remote.resetDevice(deviceId);
-      return Right(Device.fromJson(data));
+      final data = await _remote.resetBox(boxId);
+      return Right(Box.fromJson(data));
     } catch (e) {
       return Left(ServerFailure());
     }

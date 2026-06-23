@@ -7,7 +7,7 @@ class LogSyncResult {
   final SyncRepository _repository;
   LogSyncResult(this._repository);
 
-  Future<Either<Failure, SyncLog>> call(String deviceId, String userId, String status, Map<String, dynamic>? data) {
-    return _repository.logSyncResult(deviceId, userId, status, data);
+  Future<Either<Failure, SyncLog>> call(String boxId, String userId, String status, Map<String, dynamic>? data) {
+    return _repository.logSyncResult(boxId, userId, status, data);
   }
 }

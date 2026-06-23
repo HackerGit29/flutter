@@ -1,0 +1,234 @@
+import "dotenv/config";
+import mqtt from "mqtt";
+import { createClient } from "@supabase/supabase-js";
+
+const WORKER_ID = `mqtt5-worker-${process.pid}`;
+
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+);
+
+const mqttHost = process.env.FLESPI_MQTT_HOST ?? "mqtt.flespi.io";
+const mqttPort = Number(process.env.FLESPI_MQTT_TCP_PORT ?? 8883);
+const mqttToken = process.env.FLESPI_MQTT_WORKER_TOKEN;
+
+if (!mqttToken) {
+  throw new Error("FLESPI_MQTT_WORKER_TOKEN is required");
+}
+
+const mqttUrl = `mqtts://${mqttHost}:${mqttPort}`;
+
+const client = mqtt.connect(mqttUrl, {
+  protocolVersion: 5,
+  username: mqttToken,
+  password: "",
+  clientId: `aricie-worker-${Date.now()}`,
+
+  clean: true,
+
+  keepalive: 30,
+  reconnectPeriod: 5000,
+  connectTimeout: 15000,
+
+  properties: {
+    sessionExpiryInterval: 0,
+
+    userProperties: {
+      freeze_timeout: "120",
+      app: "aricie-mqtt5-worker",
+    },
+  },
+});
+
+client.on("connect", (packet) => {
+  console.log(`[MQTT5] Connected to ${mqttUrl}`);
+
+  client.subscribe(
+    "aricie/v1/boxes/+/relays/+/ack",
+    { qos: 1 },
+    (err) => {
+      if (err) {
+        console.error("[MQTT5] ACK subscribe error:", err);
+      } else {
+        console.log("[MQTT5] Subscribed to ACK topics");
+      }
+    },
+  );
+});
+
+client.on("reconnect", () => {
+  console.log("[MQTT5] Reconnecting...");
+});
+
+client.on("error", (err) => {
+  console.error("[MQTT5] Error:", err);
+});
+
+client.on("message", async (topic, payload, packet) => {
+  try {
+    const message = JSON.parse(payload.toString());
+
+    if (!message.command_id) {
+      console.warn("[ACK] Missing command_id:", topic, message);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("device_commands")
+      .update({
+        status: message.success ? "acknowledged" : "failed",
+        acknowledged_at: new Date().toISOString(),
+        ack_payload: message,
+        error_message: message.success ? null : "Device returned failure ACK",
+      })
+      .eq("id", message.command_id);
+
+    if (error) {
+      console.error("[ACK] Supabase update error:", error);
+      return;
+    }
+
+    console.log(`[ACK] Command ${message.command_id} acknowledged`);
+  } catch (err) {
+    console.error("[ACK] Invalid ACK payload:", err);
+  }
+});
+
+async function claimPendingCommand() {
+  const { data: pending, error: selectError } = await supabase
+    .from("device_commands")
+    .select("id")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (selectError) {
+    console.error("[DB] Select pending error:", selectError);
+    return null;
+  }
+
+  if (!pending) return null;
+
+  const { data: claimed, error: claimError } = await supabase
+    .from("device_commands")
+    .update({
+      status: "processing",
+      processing_at: new Date().toISOString(),
+      worker_id: WORKER_ID,
+    })
+    .eq("id", pending.id)
+    .eq("status", "pending")
+    .select(
+      "id, box_uid, relay_index, action, appliance_name, created_at",
+    )
+    .maybeSingle();
+
+  if (claimError) {
+    console.error("[DB] Claim error:", claimError);
+    return null;
+  }
+
+  return claimed;
+}
+
+function publishCommand(command) {
+  return new Promise((resolve, reject) => {
+    const topic =
+      `aricie/v1/boxes/${command.box_uid}/relays/${command.relay_index}/cmd`;
+
+    const payload = JSON.stringify({
+      command_id: command.id,
+      action: command.action,
+      relay_index: command.relay_index,
+      appliance_name: command.appliance_name,
+      source: "ai_agent",
+      issued_at: new Date().toISOString(),
+    });
+
+    client.publish(
+      topic,
+      payload,
+      {
+        qos: 1,
+        retain: false,
+
+        properties: {
+          messageExpiryInterval: 30,
+          payloadFormatIndicator: true,
+          contentType: "application/json",
+          userProperties: {
+            command_id: command.id,
+            source: "ai_agent",
+            protocol: "mqtt5",
+          },
+        },
+      },
+      (err) => {
+        if (err) return reject(err);
+        resolve({ topic, payload });
+      },
+    );
+  });
+}
+
+async function processOneCommand() {
+  if (!client.connected) return;
+
+  const command = await claimPendingCommand();
+  if (!command) return;
+
+  try {
+    const result = await publishCommand(command);
+
+    const { error } = await supabase
+      .from("device_commands")
+      .update({
+        status: "sent",
+        sent_at: new Date().toISOString(),
+        error_message: null,
+      })
+      .eq("id", command.id)
+      .eq("status", "processing");
+
+    if (error) {
+      console.error("[DB] Mark sent error:", error);
+      return;
+    }
+
+    console.log(`[CMD] Sent ${command.id} to ${result.topic}`);
+  } catch (err) {
+    console.error(`[CMD] Publish failed for ${command.id}:`, err);
+
+    await supabase
+      .from("device_commands")
+      .update({
+        status: "failed",
+        error_message: String(err),
+      })
+      .eq("id", command.id);
+  }
+}
+
+async function markTimeoutCommands() {
+  const timeoutDate = new Date(Date.now() - 30_000).toISOString();
+
+  const { error } = await supabase
+    .from("device_commands")
+    .update({
+      status: "timeout",
+      error_message: "No device ACK received before timeout",
+    })
+    .eq("status", "sent")
+    .lt("sent_at", timeoutDate);
+
+  if (error) {
+    console.error("[DB] Timeout update error:", error);
+  }
+}
+
+setInterval(processOneCommand, 1000);
+setInterval(markTimeoutCommands, 10_000);
+
+console.log(`[WORKER] ${WORKER_ID} started in MQTT 5 mode`);

@@ -6,7 +6,7 @@ class ValidateDeviceOwnership {
   final SyncRepository _repository;
   ValidateDeviceOwnership(this._repository);
 
-  Future<Either<Failure, bool>> call(String deviceId, String userId) {
-    return _repository.validateDeviceOwnership(deviceId, userId);
+  Future<Either<Failure, bool>> call(String boxId, String userId) {
+    return _repository.validateBoxOwnership(boxId, userId);
   }
 }
