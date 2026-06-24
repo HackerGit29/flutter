@@ -50,7 +50,7 @@ All implementations must adhere to the following mitigations:
 
 - **Requirement**: Production builds must be obfuscated.
 - **Action**: Always use `--obfuscate` and `--split-debug-info` during release builds.
-- **Command**: `fvm flutter build apk --obfuscate --split-debug-info=build/obfuscation/`
+- **Command**: `flutter build apk --obfuscate --split-debug-info=build/obfuscation/`
 - **Check**: Verify build scripts include these flags. Ensure debug symbols are not distributed.
 - **Status**: ✅ Build command documented in `AGENTS.md`.
 

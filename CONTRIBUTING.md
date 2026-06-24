@@ -21,13 +21,13 @@ This project adheres to a code of conduct that promotes respect, inclusivity, an
 
 ## Getting Started
 
-1. Ensure you have Flutter 3.29.0 installed (FVM-managed, see `.fvmrc`)
+1. Ensure you have Flutter installed (latest stable)
 2. Clone the repository
-3. Run `fvm flutter pub get` to install dependencies
+3. Run `flutter pub get` to install dependencies
 4. Create a `.env` file or use `--dart-define` flags for Supabase credentials
 
 ```bash
-fvm flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
+flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
 ```
 
 ## Development Workflow
@@ -35,8 +35,8 @@ fvm flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=.
 1. Create a feature branch from `main`
 2. Implement your changes following the [Clean Architecture](docs/domain/domain.md) conventions
 3. Write or update tests
-4. Run static analysis: `fvm flutter analyze`
-5. Run tests: `fvm flutter test`
+4. Run static analysis: `flutter analyze`
+5. Run tests: `flutter test`
 6. Commit using [Conventional Commits](#commit-convention)
 7. Push and create a Pull Request
 
@@ -106,7 +106,7 @@ Follow the same convention as commits:
 
 ### Review Requirements
 
-- All `fvm flutter analyze` warnings must be resolved
+- All `flutter analyze` warnings must be resolved
 - All tests must pass
 - No hardcoded secrets or credentials
 - New features require corresponding tests
@@ -133,7 +133,7 @@ Follow the same convention as commits:
 - **Widget tests**: Required for all screens
 - **Test framework**: `flutter_test` + mocktail
 - **BDD scenarios**: Defined in `test_driver/features/` using Gherkin syntax
-- **Run tests**: `fvm flutter test`
+- **Run tests**: `flutter test`
 - **Run driver tests**: `flutter drive --target=test_driver/app.dart`
 
 Tests must be added in the same PR as the feature or fix they validate.

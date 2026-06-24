@@ -6,7 +6,7 @@ Application Flutter de suivi et gestion de consommation énergétique avec objet
 
 | Couche          | Technologie                                           |
 | --------------- | ----------------------------------------------------- |
-| App             | Flutter 3.29.0 (FVM)                                  |
+| App             | Flutter (latest stable)                                  |
 | State           | Riverpod + Provider                                   |
 | Auth            | Supabase Auth                                         |
 | Base de données | Supabase PostgreSQL                                   |
@@ -20,10 +20,9 @@ Application Flutter de suivi et gestion de consommation énergétique avec objet
 
 | Requirement | Version | Notes                            |
 | ----------- | ------- | -------------------------------- |
-| Flutter     | 3.29.0  | FVM-managed (see `.fvmrc`)       |
-| Dart SDK    | ^3.7.0  | Defined in `pubspec.yaml`        |
-| Supabase    | ^2.8.4  | Account required for credentials |
-| FVM         | latest  | Optional but recommended         |
+| Flutter     | latest stable | Install from https://flutter.dev |
+| Dart SDK    | ^3.7.0        | Defined in `pubspec.yaml`        |
+| Supabase    | ^2.8.4        | Account required for credentials |
 
 ### Hardware / OS
 
@@ -73,8 +72,8 @@ Voir `AGENTS.md` pour les détails techniques et commandes.
 ## Démarrage rapide
 
 ```bash
-fvm flutter pub get
-fvm flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
+flutter pub get
+flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
 ```
 
 Ou configuration via variable d'environnement :
@@ -82,7 +81,7 @@ Ou configuration via variable d'environnement :
 ```bash
 $env:SUPABASE_URL = "https://votre-projet.supabase.co"
 $env:SUPABASE_ANON_KEY = "votre-cle-anon"
-fvm flutter run
+flutter run
 ```
 
 ## Screens

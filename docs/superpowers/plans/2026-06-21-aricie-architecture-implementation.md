@@ -1389,7 +1389,7 @@ void main() {
 
 - [ ] **Step: Run tests**
 
-Run: `fvm flutter test test/domain/entities/user_test.dart -v`
+Run: `flutter test test/domain/entities/user_test.dart -v`
 Expected: PASS
 
 - [ ] **Step: Write use-case tests with mocktail and commit**

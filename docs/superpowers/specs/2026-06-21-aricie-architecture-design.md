@@ -616,7 +616,7 @@ class PremiumFeatureGate extends StatelessWidget {
 |---|---|
 | §2 Sécurité secrets | Supabase URL/key → `--dart-define` ou `.env`, jamais commité |
 | §5 Clean Architecture | Dépendances vers l'intérieur (UI → UseCases → Repository interfaces → Datasources) |
-| §6 Qualité code | `fvm flutter analyze` après chaque module, typage strict, zéro `any` |
+| §6 Qualité code | `flutter analyze` après chaque module, typage strict, zéro `any` |
 | §8 Base de données | Index sur toutes les FK, RLS policies, migrations versionnées |
 | §13 Documentation | Ce design doc + task tracking dans docs/tasks/ |
 | §14 Skills | brainstorming avant implémentation ✅, code-reviewer après chaque module |

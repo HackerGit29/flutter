@@ -18,7 +18,7 @@ Closes # (issue)
 
 Please describe the tests that you ran to verify your changes.
 
-- [ ] Unit tests (`fvm flutter test`)
+- [ ] Unit tests (`flutter test`)
 - [ ] Widget tests
 - [ ] Integration tests
 - [ ] Manual testing on device/emulator
@@ -31,8 +31,8 @@ Please describe the tests that you ran to verify your changes.
 - [ ] I have updated the documentation accordingly
 - [ ] My changes generate no new warnings or analysis issues
 - [ ] I have added tests that prove my fix is effective or my feature works
-- [ ] New and existing unit tests pass locally (`fvm flutter test`)
-- [ ] Static analysis passes (`fvm flutter analyze`)
+- [ ] New and existing unit tests pass locally (`flutter test`)
+- [ ] Static analysis passes (`flutter analyze`)
 - [ ] My commits follow the [Conventional Commits](https://www.conventionalcommits.org/) specification
 
 ## Security Considerations

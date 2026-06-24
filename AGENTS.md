@@ -3,11 +3,11 @@
 ## Quick start
 
 ```bash
-fvm flutter pub get
-fvm flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
-fvm flutter test
-fvm flutter analyze
-fvm flutter build apk --obfuscate --split-debug-info=build/obfuscation/
+flutter pub get
+flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
+flutter test
+flutter analyze
+flutter build apk --obfuscate --split-debug-info=build/obfuscation/
 ```
 
 > `SUPABASE_URL` and `SUPABASE_ANON_KEY` are required via `--dart-define`. Obtain from Supabase dashboard (Project > Settings > API).
@@ -16,7 +16,7 @@ fvm flutter build apk --obfuscate --split-debug-info=build/obfuscation/
 
 | Layer        | Technology                                                                               |
 | ------------ | ---------------------------------------------------------------------------------------- |
-| App          | Flutter 3.29.0 (FVM-managed, see `.fvmrc`)                                               |
+| App          | Flutter (latest stable)                                               |
 | State        | Riverpod (preferred) + Provider (theme only)                                             |
 | Backend      | Supabase (auth, realtime streams, PostgreSQL, Edge Functions)                            |
 | AI Agent     | Supabase Edge Functions + Azure Phi-4-mini-instruct (chat) / Azure OpenAI (tool calling) |
@@ -36,7 +36,7 @@ fvm flutter build apk --obfuscate --split-debug-info=build/obfuscation/
 - **Error handling**: Sealed `Failure` hierarchy with `Either<Failure, T>` via `dartz`
 - **DI**: `get_it` service locator (`lib/core/di/injection_container.dart`)
 - **Dependency override**: `dependency_overrides.web: 1.1.1`
-- **Static analysis**: Checked via `fvm flutter analyze`; MQTT-related errors on web are expected (uses conditionals)
+- **Static analysis**: Checked via `flutter analyze`; MQTT-related errors on web are expected (uses conditionals)
 
 ## Architecture layers
 
@@ -166,9 +166,9 @@ All tables use RLS. Full schema in `docs/supabase/init_db.sql` and `supabase/mig
 ## Commands cheat sheet
 
 ```bash
-fvm flutter clean && fvm flutter pub get   # Reset dependencies
-fvm dart run flutter_launcher_icons        # Regenerate app icons
-fvm flutter build apk --obfuscate --split-debug-info=build/obfuscation/  # Release build
+flutter clean && flutter pub get   # Reset dependencies
+dart run flutter_launcher_icons        # Regenerate app icons
+flutter build apk --obfuscate --split-debug-info=build/obfuscation/  # Release build
 ```
 
 ## MQTT5 Worker — Build & Deploy
