@@ -152,3 +152,42 @@ device_commands (pending)
 
 ## NotificationService
 Handles local and push notifications for system alerts and reminders.
+
+## MQTT Worker — Build & Deploy
+
+### Infrastructure
+
+| Ressource | Valeur |
+|-----------|--------|
+| ACR | `paossimb7935acr.azurecr.io` |
+| Build VM | `68.210.96.129` (austriaeast, `Standard_B2ats_v2`) |
+| Container App | `mqtt5-worker` (francecentral) |
+| CA Environment | `cae-paossimb-7935` |
+
+Le worker est déployé dans Azure Container Apps. L'image Docker est buildée sur une VM Linux dédiée (ACR Tasks bloqué par la politique Azure for Students).
+
+### Workflow build + deploy
+
+```
+Modifier workers/mqtt5-worker/index.js
+  → scripts/azure/deploy-mqtt5-worker.ps1
+    → 1. SCP des sources vers la VM (68.210.96.129)
+    → 2. Docker build sur la VM
+    → 3. Docker push vers ACR (paossimb7935acr.azurecr.io)
+    → 4. az containerapp update → nouveau revision
+```
+
+### Commande unique
+
+```bash
+pwsh scripts/azure/deploy-mqtt5-worker.ps1
+```
+
+### Documentation complète
+
+Voir `workers/mqtt5-worker/README.md` pour :
+- Architecture détaillée du worker
+- Env vars et secrets
+- Déploiement manuel étape par étape
+- Création from scratch du Container App
+- Troubleshooting (CrashLoopBackOff, Ready=False, etc.)

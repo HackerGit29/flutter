@@ -1,0 +1,55 @@
+{
+  "name": "Block sensitive file pushes",
+  "target": "branch",
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/heads/*"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "required_workflow_status_checks",
+      "parameters": {
+        "workflows": [
+          {
+            "path": ".github/workflows/flutter-ci.yml",
+            "ref": "main",
+            "repository_id": 0
+          }
+        ]
+      }
+    },
+    {
+      "type": "creation"
+    },
+    {
+      "type": "update"
+    },
+    {
+      "type": "deletion"
+    }
+  ],
+  "bypass_actors": [
+    {
+      "actor_id": 0,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "always"
+    }
+  ],
+  "restrictions": {
+    "file_path_restrictions": [
+      "*.env",
+      ".env.*",
+      "!.env.example",
+      "supabase/functions/.env",
+      "supabase/functions/.env.*",
+      "*.key",
+      "*.pem",
+      "*.p12",
+      "secrets.*",
+      "**/secrets/**"
+    ]
+  },
+  "enforcement": "active"
+}

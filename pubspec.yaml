@@ -42,6 +42,8 @@ dependencies:
   speech_to_text: ^6.6.0
   flutter_tts: ^3.8.3
   permission_handler: ^11.0.0
+  record: ^5.2.0
+  audioplayers: ^6.1.0
 dependency_overrides:
   web: 1.1.1
 

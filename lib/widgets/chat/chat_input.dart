@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../services/voice_service.dart';
 
+enum MicState { idle, recording, processing }
+
 class ChatInput extends StatefulWidget {
   final Function(String) onSendMessage;
   final bool isVoiceMode;
@@ -16,21 +18,28 @@ class ChatInput extends StatefulWidget {
   State<ChatInput> createState() => _ChatInputState();
 }
 
-class _ChatInputState extends State<ChatInput> {
+class _ChatInputState extends State<ChatInput>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _textController = TextEditingController();
   bool _canSend = false;
-  bool _isListening = false;
+  MicState _micState = MicState.idle;
   final VoiceService _voiceService = VoiceService.instance;
+  late AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
     _textController.addListener(_checkCanSend);
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
   }
 
   @override
   void dispose() {
     _textController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -52,38 +61,59 @@ class _ChatInputState extends State<ChatInput> {
     }
   }
 
-  void _toggleListening() async {
-    if (_isListening) {
-      await _voiceService.stopListening();
-      setState(() => _isListening = false);
-      return;
-    }
+  void _onMicPress() async {
+    if (_micState != MicState.idle) return;
 
-    setState(() => _isListening = true);
+    setState(() => _micState = MicState.recording);
+    _pulseController.repeat(reverse: true);
 
     await _voiceService.startListening(
       onResult: (text) {
         if (text.isNotEmpty) {
-          widget.onSendMessage(text);
+          _textController.text = text;
+          _textController.selection = TextSelection.fromPosition(
+            TextPosition(offset: text.length),
+          );
         }
       },
       onDone: () {
+        // Transcribe result arrived, auto-send
+        final text = _textController.text.trim();
+        if (text.isNotEmpty) {
+          widget.onSendMessage(text);
+          _textController.clear();
+        }
         if (mounted) {
-          setState(() => _isListening = false);
+          setState(() => _micState = MicState.idle);
+          _pulseController.reset();
         }
       },
     );
   }
 
+  void _onMicRelease() async {
+    if (_micState != MicState.recording) return;
+
+    setState(() => _micState = MicState.processing);
+    _pulseController.reset();
+
+    await _voiceService.stopListening();
+    // stopListening will trigger onResult → onDone → auto-send
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isIdle = _micState == MicState.idle;
+    final isRecording = _micState == MicState.recording;
+    final isProcessing = _micState == MicState.processing;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -92,36 +122,72 @@ class _ChatInputState extends State<ChatInput> {
       child: SafeArea(
         child: Row(
           children: [
-            // Microphone button
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              decoration: BoxDecoration(
-                color: _isListening
-                    ? Theme.of(context).colorScheme.error.withOpacity(0.2)
-                    : widget.isVoiceMode
-                        ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                        : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: _isListening
-                    ? const Icon(Icons.mic_off_rounded)
-                    : Icon(
-                        widget.isVoiceMode
-                            ? Icons.record_voice_over_rounded
-                            : Icons.mic_rounded,
-                      ),
-                onPressed: _toggleListening,
-                color: _isListening
-                    ? Theme.of(context).colorScheme.error
-                    : widget.isVoiceMode
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.primary,
-                tooltip: _isListening
-                    ? 'Arrêter l\'écoute'
-                    : 'Dicter un message',
-              ),
+            // Microphone button — hold to talk
+            GestureDetector(
+              onTapDown: isIdle ? (_) => _onMicPress() : null,
+              onTapUp: isRecording ? (_) => _onMicRelease() : null,
+              onTapCancel: isRecording ? _onMicRelease : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isRecording
+                      ? Theme.of(context).colorScheme.error
+                      : isProcessing
+                          ? Theme.of(context)
+                              .colorScheme
+                              .primary
+                              .withValues(alpha: 0.3)
+                          : widget.isVoiceMode
+                              ? Theme.of(context)
+                                  .colorScheme
+                                  .primary
+                                  .withValues(alpha: 0.1)
+                              : Colors.transparent,
+                  shape: BoxShape.circle,
+                  boxShadow: isRecording
+                      ? [
+                          BoxShadow(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .error
+                                .withValues(alpha: 0.4),
+                            blurRadius: 12,
+                            spreadRadius: 2,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Center(
+                  child: isProcessing
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        )
+                      : Icon(
+                          isRecording ? Icons.mic_rounded : Icons.mic_rounded,
+                          color: isRecording
+                              ? Colors.white
+                              : widget.isVoiceMode
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.6),
+                        ),
+                ),
+              ).animate(target: isRecording ? 1 : 0).scale(
+                    begin: const Offset(1, 1),
+                    end: const Offset(1.15, 1.15),
+                    curve: Curves.easeInOut,
+                  ),
             ),
+            const SizedBox(width: 8),
             // Text input
             Expanded(
               child: Container(
@@ -129,21 +195,24 @@ class _ChatInputState extends State<ChatInput> {
                 decoration: BoxDecoration(
                   color: Theme.of(context)
                       .colorScheme
-                      .surfaceVariant
-                      .withOpacity(0.5),
+                      .surfaceContainerHighest
+                      .withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: TextField(
                   controller: _textController,
+                  readOnly: isRecording || isProcessing,
                   decoration: InputDecoration(
-                    hintText: _isListening
-                        ? 'Écoute en cours...'
-                        : 'Écrivez votre message...',
+                    hintText: isRecording
+                        ? 'Parlez...'
+                        : isProcessing
+                            ? 'Transcription...'
+                            : 'Écrivez votre message...',
                     hintStyle: TextStyle(
                       color: Theme.of(context)
                           .colorScheme
                           .onSurfaceVariant
-                          .withOpacity(0.7),
+                          .withValues(alpha: 0.7),
                     ),
                     border: InputBorder.none,
                   ),
@@ -164,7 +233,7 @@ class _ChatInputState extends State<ChatInput> {
               decoration: BoxDecoration(
                 color: _canSend
                     ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.surfaceVariant,
+                    : Theme.of(context).colorScheme.surfaceContainerHighest,
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -174,7 +243,7 @@ class _ChatInputState extends State<ChatInput> {
                     : Theme.of(context)
                         .colorScheme
                         .onSurfaceVariant
-                        .withOpacity(0.4),
+                        .withValues(alpha: 0.4),
                 onPressed: _canSend ? _handleSend : null,
               ),
             ).animate(target: _canSend ? 1 : 0).scale(

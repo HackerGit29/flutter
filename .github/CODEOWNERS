@@ -1,0 +1,9 @@
+# Propriétaire global du projet Aricie
+* @HackerGit29
+
+# Zones critiques du projet
+/.github/ @HackerGit29
+
+/lib/services/mqtt/ @HackerGit29
+/lib/widgets/chat/ @HackerGit29
+/lib/screens/chatbot/ @HackerGit29

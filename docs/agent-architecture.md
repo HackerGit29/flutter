@@ -1,27 +1,53 @@
 # Aricie Agent IA — Architecture
 
-## Architecture cible
+## Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Flutter Client                                                   │
+│  ┌──────────┐ ┌────────────┐ ┌─────────────┐                    │
+│  │ Chat UI  │ │ Voice STT  │ │ SSE Stream  │                    │
+│  │ (widgets)│ │ (speech_to │ │ Reader      │                    │
+│  │          │ │  _text)    │ │             │                    │
+│  └────┬─────┘ └─────┬──────┘ └──────┬──────┘                    │
+│       │             │               │                            │
+│       └──────┬──────┴──────┬────────┘                            │
+│              ▼             ▼                                     │
+│  ┌─────────────────────────────────────────────┐                 │
+│  │ AgentService (Flutter)                       │                 │
+│  │ • supabase.functions.invoke('ai-chat', ...)  │                 │
+│  │ • JWT Supabase (Authorization)               │                 │
+│  │ • Réponse JSON → UI et/ou VoiceService TTS   │                 │
+│  │ • VoiceService : STT input → TTS output      │                 │
+│  └────────────────┬────────────────────────────┘                 │
+└───────────────────┼──────────────────────────────────────────────┘
+                    │ POST + JWT
+                    ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  Supabase Edge Function : ai-chat                                │
+│                                                                   │
+│  1. Reçoit { messages, temperature, max_tokens }                  │
+│  2. Lit AZURE_OPENAI secrets via Deno.env.get()                   │
+│  3. POST /openai/deployments/Phi-4-mini-instruct/chat/completions│
+│  4. Retourne { success, content, raw }                            │
+└──────────────────────────┬───────────────────────────────────────┘
+                           │ fetch() + api-key
+                           ▼
+┌──────────────────────────────────────────────────────────────────┐
+│  Azure AI Foundry : Phi-4-mini-instruct (GlobalStandard)         │
+│  • Endpoint : paossimb-7935-resource.cognitiveservices.azure.com │
+│  • API version : 2024-06-01                                      │
+│  • Rate limit : 1 req/s, 400 tokens/min                         │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+## Architecture avancée (agent-orchestrator)
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Flutter Client                                               │
-│  ┌──────────┐ ┌────────────┐ ┌─────────────┐                │
-│  │ Chat UI  │ │ Voice STT  │ │ SSE Stream  │                │
-│  │ (widgets)│ │ (speech_to │ │ Reader      │                │
-│  │          │ │  _text)    │ │             │                │
-│  └────┬─────┘ └─────┬──────┘ └──────┬──────┘                │
-│       │             │               │                        │
-│       └──────┬──────┴──────┬────────┘                        │
-│              ▼             ▼                                 │
-│  ┌────────────────────────────────────┐                      │
-│  │ AgentService (Flutter)             │                      │
-│  │ • POST /functions/v1/agent         │                      │
-│  │ • JWT Supabase (Authorization)     │                      │
-│  │ • SSE stream → progressive UI     │                      │
-│  │ • VoiceService (STT/TTS)          │                      │
-│  └────────────────┬───────────────────┘                      │
-└───────────────────┼──────────────────────────────────────────┘
-                    │ POST + JWT
+│  • AgentService (SSE via supabase.functions.invoke)          │
+└───────────────────┬──────────────────────────────────────────┘
                     ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  Supabase Edge Function : agent-orchestrator                  │
@@ -29,7 +55,7 @@
 │  1. AUTH : parse JWT → auth.uid (IGNORE body.user_id)        │
 │  2. RAG : pgvector WHERE owner_id = auth.uid                 │
 │  3. Contexte opérationnel : appliances scope user             │
-│  4. Azure OpenAI GPT-4o : tool calling                        │
+│  4. Phi-4-mini-instruct : tool calling                        │
 │     • Le LLM ne manipule que des noms métier                  │
 │     • Il propose une intention, ne choisit jamais les IDs     │
 │  5. Policy Engine :                                           │
@@ -96,14 +122,14 @@
 ## Secrets (dashboard Supabase, jamais côté Flutter)
 
 ```
-AZURE_OPENAI_ENDPOINT           → https://<resource>.openai.azure.com
-AZURE_OPENAI_API_KEY            → <clé API>
-AZURE_OPENAI_DEPLOYMENT         → gpt-4o
-AZURE_OPENAI_API_VERSION        → 2024-10-21
-AZURE_OPENAI_EMBEDDING_DEPLOYMENT → text-embedding-3-small
-MQTT_HOST                       → broker.aricie.energy
-MQTT_PORT                       → 8883
-WEBHOOK_SECRET                  → clé partagée pour le webhook
+AZURE_OPENAI_ENDPOINT             → https://paossimb-7935-resource.cognitiveservices.azure.com/
+AZURE_OPENAI_API_KEY              → <clé API Azure>
+AZURE_OPENAI_DEPLOYMENT           → Phi-4-mini-instruct
+AZURE_OPENAI_API_VERSION          → 2024-06-01
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT → text-embedding-3-large-aricie
+AZURE_OPENAI_EMBEDDING_DIMENSIONS → 1536
+FLESPI_MQTT_HOST                  → mqtt.flespi.io
+FLESPI_MQTT_TCP_PORT              → 8883
 ```
 
 ## Tables créées
@@ -118,7 +144,80 @@ WEBHOOK_SECRET                  → clé partagée pour le webhook
 - `match_user_embeddings(query_embedding, requester_id, match_count)` → recherche vectorielle scopée
 - `get_user_appliances_context(requester_id)` → contexte opérationnel JSON
 
-## Outils LLM (Azure OpenAI GPT-4o tools)
+## Flutter → Edge Function (ai-chat)
+
+```dart
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+final supabase = Supabase.instance.client;
+
+Future<String> askAricie(String userMessage) async {
+  final session = supabase.auth.currentSession;
+
+  final response = await supabase.functions.invoke(
+    'ai-chat',
+    body: {
+      'messages': [
+        {
+          'role': 'system',
+          'content': '''
+Tu es Aricie, un assistant énergétique IoT.
+Réponds en français.
+Si l'utilisateur demande une action sur un appareil, n'invente jamais.
+Demande confirmation si l'action est ambiguë.
+''',
+        },
+        {
+          'role': 'user',
+          'content': userMessage,
+        },
+      ],
+      'temperature': 0.2,
+      'max_tokens': 500,
+    },
+    headers: {
+      if (session?.accessToken != null)
+        'Authorization': 'Bearer ${session!.accessToken}',
+    },
+  );
+
+  final data = response.data;
+
+  if (data == null || data['success'] != true) {
+    throw Exception(data?['error'] ?? 'Erreur inconnue');
+  }
+
+  return data['content'] as String? ?? '';
+}
+```
+
+## Sortie JSON structurée pour commandes IoT
+
+```dart
+const aricieSystemPrompt = '''
+Tu es Aricie, un assistant IoT énergétique.
+
+Tu dois répondre uniquement avec un JSON valide.
+
+Format obligatoire :
+{
+  "type": "chat" | "device_command",
+  "message": "réponse utilisateur en français",
+  "intent": "none" | "turn_on" | "turn_off" | "status",
+  "device_name": string | null,
+  "room": string | null,
+  "confidence": number
+}
+
+Règles :
+- Si l'utilisateur veut allumer ou éteindre un appareil, utilise type = "device_command".
+- Si l'appareil est ambigu, utilise type = "chat" et demande une précision.
+- N'invente jamais un appareil.
+- Ne produis jamais de texte hors du JSON.
+''';
+```
+
+## Outils LLM (agent-orchestrator, Phi-4-mini-instruct tools)
 
 ```json
 [
@@ -130,6 +229,44 @@ WEBHOOK_SECRET                  → clé partagée pour le webhook
 ]
 ```
 
+## Résumé des déploiements Azure
+
+| Modèle | Nom du déploiement | SKU | Status |
+|--------|-------------------|-----|--------|
+| `Phi-4-mini-instruct` | `Phi-4-mini-instruct` | GlobalStandard (1) | ✅ Déployé |
+| `gpt-4o-transcribe` | `gpt-4o-transcribe-aricie` | GlobalStandard (1) | ✅ Déployé |
+| `gpt-4o-transcribe-diarize` | `gpt-4o-transcribe-diarize-aricie` | GlobalStandard (1) | ✅ Déployé |
+| `text-embedding-3-large` | `text-embedding-3-large-aricie` | Standard (1) | ✅ Déployé |
+
+| Ressource | Endpoint | Usage |
+|-----------|----------|-------|
+| `paossimb-7935-resource` (Azure OpenAI) | `cognitiveservices.azure.com` | Chat (Phi-4), STT (gpt-4o-transcribe), Embeddings |
+| `paossimb-speech-7935` (Speech Services) | `francecentral.tts.speech.microsoft.com` | TTS (Neural) — Free F0 |
+
+## Voice Mode Architecture
+
+```
+Flutter Voice Mode
+  ┌─────────────────────────────────────────────┐
+  │ 1. Appuie sur le micro → record audio (WAV) │
+  │ 2. POST /functions/v1/transcribe-audio      │
+  │ 3. Azure gpt-4o-transcribe → texte          │
+  │ 4. POST /functions/v1/ai-chat               │
+  │    (ou agent-orchestrator pour tool calling) │
+  │ 5. Réponse texte → POST /functions/v1/      │
+  │    text-to-speech                           │
+  │ 6. Azure Neural TTS → audio MP3            │
+  │ 7. Lecture audio via audioplayers           │
+  │ 8. Auto-relance écoute (boucle vocale)      │
+  └─────────────────────────────────────────────┘
+
+Edge Functions:
+  • transcribe-audio : audio → gpt-4o-transcribe → texte
+  • text-to-speech    : texte → Azure Neural TTS → audio MP3
+  • ai-chat           : messages → Phi-4-mini-instruct → réponse
+  • agent-orchestrator : message + tools → Phi-4-mini-instruct → SSE
+```
+
 ## Testing requis
 
 1. User A → son appareil → autorisé
@@ -139,7 +276,7 @@ WEBHOOK_SECRET                  → clé partagée pour le webhook
 5. Commande dupliquée → pas de double publication
 6. RAG User A → jamais document User B
 7. Voice → STT → agent → SSE → TTS
-8. Azure OpenAI indisponible → erreur UI propre
+8. Azure Phi-4-mini-instruct indisponible → erreur UI propre
 
 ## Évolution future
 
@@ -147,3 +284,4 @@ WEBHOOK_SECRET                  → clé partagée pour le webhook
 - **Worker MQTT persistant** si le broker ne supporte pas HTTP API
 - **Dashboard admin** pour supervision des logs agent
 - **Feedback loop** : good/bad sur réponses agent
+- **Retour à GPT-4o** dès que le quota est approuvé (changer un seul secret : `AZURE_OPENAI_DEPLOYMENT`)

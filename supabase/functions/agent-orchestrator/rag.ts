@@ -15,6 +15,8 @@ export async function createEmbedding(input: string): Promise<number[]> {
   const url =
     `${endpoint}/openai/deployments/${deployment}/embeddings?api-version=${apiVersion}`;
 
+  const dimensions = Deno.env.get("AZURE_OPENAI_EMBEDDING_DIMENSIONS");
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -23,6 +25,7 @@ export async function createEmbedding(input: string): Promise<number[]> {
     },
     body: JSON.stringify({
       input,
+      ...(dimensions ? { dimensions: parseInt(dimensions) } : {}),
     }),
   });
 

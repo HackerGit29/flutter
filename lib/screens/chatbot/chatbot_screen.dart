@@ -154,12 +154,26 @@ class _ChatbotScreenState extends State<ChatbotScreen>
 
           case 'tool_result':
             final success = event.data['success'] as bool? ?? false;
+            final toolLabel = currentActionType != null
+                ? _toolLabelToFrench(currentActionType!)
+                : '';
             if (success) {
-              fullText += '✓ Terminé.\n';
+              fullText += _isVoiceMode
+                  ? '$toolLabel effectué.\n'
+                  : '✓ Terminé.\n';
             } else {
               final reason = event.data['reason'] as String?;
-              fullText +=
-                  '⚠️ ${reason == 'appliance_not_found_or_ambiguous' ? 'Appareil introuvable.' : 'Action non disponible.'}\n';
+              final msg = switch (reason) {
+                'appliance_not_found_or_ambiguous' =>
+                  _isVoiceMode ? 'Appareil introuvable.' : '⚠️ Appareil introuvable.',
+                'rate_limited' =>
+                  _isVoiceMode ? 'Trop de commandes, veuillez patienter.' : '⏳ Trop de commandes.',
+                'not_owned' =>
+                  _isVoiceMode ? 'Action non autorisée sur cet appareil.' : '🚫 Action non autorisée.',
+                _ =>
+                  _isVoiceMode ? 'Action non disponible.' : '⚠️ Action non disponible.',
+              };
+              fullText += '$msg\n';
             }
             _updateLastBotMessage(
               text: fullText,
@@ -234,10 +248,26 @@ class _ChatbotScreenState extends State<ChatbotScreen>
       }
     });
 
-    // Voice mode : lire la réponse terminée
     if (_isVoiceMode && !isError && text.isNotEmpty) {
       VoiceService.instance.speak(text);
     }
+    if (_isVoiceMode) {
+      _waitForTTSAndReListen();
+    }
+  }
+
+  void _waitForTTSAndReListen() {
+    Future.delayed(const Duration(milliseconds: 500), () async {
+      // Attendre la fin de la synthèse vocale (max 30s)
+      for (int i = 0; i < 150; i++) {
+        if (!mounted || !_isVoiceMode) return;
+        if (!VoiceService.instance.isSpeaking) break;
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+      if (mounted && _isVoiceMode) {
+        _startVoiceInput();
+      }
+    });
   }
 
   void _scrollToBottom() {
@@ -261,12 +291,28 @@ class _ChatbotScreenState extends State<ChatbotScreen>
 
     if (_isVoiceMode) {
       _addBotMessage(
-        "Mode vocal activé. Vous pouvez me parler ou écrire, je vous répondrai à voix haute.",
+        "Mode vocal activé. Parlez pour interagir, j'écoute en continu.",
       );
+      _startVoiceInput();
     } else {
       VoiceService.instance.stopSpeaking();
+      VoiceService.instance.stopListening();
       _addBotMessage("Mode vocal désactivé.");
     }
+  }
+
+  void _startVoiceInput() {
+    if (!_isVoiceMode || !mounted) return;
+
+    VoiceService.instance.startListening(
+      onResult: (text) {
+        if (!mounted || !_isVoiceMode) return;
+        _addMessage(text, true);
+      },
+      onDone: () {
+        // Pas de re-déclenchement ici, géré par _finalizeBotMessage
+      },
+    );
   }
 
   @override
@@ -462,6 +508,19 @@ class _ChatbotScreenState extends State<ChatbotScreen>
         ],
       ),
     );
+  }
+
+  String _toolLabelToFrench(String tool) {
+    return switch (tool) {
+      'turn_on' => 'Allumage',
+      'turn_off' => 'Extinction',
+      'set_temperature' => 'Réglage',
+      'set_mode' => 'Changement de mode',
+      'set_speed' => 'Réglage de vitesse',
+      'lock' => 'Verrouillage',
+      'unlock' => 'Déverrouillage',
+      _ => 'Commande',
+    };
   }
 
   bool _isSameDay(DateTime date1, DateTime date2) {
