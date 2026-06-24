@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
 
   const release = await response.json();
   const apkAsset = release.assets?.find(
-    (a: any) => a.name === "aricie-release.apk",
+    (a: any) => a.name === "app-release.apk",
   );
 
   return new Response(JSON.stringify({
