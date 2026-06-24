@@ -87,7 +87,6 @@ class _DashboardTabState extends State<DashboardTab> {
   final _mqttService = MqttService();
   bool _isLoading = true;
 
-  List<Box> _boxes = [];
   List<Appliance> _appliances = [];
   Map<String, double> _applianceEnergy = {};
   double _totalConsumption = 0.0;
@@ -127,7 +126,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
   Future<void> _loadBoxes() async {
     final result = await GetUserDevices(sl()).call();
-    result.fold((_) {}, (data) => _boxes = data);
+    result.fold((_) {}, (_) {});
   }
 
   Future<void> _loadAppliances() async {
@@ -157,10 +156,12 @@ class _DashboardTabState extends State<DashboardTab> {
     );
 
     _telemetrySub = _mqttService.telemetryStream.listen((telemetry) {
-      if (mounted) setState(() {
-        _temperature = telemetry.temperature;
-        _humidity = telemetry.humidity;
-      });
+      if (mounted) {
+        setState(() {
+          _temperature = telemetry.temperature;
+          _humidity = telemetry.humidity;
+        });
+      }
     });
   }
 

@@ -25,7 +25,7 @@ class MessageBubble extends StatelessWidget {
       bgColor = Theme.of(context).colorScheme.primary;
       textColor = Theme.of(context).colorScheme.onPrimary;
     } else {
-      bgColor = Theme.of(context).colorScheme.surfaceVariant;
+      bgColor = Theme.of(context).colorScheme.surfaceContainerHighest;
       textColor = Theme.of(context).colorScheme.onSurfaceVariant;
     }
 
@@ -55,7 +55,7 @@ class MessageBubble extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 5,
               offset: const Offset(0, 2),
             ),
@@ -75,7 +75,7 @@ class MessageBubble extends StatelessWidget {
                       size: 14,
                       color: !message.isUser
                           ? Theme.of(context).colorScheme.primary
-                          : textColor.withOpacity(0.8),
+                          : textColor.withValues(alpha: 0.8),
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -85,7 +85,7 @@ class MessageBubble extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                         color: !message.isUser
                             ? Theme.of(context).colorScheme.primary
-                            : textColor.withOpacity(0.8),
+                            : textColor.withValues(alpha: 0.8),
                       ),
                     ),
                   ],
@@ -106,7 +106,7 @@ class MessageBubble extends StatelessWidget {
                   height: 16,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: textColor.withOpacity(0.6),
+                    color: textColor.withValues(alpha: 0.6),
                   ),
                 ),
               ),
@@ -117,7 +117,7 @@ class MessageBubble extends StatelessWidget {
                 _formatTime(message.timestamp),
                 style: TextStyle(
                   fontSize: 10,
-                  color: textColor.withOpacity(0.7),
+                  color: textColor.withValues(alpha: 0.7),
                 ),
               ),
             ),

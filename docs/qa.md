@@ -14,9 +14,6 @@ The project uses `flutter_gherkin` to define behavior-driven scenarios.
 - **Driver**: `flutter drive --target=test_driver/app.dart`
 - **Runner**: `dart test_driver/gherkin_suite_test.dart`
 
-## Static Analysis & Code Quality
+## Static Analysis 
 - **Flutter Analyze**: Standard linting using `flutter_lints`.
-- **SonarQube**: Automated quality gate and security scanning.
-  - Project Key: `aricie`
-  - Scanner: `sonar-scanner`
-  - Target: `lib/` source and `test_driver/` tests.
+

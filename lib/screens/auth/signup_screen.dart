@@ -18,10 +18,6 @@ class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
-  bool _obscurePassword = true;
-  String _passwordStrength = '';
-  Color _strengthColor = Colors.grey;
-  double _strengthValue = 0.0;
 
   @override
   void dispose() {
@@ -29,9 +25,6 @@ class _SignupScreenState extends State<SignupScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  void _checkPasswordStrength(String password) {
   }
 
   Future<void> _signUp() async {
@@ -96,7 +89,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   // Logo
                    Center(
                     child: Image.asset(
-                      'assets/images/logo.png',
+                       'assets/images/logo.png',
                       width: 96,
                       height: 96,
                       fit: BoxFit.contain,
@@ -145,10 +138,6 @@ class _SignupScreenState extends State<SignupScreen> {
                     children: [
                     ],
                   ),
-                  
-                  // Password strength indicator
-                  if (_passwordStrength.isNotEmpty) ...[
-                  ],
                   
                   const SizedBox(height: AppSpacing.s6),
                   

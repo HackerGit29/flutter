@@ -10,6 +10,7 @@ import 'theme/app_theme.dart';
 import 'services/notification_service.dart';
 import 'services/update_service.dart';
 import 'core/constants.dart';
+import 'core/di/injection_container.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -21,6 +22,41 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
+  final supabaseUrl = AppConstants.supabaseUrl;
+  final supabaseAnonKey = AppConstants.supabaseAnonKey;
+  if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
+    throw ArgumentError(
+      'Supabase URL et clé anonyme requises. '
+      'Lancez avec: --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...',
+    );
+  }
+  await Supabase.initialize(
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
+  );
+
+  final notificationService = NotificationService();
+  notificationService.onNotificationTap = (payload) {
+    if (payload == 'update') {
+      UpdateService.instance.checkForUpdate().then((info) {
+        if (info.updateAvailable) {
+          navigateToUpdate(info);
+        }
+      });
+    }
+  };
+  await notificationService.init();
+  await notificationService.requestPermissions();
+
+  await notificationService.showPeriodicNotification(
+    id: 1,
+    title: 'Rappel quotidien',
+    body: 'N\'oubliez pas de vérifier votre consommation d\'énergie',
+    repeatInterval: RepeatInterval.daily,
+  );
+
+  await initDependencies();
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),
@@ -28,42 +64,7 @@ void main() async {
     ),
   );
 
-  Future.microtask(() async {
-    final supabaseUrl = AppConstants.supabaseUrl;
-    final supabaseAnonKey = AppConstants.supabaseAnonKey;
-    if (supabaseUrl.isEmpty || supabaseAnonKey.isEmpty) {
-      throw ArgumentError(
-        'Supabase URL et clé anonyme requises. '
-        'Lancez avec: --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...',
-      );
-    }
-    await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
-    );
-
-    final notificationService = NotificationService();
-    notificationService.onNotificationTap = (payload) {
-      if (payload == 'update') {
-        UpdateService.instance.checkForUpdate().then((info) {
-          if (info.updateAvailable) {
-            navigateToUpdate(info);
-          }
-        });
-      }
-    };
-    await notificationService.init();
-    await notificationService.requestPermissions();
-
-    await notificationService.showPeriodicNotification(
-      id: 1,
-      title: 'Rappel quotidien',
-      body: 'N\'oubliez pas de vérifier votre consommation d\'énergie',
-      repeatInterval: RepeatInterval.daily,
-    );
-
-    _checkForUpdates();
-  });
+  _checkForUpdates();
 }
 
 Future<void> _checkForUpdates() async {

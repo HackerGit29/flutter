@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:aricie/screens/auth/login_screen.dart';
 import 'package:lottie/lottie.dart';
-import 'auth/signup_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -23,7 +22,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
     OnboardingPage(
       title: 'Contrôlez vos appareils',
-      description: 'Gérez tous vos appareils connectés depuis une seule interface',
+      description: 'Gérer tous vos appareils connectés depuis une seule interface',
       lottieAsset: 'assets/animations/smart_phone.json',
     ),
     OnboardingPage(
@@ -50,7 +49,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              colorScheme.background,
+              colorScheme.surface,
               colorScheme.surface,
             ],
           ),
@@ -135,7 +134,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               ),
                             ),
                           ).animate(target: _currentPage == _pages.length - 1 ? 1 : 0)
-                            .shimmer(duration: 1200.ms, color: colorScheme.onPrimary.withOpacity(0.3)),
+                            .shimmer(duration: 1200.ms, color: colorScheme.onPrimary.withValues(alpha: 0.3)),
                         ),
                         const SizedBox(height: 16),
                         // Login button
@@ -147,7 +146,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(color: colorScheme.primary.withOpacity(0.5)),
+                                side: BorderSide(color: colorScheme.primary.withValues(alpha: 0.5)),
                               ),
                             ),
                             onPressed: () {
@@ -188,7 +187,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             height: 240,
             width: 240,
             decoration: BoxDecoration(
-              color: colorScheme.primaryContainer.withOpacity(0.2),
+              color: colorScheme.primaryContainer.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
             child: Lottie.asset(
@@ -215,7 +214,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Text(
             page.description,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: colorScheme.onBackground,
+                  color: colorScheme.onSurface,
                 ),
             textAlign: TextAlign.center,
           )

@@ -75,7 +75,7 @@ class _ChatbotFloatingButtonState extends State<ChatbotFloatingButton>
                     BoxShadow(
                       color: Theme.of(
                         context,
-                      ).colorScheme.primary.withOpacity(0.4),
+                      ).colorScheme.primary.withValues(alpha: 0.4),
                       blurRadius: 12,
                       offset: const Offset(0, 6),
                     ),
@@ -118,7 +118,7 @@ class _ChatbotFloatingButtonState extends State<ChatbotFloatingButton>
               .shimmer(
                 duration: 1800.ms,
                 curve: Curves.easeInOutCubic,
-                color: Colors.white.withOpacity(0.4),
+                color: Colors.white.withValues(alpha: 0.4),
               ),
         ),
       ),

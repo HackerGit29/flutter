@@ -3,7 +3,6 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
 import '../screens/auth/login_screen.dart';
-import '../screens/home_screen.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();

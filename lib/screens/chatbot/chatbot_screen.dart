@@ -318,7 +318,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: Row(
           children: [
@@ -409,7 +409,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                             color: Theme.of(context)
                                 .colorScheme
                                 .onSurface
-                                .withOpacity(0.6),
+                                .withValues(alpha: 0.6),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -420,7 +420,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                             color: Theme.of(context)
                                 .colorScheme
                                 .onSurface
-                                .withOpacity(0.4),
+                                .withValues(alpha: 0.4),
                           ),
                         ),
                       ],
@@ -439,9 +439,9 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                         final showDate =
                             index == 0 ||
                             !_isSameDay(
-                              message.timestamp,
-                              _messages[index - 1].timestamp,
-                            );
+                                message.timestamp,
+                                _messages[index - 1].timestamp,
+                              );
 
                         return AnimationConfiguration.staggeredList(
                           position: index,
@@ -465,7 +465,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                                           decoration: BoxDecoration(
                                             color: Theme.of(context)
                                                 .colorScheme
-                                                .surfaceVariant,
+                                                .surfaceContainerHighest,
                                             borderRadius:
                                                 BorderRadius.circular(12),
                                           ),

@@ -92,12 +92,12 @@ class VoiceService {
               _onResult?.call(result.recognizedWords);
             }
           },
-          listenFor: const Duration(seconds: 30),
-          pauseFor: const Duration(seconds: 2),
-          localeId: 'fr-FR',
           listenOptions: SpeechListenOptions(
             partialResults: true,
             listenMode: ListenMode.confirmation,
+            listenFor: const Duration(seconds: 30),
+            pauseFor: const Duration(seconds: 2),
+            localeId: 'fr-FR',
           ),
         );
       } else {

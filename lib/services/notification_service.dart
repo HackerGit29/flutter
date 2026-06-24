@@ -159,15 +159,7 @@ class NotificationService {
         final hasPermission = await NotificationPermissions.canScheduleExactAlarms();
         
         if (!hasPermission) {
-          // Si l'autorisation n'est pas accordée, ouvrir les paramètres
-          const intent = AndroidIntent(
-            action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-          );
-          await intent.launch();
-          
-          // Attendre que l'utilisateur revienne et vérifier à nouveau
-          await Future.delayed(const Duration(seconds: 2));
-          useExactAlarm = await NotificationPermissions.canScheduleExactAlarms();
+          useExactAlarm = false;
         }
       }
     }
@@ -204,18 +196,7 @@ class NotificationService {
     if (androidImpl != null) {
       final granted = await androidImpl.requestNotificationsPermission();
       
-      // Demander l'autorisation pour les alarmes exactes sur Android 12+
-      if (Platform.isAndroid) {
-        final deviceInfo = DeviceInfoPlugin();
-        final androidInfo = await deviceInfo.androidInfo;
-        
-        if (androidInfo.version.sdkInt >= 31) {
-          const intent = AndroidIntent(
-            action: 'android.settings.REQUEST_SCHEDULE_EXACT_ALARM',
-          );
-          await intent.launch();
-        }
-      }
+      // Avec USE_EXACT_ALARM, plus besoin de lancer l'intent pour demander l'autorisation.
       
       return granted ?? false;
     }
