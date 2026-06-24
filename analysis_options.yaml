@@ -28,5 +28,5 @@ linter:
 # https://dart.dev/guides/language/analysis-options
 
 analyzer:
-  enable-experiment:
-    - js-interop
+  exclude:
+    - "test_driver/**"
