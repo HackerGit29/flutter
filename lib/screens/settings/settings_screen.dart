@@ -4,7 +4,9 @@ import 'package:aricie/domain/usecases/devices/add_device.dart';
 import 'package:aricie/domain/usecases/devices/remove_device.dart';
 import 'package:aricie/domain/usecases/devices/rename_appliance.dart';
 import 'package:aricie/domain/entities/appliance.dart';
-import 'package:aricie/domain/entities/box.dart';
+
+import 'package:aricie/screens/update/update_screen.dart';
+import 'package:aricie/services/update_service.dart';
 import 'package:flutter/material.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:lottie/lottie.dart';
@@ -189,6 +191,8 @@ class _SettingsScreenState extends State<SettingsScreen>
               _buildThemeSelector(themeProvider),
               const SizedBox(height: AppSpacing.s6),
               _buildMqttStatusIndicator(),
+              const SizedBox(height: AppSpacing.s4),
+              _buildUpdateChecker(),
               const SizedBox(height: AppSpacing.s6),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -386,6 +390,87 @@ class _SettingsScreenState extends State<SettingsScreen>
       case 'heater': return Icons.whatshot;
       default: return Icons.devices;
     }
+  }
+
+  bool _updateChecking = false;
+
+  Future<void> _checkForUpdates() async {
+    setState(() => _updateChecking = true);
+    final info = await UpdateService.instance.checkForUpdate();
+    if (!mounted) return;
+    setState(() => _updateChecking = false);
+    if (info.updateAvailable) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => UpdateScreen(updateInfo: info),
+      ));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Aucune mise à jour disponible'),
+          backgroundColor: AppColors.accentMint,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Widget _buildUpdateChecker() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.all(AppSpacing.s4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: [AppShadows.sm],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        onTap: _updateChecking ? null : _checkForUpdates,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.s2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: _updateChecking
+                  ? SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    )
+                  : Icon(Icons.system_update_alt,
+                      color: Theme.of(context).colorScheme.primary, size: 24),
+            ),
+            const SizedBox(width: AppSpacing.s4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Mise à jour',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: AppSpacing.s1),
+                  Text(
+                    'Vérifier les mises à jour de l\'application',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface
+                          .withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurface
+                    .withValues(alpha: 0.3)),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildMqttStatusIndicator() {

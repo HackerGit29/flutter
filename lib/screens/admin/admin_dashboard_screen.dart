@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:aricie/core/di/injection_container.dart';
+import 'package:aricie/screens/update/update_screen.dart';
+import 'package:aricie/services/update_service.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:aricie/domain/entities/box.dart';
 import 'package:aricie/domain/entities/user.dart';
@@ -75,17 +77,45 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     if (mounted) setState(() => _loadingLogs = false);
   }
 
+  Future<void> _checkUpdate() async {
+    final info = await UpdateService.instance.checkForUpdate();
+    if (!mounted) return;
+    if (info.updateAvailable) {
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => UpdateScreen(updateInfo: info),
+      ));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Aucune mise à jour disponible'),
+          backgroundColor: AppColors.accentMint,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Administration'), bottom: TabBar(
-        controller: _tabController,
-        tabs: [
-          Tab(text: 'Boîtiers (${_boxes.length})'),
-          Tab(text: 'Utilisateurs (${_users.length})'),
-          const Tab(text: 'Synchronisations'),
+      appBar: AppBar(
+        title: const Text('Administration'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.system_update_alt),
+            tooltip: 'Vérifier les mises à jour',
+            onPressed: _checkUpdate,
+          ),
         ],
-      )),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(text: 'Boîtiers (${_boxes.length})'),
+            Tab(text: 'Utilisateurs (${_users.length})'),
+            const Tab(text: 'Synchronisations'),
+          ],
+        ),
+      ),
       body: TabBarView(controller: _tabController, children: [
         _buildBoxesTab(),
         _buildUsersTab(),

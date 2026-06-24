@@ -1,32 +1,30 @@
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'dart:io' show Platform;
-import 'package:flutter/services.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-import 'notification_permissions.dart'; // Importe la nouvelle classe
+import 'notification_permissions.dart';
+
+typedef NotificationTapHandler = void Function(String? payload);
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
+  NotificationTapHandler? onNotificationTap;
 
-  // Singleton pattern
   factory NotificationService() => _instance;
 
-  NotificationService._internal() {
-    _initNotifications();
-  }
+  NotificationService._internal();
 
   void initializeTimeZones() {
     tz.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Africa/Douala'));
   }
 
-  Future<void> _initNotifications() async {
+  Future<void> init() async {
     if (!kIsWeb) {
       const AndroidInitializationSettings initializationSettingsAndroid =
           AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -34,10 +32,11 @@ class NotificationService {
       const InitializationSettings initializationSettings =
           InitializationSettings(android: initializationSettingsAndroid);
 
+      final handler = onNotificationTap;
       await _flutterLocalNotificationsPlugin.initialize(
         initializationSettings,
         onDidReceiveNotificationResponse: (NotificationResponse response) {
-          debugPrint('Notification cliquée: ${response.payload}');
+          handler?.call(response.payload);
         },
       );
     }

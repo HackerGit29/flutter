@@ -1,5 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:aricie/domain/entities/energy_data.dart';
 
 class SupabaseEnergyDataSource {
   final SupabaseClient _client;
