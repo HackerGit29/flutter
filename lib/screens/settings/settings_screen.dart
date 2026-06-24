@@ -1,4 +1,5 @@
 import 'package:aricie/core/di/injection_container.dart';
+import 'package:aricie/core/constants.dart';
 import 'package:aricie/domain/usecases/devices/get_user_appliances.dart';
 import 'package:aricie/domain/usecases/devices/add_device.dart';
 import 'package:aricie/domain/usecases/devices/remove_device.dart';
@@ -47,6 +48,37 @@ class _SettingsScreenState extends State<SettingsScreen>
     setState(() => _isLoading = false);
   }
 
+  Future<void> _loadAndInitializeMQTT() async {
+    setState(() => _isLoading = true);
+
+    final result = await GetUserAppliances(sl()).call();
+    result.fold(
+      (failure) {
+        _showError('Erreur lors du chargement des appareils');
+        setState(() => _isLoading = false);
+      },
+      (appliances) {
+        setState(() {
+          _appliances = appliances;
+        });
+        
+        // Connecter MQTT seulement si des appareils existent
+        if (appliances.isNotEmpty) {
+          _initializeMQTT(appliances.first.boxUid!);
+        }
+        
+        setState(() => _isLoading = false);
+      },
+    );
+  }
+
+  void _initializeMQTT(String boxUid) {
+    _mqttService.initialize(
+      boxUid: boxUid,
+      mqttToken: AppConstants.flespiAppToken,
+    );
+  }
+
   Future<void> _addDevice() async {
     final nameController = TextEditingController();
     String selectedLocation = 'Salon';
@@ -65,7 +97,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: selectedLocation,
+                initialValue: selectedLocation,
                 decoration: const InputDecoration(labelText: 'Emplacement', border: OutlineInputBorder()),
                 items: ['Salon', 'Cuisine', 'Chambre', 'Bureau', 'Autres']
                   .map((l) => DropdownMenuItem(value: l, child: Text(l)))
@@ -88,7 +120,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         final addResult = await AddDevice(sl()).call(name, selectedLocation);
         addResult.fold(
           (failure) => _showError('Erreur lors de l\'ajout du boîtier'),
-          (_) => _loadAppliances(),
+          (_) => _loadAndInitializeMQTT(),
         );
       }
     }
@@ -153,11 +185,8 @@ class _SettingsScreenState extends State<SettingsScreen>
       duration: const Duration(seconds: 2),
     )..repeat();
 
-    _loadAppliances();
-    _mqttService.initialize(
-      boxUid: '',
-      mqttToken: '',
-    );
+    // Charger les appareils et initialiser MQTT en même temps
+    _loadAndInitializeMQTT();
 
     Future.delayed(const Duration(milliseconds: 100), () {
       setState(() {
@@ -177,7 +206,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: AnimatedPadding(
           padding: EdgeInsets.all(_isExpanded ? AppSpacing.s4 : 0.0),
@@ -303,7 +332,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           Switch.adaptive(
             value: themeProvider.isDarkMode,
             onChanged: (value) => themeProvider.toggleTheme(),
-            activeColor: Theme.of(context).colorScheme.primary,
+            activeThumbColor: Theme.of(context).colorScheme.primary,
           ),
         ],
       ),
@@ -332,8 +361,11 @@ class _SettingsScreenState extends State<SettingsScreen>
             content: Text('Supprimer tout le boîtier contenant "${appliance.name}" ?'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
-              TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Supprimer'),
-                style: TextButton.styleFrom(foregroundColor: AppColors.accentDot)),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: AppColors.accentDot),
+                child: const Text('Supprimer'),
+              ),
             ],
           ),
         );
@@ -474,6 +506,45 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildMqttStatusIndicator() {
+    // Pas d'appareils : on masque le bouton, pas de notification
+    if (_appliances.isEmpty) {
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(AppSpacing.s4),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          boxShadow: [AppShadows.sm],
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 50, height: 50,
+              child: Lottie.asset('assets/animations/disconnected.json', fit: BoxFit.contain),
+            ),
+            const SizedBox(width: AppSpacing.s4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('État du broker MQTT', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: AppSpacing.s1),
+                  Text(
+                    'Aucun appareil configuré',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Sinon : afficher l'etat reel du broker
     return StreamBuilder<MqttConnectionState>(
       stream: _mqttService.connectionStateStream,
       builder: (context, snapshot) {
@@ -532,8 +603,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ],
                 ),
               ),
-              if (connectionState == MqttConnectionState.disconnected)
-                ElevatedButton(onPressed: () => _mqttService.initialize(boxUid: '', mqttToken: ''), child: const Text('Reconnecter')),
+              if (connectionState == MqttConnectionState.disconnected && _appliances.isNotEmpty)
+                ElevatedButton(
+                  onPressed: () => _initializeMQTT(_appliances.first.boxUid!),
+                  child: const Text('Reconnecter'),
+                ),
             ],
           ),
         );

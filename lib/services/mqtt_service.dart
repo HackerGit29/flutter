@@ -4,17 +4,16 @@ import 'dart:math';
 import 'package:aricie/models/box_telemetry.dart';
 import 'package:aricie/services/notification_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:aricie/core/constants.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
 
 import 'mqtt/mqtt5_client_interface.dart';
-import 'mqtt/mqtt5_native.dart';
-import 'mqtt/mqtt5_web.dart';
+import 'mqtt/mqtt_client_factory.dart'
+    if (dart.library.js_interop) 'mqtt/mqtt_client_factory_web.dart';
 
 class MqttService {
-  static const String _host = 'mqtt.flespi.io';
   static const int _tcpTlsPort = 8883;
   static const int _wssPort = 443;
-
   late Mqtt5ClientInterface _client;
 
   final _connectionStateController =
@@ -47,28 +46,30 @@ class MqttService {
   BoxTelemetry? get latestTelemetry => _latestTelemetry;
 
   Future<void> initialize({
-    required String boxUid,
-    required String mqttToken,
+    String? boxUid,
+    String? mqttToken,
   }) async {
     if (_isInitializing || _initialized) return;
 
-    _isInitializing = true;
+    // boxUid requis, token fallback sur celui de l'app mobile
     _boxUid = boxUid;
-    _mqttToken = mqttToken;
+    _mqttToken = mqttToken ?? AppConstants.flespiAppToken;
 
-    final clientId = 'aricie_${boxUid}_${Random().nextInt(999999)}';
+    if (_boxUid == null || _mqttToken == null) {
+      throw ArgumentError('Box UID and MQTT token are required');
+    }
+
+    _isInitializing = true;
+
+    final clientId = 'aricie_${_boxUid}_${Random().nextInt(999999)}';
 
     try {
       _connectionStateController.add(MqttConnectionState.connecting);
 
-      if (kIsWeb) {
-        _client = Mqtt5WebClient();
-      } else {
-        _client = Mqtt5NativeClient();
-      }
+      _client = createMqttClient();
 
       await _client.initialize(
-        host: _host,
+        host: AppConstants.flespiHost,
         port: kIsWeb ? _wssPort : _tcpTlsPort,
         clientId: clientId,
         useWebSocket: kIsWeb,
@@ -76,11 +77,11 @@ class MqttService {
       );
 
       _client.setCredentials(
-        username: mqttToken,
+        username: _mqttToken!,
         password: '',
       );
 
-      _client.setOnConnected(() => _onConnected(boxUid));
+      _client.setOnConnected(() => _onConnected(_boxUid!));
       _client.setOnDisconnected(_onDisconnected);
       _client.setOnSubscribed(_onSubscribed);
 
@@ -248,6 +249,7 @@ class MqttService {
   }
 
   Future<void> dispose() async {
+    _initialized = false;
     _client.disconnect();
     await _updatesSubscription?.cancel();
     await _connectionStateController.close();

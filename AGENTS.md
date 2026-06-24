@@ -37,6 +37,7 @@ flutter build apk --obfuscate --split-debug-info=build/obfuscation/
 - **DI**: `get_it` service locator (`lib/core/di/injection_container.dart`)
 - **Dependency override**: `dependency_overrides.web: 1.1.1`
 - **Static analysis**: Checked via `flutter analyze`; MQTT-related errors on web are expected (uses conditionals)
+- **Logging**: JSON export to GCS for debugging and analysis
 
 ## Architecture layers
 
@@ -90,6 +91,7 @@ workers/
 | File                                      | Role                                                            |
 | ----------------------------------------- | --------------------------------------------------------------- |
 | `lib/main.dart`                           | App initialization: Supabase, notifications, splash → auth flow |
+| `lib/core/constants.dart`                 | Environment-based configuration (`.env/dev.json`)               |
 | `supabase/functions/ai-chat/index.ts`     | Edge Function Phi-4-mini-instruct (chat simple)                 |
 | `supabase/functions/agent-orchestrator/`  | Edge Function avancée (tool calling + SSE + RAG)                |
 | `supabase/functions/transcribe-audio/index.ts` | Edge Function : audio → gpt-4o-transcribe → texte          |
@@ -102,7 +104,6 @@ workers/
 | `lib/theme/app_theme.dart`                | Light/dark theme (Material 3, seed `#4A6572`)                   |
 | `lib/screens/home_screen.dart`            | Main dashboard (tabs: Dashboard, Stats, Devices, Settings)      |
 | `lib/screens/chatbot/chatbot_screen.dart` | Chat UI with SSE streaming + voice mode toggle                  |
-| `lib/core/constants.dart`                 | Environment-based configuration                                 |
 
 ## AI Agent Architecture
 
@@ -170,6 +171,30 @@ flutter clean && flutter pub get   # Reset dependencies
 dart run flutter_launcher_icons        # Regenerate app icons
 flutter build apk --obfuscate --split-debug-info=build/obfuscation/  # Release build
 ```
+
+## MQTT — Architecture des tokens
+
+| Composant | Token Flespi | Permissions | Usage |
+|-----------|-------------|-------------|-------|
+| Worker (`mqtt5-worker`) | `FLESPI_MQTT_WORKER_TOKEN` | PUBLISH cmd, SUBSCRIBE ack | Envoi commandes aux boitiers |
+| App Flutter | `FLESPI_MQTT_APP_TOKEN` | SUBSCRIBE telemetry/status | Recuperer donnees capteurs en temps reel |
+
+### Flux de commandes
+
+```
+Flutter → Edge Function (agent-orchestrator) → device_commands (BDD)
+  → Worker MQTT → publie sur MQTT → Boitier
+  → Boitier repond ACK → Worker met a jour device_commands
+```
+
+**L'app Flutter ne publie JAMAIS sur MQTT.** Toutes les commandes passent par la file `device_commands`.
+
+### Connexion MQTT de l'app
+
+- L'app ne se connecte au broker que si des appareils sont enregistres en BDD
+- Le `boxUid` est `uid_hardware` de la table `boxes` (recupere via join appliances/boxes)
+- En cas d'echec de connexion, la notification est envoyee uniquement si l'app a essaye de se connecter
+- Si pas d'appareils : le bouton "Reconnecter" est masque, pas de notification
 
 ## MQTT5 Worker — Build & Deploy
 
@@ -255,7 +280,7 @@ Semantic Versioning 2.0.0. Canonical version in `pubspec.yaml`. See `VERSION.md`
 - MQTT on web uses stub client (`mqtt/mqtt_web.dart`) — features limited
 - Supabase URL/key required via `--dart-define` at compile time
 - `mqtt_client` import from `src/typed_buffer.dart` directly (non-standard pattern)
-- `dependency_overrides.web: 1.1.1` pinned to avoid breaking changes
+- ~~`dependency_overrides.web: 1.1.1`~~ (removed — incompatible with Dart 3.7+; replaced with conditional imports for MQTT web/native client selection via `mqtt_client_factory*.dart`) pinned to avoid breaking changes
 - Azure OpenAI secrets must be set in Supabase dashboard (Edge Functions secrets)
 - `WEBHOOK_SECRET` required for mqtt-worker webhook security
 - Phi-4-mini-instruct utilise l'API version `2024-06-01` (pas `2024-10-21` comme les modèles OpenAI)
