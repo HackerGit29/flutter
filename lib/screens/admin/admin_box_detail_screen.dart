@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:aricie/core/di/injection_container.dart';
-import 'package:aricie/theme/app_theme.dart';
 import 'package:aricie/domain/entities/box.dart';
 import 'package:aricie/domain/entities/sync_log.dart';
 import 'package:aricie/domain/usecases/admin/reset_device.dart';

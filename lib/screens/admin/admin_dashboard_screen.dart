@@ -64,7 +64,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   Future<void> _loadUsers() async {
     setState(() => _loadingUsers = true);
-    final result = await GetAllUsers(sl()).call();
+    final result = await GetAllUsers(sl(), sl()).call();
     result.fold(
       (_) {},
       (data) => _users = data,

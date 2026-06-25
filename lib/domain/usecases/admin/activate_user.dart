@@ -21,7 +21,7 @@ class ActivateUser {
     targetResult.fold((failure) => targetFailure = failure, (loadedUser) => target = loadedUser);
     if (targetFailure != null) return Left(targetFailure!);
     if (target == null) return Left(ServerFailure());
-    if (target.isAdmin) return Left(CannotModifyAdminFailure());
+    if (target!.isAdmin) return Left(CannotModifyAdminFailure());
 
     final result = await _adminRepo.activateUser(targetUserId);
     if (result.isRight()) {

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:aricie/core/di/injection_container.dart';
-import 'package:aricie/theme/app_theme.dart';
 import 'package:aricie/domain/entities/user.dart';
 import 'package:aricie/domain/entities/box.dart';
 import 'package:aricie/domain/usecases/admin/suspend_user.dart';
