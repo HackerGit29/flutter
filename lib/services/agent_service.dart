@@ -31,9 +31,12 @@ class AgentService {
     required String sessionId,
     String mode = 'text',
   }) async* {
+    debugPrint('[AgentService] streamMessage start: "$message"');
     final token = await getAccessToken();
+    debugPrint('[AgentService] token length: ${token.length}');
 
     if (token.isEmpty) {
+      debugPrint('[AgentService] No token - user not logged in');
       yield AgentStreamEvent('error', {
         'message': 'Vous devez être connecté pour utiliser l\'assistant.',
       });
@@ -42,10 +45,10 @@ class AgentService {
     }
 
     try {
-      final request = http.Request(
-        'POST',
-        Uri.parse(_edgeFunctionUrl),
-      );
+      final url = Uri.parse(_edgeFunctionUrl);
+      debugPrint('[AgentService] POST $url');
+
+      final request = http.Request('POST', url);
 
       request.headers.addAll({
         'Authorization': 'Bearer $token',
@@ -61,10 +64,11 @@ class AgentService {
       });
 
       final response = await request.send();
+      debugPrint('[AgentService] HTTP ${response.statusCode}');
 
       if (response.statusCode != 200) {
         final errorBody = await response.stream.bytesToString();
-        debugPrint('AgentService error: $errorBody');
+        debugPrint('[AgentService] error body: $errorBody');
 
         yield AgentStreamEvent('error', {
           'message':
@@ -75,9 +79,12 @@ class AgentService {
       }
 
       String? currentEvent;
+      int eventCount = 0;
 
       await for (final line
           in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+        debugPrint('[AgentService] SSE line: "$line"');
+
         if (line.startsWith('event:')) {
           currentEvent = line.substring(6).trim();
           continue;
@@ -89,14 +96,18 @@ class AgentService {
 
           try {
             final parsed = jsonDecode(raw) as Map<String, dynamic>;
+            eventCount++;
+            debugPrint('[AgentService] event #$eventCount: $currentEvent → $parsed');
             yield AgentStreamEvent(currentEvent ?? 'message', parsed);
           } catch (e) {
-            debugPrint('AgentService parse error: $e');
+            debugPrint('[AgentService] parse error: $e | raw="$raw"');
           }
         }
       }
+
+      debugPrint('[AgentService] stream done ($eventCount events)');
     } catch (e) {
-      debugPrint('AgentService stream error: $e');
+      debugPrint('[AgentService] exception: $e');
       yield AgentStreamEvent('error', {
         'message':
             'Une erreur de connexion est survenue. Vérifiez votre connexion internet.',

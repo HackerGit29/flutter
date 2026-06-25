@@ -1,6 +1,6 @@
 import { createAdminClient, getAuthenticatedUser } from "./auth.ts";
 import { corsHeaders, jsonError, sseHeaders, writeSse } from "./stream.ts";
-import { detectToolOrAnswer, streamFinalAnswer } from "./azure_openai.ts";
+import { detectToolOrAnswer, streamFinalAnswer, LlmHttpError } from "./llm.ts";
 import {
   resolveApplianceByName,
   checkDeviceActionPolicy,
@@ -372,6 +372,8 @@ Deno.serve(async (req) => {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
+        console.log(`[orchestrator] user=${authUser.id} msg="${body.message}"`);
+
         // Envoyer un premier event pour confirmer la connexion
         await writeSse(controller, "connected", {
           user_id: authUser.id,
@@ -451,25 +453,34 @@ Deno.serve(async (req) => {
         await writeSse(controller, "done", {});
         controller.close();
       } catch (error) {
-        console.error("Orchestrator error:", error);
+        console.error("[orchestrator] FATAL:", error);
 
-        // Si Azure OpenAI n'est pas configuré, message explicite
-        if (
+        let errorMsg = "Désolé, une erreur technique est survenue.";
+        let errorCode = "internal_error";
+
+        if (error instanceof LlmHttpError) {
+          if (error.status === 429) {
+            errorMsg =
+              "L'assistant est temporairement surchargé. Réessayez dans quelques secondes.";
+            errorCode = "rate_limited";
+          } else {
+            errorMsg =
+              "Le service IA est momentanément indisponible. Veuillez réessayer.";
+            errorCode = "llm_unavailable";
+          }
+        } else if (
           error instanceof Error &&
-          error.message.includes("Azure OpenAI non configuré")
+          error.message.includes("non configuré")
         ) {
-          await writeSse(controller, "error", {
-            message:
-              "L'assistant IA n'est pas encore configuré. Veuillez déployer Azure OpenAI et définir les secrets Supabase.",
-            code: "azure_not_configured",
-          });
-        } else {
-          await writeSse(controller, "error", {
-            message:
-              "Une erreur est survenue pendant le traitement de votre demande.",
-            code: "internal_error",
-          });
+          errorMsg =
+            "L'assistant IA n'est pas encore configuré. Veuillez déployer Azure OpenAI et définir les secrets Supabase.";
+          errorCode = "configuration_error";
         }
+
+        await writeSse(controller, "error", {
+          message: errorMsg,
+          code: errorCode,
+        });
 
         await writeSse(controller, "done", {});
         controller.close();

@@ -39,6 +39,47 @@ function azureHeaders(config: ReturnType<typeof getAzureConfig>) {
 }
 
 /**
+ * Fetch avec retry automatique pour les erreurs 429 (rate limit).
+ * Backoff exponentiel : 2s, 4s, 8s (max 3 tentatives).
+ * Lit le header Retry-After d'Azure s'il est présent.
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 3,
+): Promise<Response> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fetch(url, options);
+
+    if (response.status !== 429) {
+      return response;
+    }
+
+    if (attempt === maxRetries) {
+      return response;
+    }
+
+    // Lire Retry-After du header Azure, sinon backoff exponentiel
+    const retryAfter = response.headers.get("Retry-After");
+    const waitSeconds = retryAfter
+      ? parseInt(retryAfter, 10)
+      : Math.pow(2, attempt + 1);
+
+    console.warn(
+      `[azure_openai] 429 rate limit, retry ${attempt + 1}/${maxRetries} dans ${waitSeconds}s`,
+    );
+
+    // Consommer le body pour libérer la connexion
+    await response.text().catch(() => {});
+
+    await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
+  }
+
+  // Ne devrait jamais arriver mais satisfy le type
+  throw new Error("Retry limit exceeded");
+}
+
+/**
  * Premier passage non-streaming : détection d'intention + tool calling.
  * Retourne soit une réponse texte directe, soit des tool_calls à exécuter.
  */
@@ -47,7 +88,13 @@ export async function detectToolOrAnswer(params: {
   operationalContext: unknown;
   ragContext?: unknown;
 }) {
-  const config = ensureAzureConfigured();
+  const config = getAzureConfig();
+
+  if (!config.endpoint || !config.apiKey) {
+    throw new Error(
+      "Azure OpenAI non configuré. Définissez AZURE_OPENAI_ENDPOINT et AZURE_OPENAI_API_KEY dans les secrets Supabase.",
+    );
+  }
 
   const messages: AzureMessage[] = [
     {
@@ -72,7 +119,7 @@ export async function detectToolOrAnswer(params: {
     },
   ];
 
-  const response = await fetch(azureUrl(config), {
+  const response = await fetchWithRetry(azureUrl(config), {
     method: "POST",
     headers: azureHeaders(config),
     body: JSON.stringify({
@@ -86,6 +133,11 @@ export async function detectToolOrAnswer(params: {
 
   if (!response.ok) {
     const text = await response.text();
+
+    if (response.status === 429) {
+      throw new Error("RATE_LIMIT");
+    }
+
     throw new Error(`Azure OpenAI error: ${response.status} ${text}`);
   }
 
@@ -109,7 +161,7 @@ export async function streamFinalAnswer(params: {
 }) {
   const config = ensureAzureConfigured();
 
-  const response = await fetch(azureUrl(config), {
+  const response = await fetchWithRetry(azureUrl(config), {
     method: "POST",
     headers: azureHeaders(config),
     body: JSON.stringify({
@@ -122,6 +174,11 @@ export async function streamFinalAnswer(params: {
 
   if (!response.ok || !response.body) {
     const text = await response.text();
+
+    if (response.status === 429) {
+      throw new Error("RATE_LIMIT");
+    }
+
     throw new Error(`Azure streaming error: ${response.status} ${text}`);
   }
 

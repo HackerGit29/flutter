@@ -97,14 +97,6 @@ class MqttService {
       _connectionStateController.add(MqttConnectionState.disconnected);
       _previousConnectionState = MqttConnectionState.disconnected;
 
-      if (!kIsWeb) {
-        _notificationService.showNotification(
-          id: 3,
-          title: 'Problème de connexion',
-          body: 'Impossible de se connecter au broker MQTT.',
-        );
-      }
-
       _scheduleReconnect();
     } finally {
       _isInitializing = false;
