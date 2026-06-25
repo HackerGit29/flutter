@@ -13,6 +13,16 @@ class ResetDevice {
     final currentUser = await _authRepo.getCurrentUser();
     final user = currentUser.getOrElse(() => null);
     if (user == null || !user.isAdmin) return Left(AdminPermissionFailure());
-    return _adminRepo.resetBox(boxId);
+
+    final result = await _adminRepo.resetBox(boxId);
+    if (result.isRight()) {
+      await _adminRepo.logAdminAction(
+        adminId: user.id,
+        action: 'reset_box',
+        targetType: 'box',
+        targetId: boxId,
+      );
+    }
+    return result;
   }
 }

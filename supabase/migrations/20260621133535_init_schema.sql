@@ -122,59 +122,92 @@ CREATE TABLE IF NOT EXISTS admin_actions (
 CREATE INDEX IF NOT EXISTS idx_admin_actions_admin_id ON admin_actions(admin_id);
 CREATE INDEX IF NOT EXISTS idx_admin_actions_timestamp ON admin_actions(timestamp DESC);
 
+-- Authorization helpers
+CREATE SCHEMA IF NOT EXISTS private;
+
+CREATE OR REPLACE FUNCTION private.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.users
+    WHERE id = auth.uid()
+      AND role = 'admin'
+  );
+$$;
+
+REVOKE ALL ON FUNCTION private.is_admin() FROM PUBLIC;
+GRANT USAGE ON SCHEMA private TO authenticated;
+GRANT EXECUTE ON FUNCTION private.is_admin() TO authenticated;
+
 -- RLS Policies
 ALTER TABLE boxes ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
     DROP POLICY IF EXISTS boxes_user_select ON boxes;
-    CREATE POLICY boxes_user_select ON boxes FOR SELECT USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+    CREATE POLICY boxes_user_select ON boxes FOR SELECT TO authenticated USING (user_id = auth.uid() OR private.is_admin());
 EXCEPTION WHEN others THEN null; END $$;
 DO $$ BEGIN
     DROP POLICY IF EXISTS boxes_user_insert ON boxes;
-    CREATE POLICY boxes_user_insert ON boxes FOR INSERT WITH CHECK (user_id = auth.uid());
+    CREATE POLICY boxes_user_insert ON boxes FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid() OR private.is_admin());
 EXCEPTION WHEN others THEN null; END $$;
 DO $$ BEGIN
     DROP POLICY IF EXISTS boxes_user_update ON boxes;
-    CREATE POLICY boxes_user_update ON boxes FOR UPDATE USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+    CREATE POLICY boxes_user_update ON boxes FOR UPDATE TO authenticated USING (user_id = auth.uid() OR private.is_admin()) WITH CHECK (user_id = auth.uid() OR private.is_admin());
 EXCEPTION WHEN others THEN null; END $$;
 DO $$ BEGIN
     DROP POLICY IF EXISTS boxes_user_delete ON boxes;
-    CREATE POLICY boxes_user_delete ON boxes FOR DELETE USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+    CREATE POLICY boxes_user_delete ON boxes FOR DELETE TO authenticated USING (user_id = auth.uid() OR private.is_admin());
 EXCEPTION WHEN others THEN null; END $$;
 
 ALTER TABLE appliances ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
     DROP POLICY IF EXISTS appliances_user_select ON appliances;
-    CREATE POLICY appliances_user_select ON appliances FOR SELECT USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+    CREATE POLICY appliances_user_select ON appliances FOR SELECT TO authenticated USING (user_id = auth.uid() OR private.is_admin());
+EXCEPTION WHEN others THEN null; END $$;
+DO $$ BEGIN
+    DROP POLICY IF EXISTS appliances_user_insert ON appliances;
+    CREATE POLICY appliances_user_insert ON appliances FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid() OR private.is_admin());
 EXCEPTION WHEN others THEN null; END $$;
 DO $$ BEGIN
     DROP POLICY IF EXISTS appliances_user_update ON appliances;
-    CREATE POLICY appliances_user_update ON appliances FOR UPDATE USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+    CREATE POLICY appliances_user_update ON appliances FOR UPDATE TO authenticated USING (user_id = auth.uid() OR private.is_admin()) WITH CHECK (user_id = auth.uid() OR private.is_admin());
 EXCEPTION WHEN others THEN null; END $$;
 
 ALTER TABLE energy_data ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
     DROP POLICY IF EXISTS energy_data_user_select ON energy_data;
-    CREATE POLICY energy_data_user_select ON energy_data FOR SELECT USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+    CREATE POLICY energy_data_user_select ON energy_data FOR SELECT TO authenticated USING (user_id = auth.uid() OR private.is_admin());
 EXCEPTION WHEN others THEN null; END $$;
 
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
     DROP POLICY IF EXISTS subscriptions_select ON subscriptions;
-    CREATE POLICY subscriptions_select ON subscriptions FOR SELECT USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+    CREATE POLICY subscriptions_select ON subscriptions FOR SELECT TO authenticated USING (user_id = auth.uid() OR private.is_admin());
+EXCEPTION WHEN others THEN null; END $$;
+DO $$ BEGIN
+    DROP POLICY IF EXISTS subscriptions_update ON subscriptions;
+    CREATE POLICY subscriptions_update ON subscriptions FOR UPDATE TO authenticated USING (user_id = auth.uid() OR private.is_admin()) WITH CHECK (user_id = auth.uid() OR private.is_admin());
 EXCEPTION WHEN others THEN null; END $$;
 
 ALTER TABLE sync_logs ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
     DROP POLICY IF EXISTS sync_logs_select ON sync_logs;
-    CREATE POLICY sync_logs_select ON sync_logs FOR SELECT USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+    CREATE POLICY sync_logs_select ON sync_logs FOR SELECT TO authenticated USING (user_id = auth.uid() OR private.is_admin());
+EXCEPTION WHEN others THEN null; END $$;
+DO $$ BEGIN
+    DROP POLICY IF EXISTS sync_logs_insert ON sync_logs;
+    CREATE POLICY sync_logs_insert ON sync_logs FOR INSERT TO authenticated WITH CHECK (user_id = auth.uid() OR private.is_admin());
 EXCEPTION WHEN others THEN null; END $$;
 
 ALTER TABLE admin_actions ENABLE ROW LEVEL SECURITY;
 DO $$ BEGIN
     DROP POLICY IF EXISTS admin_actions_select ON admin_actions;
-    CREATE POLICY admin_actions_select ON admin_actions FOR SELECT USING (auth.jwt()->>'role' = 'admin');
+    CREATE POLICY admin_actions_select ON admin_actions FOR SELECT TO authenticated USING (private.is_admin());
 EXCEPTION WHEN others THEN null; END $$;
 DO $$ BEGIN
     DROP POLICY IF EXISTS admin_actions_insert ON admin_actions;
-    CREATE POLICY admin_actions_insert ON admin_actions FOR INSERT WITH CHECK (auth.jwt()->>'role' = 'admin');
+    CREATE POLICY admin_actions_insert ON admin_actions FOR INSERT TO authenticated WITH CHECK (private.is_admin());
 EXCEPTION WHEN others THEN null; END $$;

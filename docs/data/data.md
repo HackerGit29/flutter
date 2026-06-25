@@ -3,7 +3,7 @@
 Implements the domain repositories and manages data sources.
 
 ## Datasources
-- `SupabaseAuthDatasource`: Wraps Supabase Auth API.
+- `SupabaseAuthDatasource`: Wraps Supabase Auth API. Uses `maybeSingle()` for profile loading (avoids overwriting role on transient errors). Profile creation via `insert().select().single()` to ensure `created_at` is returned.
 - `SupabaseBoxDatasource`: Manages box records in PostgreSQL (table `boxes`).
 - `SupabaseApplianceDatasource`: Manages appliance relay records (table `appliances`). Joins `boxes` to populate `box_uid` on `getUserAppliances`.
 - `SupabaseEnergyDatasource`: Queries aggregated energy consumption (table `energy_data`).

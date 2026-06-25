@@ -79,8 +79,8 @@ flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
 Ou configuration via variable d'environnement :
 
 ```bash
-$env:SUPABASE_URL = "https://votre-projet.supabase.co"
-$env:SUPABASE_ANON_KEY = "votre-cle-anon"
+$env:SUPABASE_URL = "https://xxxxxxxxxxxxxx.supabase.co"
+$env:SUPABASE_ANON_KEY = "xxxxxxxxxx"
 flutter run
 ```
 
@@ -101,7 +101,7 @@ Voir [CONTRIBUTING.md](CONTRIBUTING.md) pour les conventions de code, commits, b
 
 ## Versioning
 
-Ce projet suit [SemVer 2.0.0](https://semver.org/). Voir [VERSION.md](VERSION.md).
+Voir [VERSION.md](VERSION.md).
 
 ## Sécurité
 

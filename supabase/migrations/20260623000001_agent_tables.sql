@@ -38,10 +38,12 @@ ALTER TABLE device_commands ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "device_commands_user_select"
   ON device_commands FOR SELECT
-  USING (user_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+  TO authenticated
+  USING (user_id = auth.uid() OR private.is_admin());
 
 CREATE POLICY "device_commands_user_insert"
   ON device_commands FOR INSERT
+  TO authenticated
   WITH CHECK (user_id = auth.uid());
 
 CREATE INDEX IF NOT EXISTS idx_device_commands_pending
@@ -75,7 +77,8 @@ ALTER TABLE agent_audit_logs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "agent_audit_logs_admin_select"
   ON agent_audit_logs FOR SELECT
-  USING ((auth.jwt()->>'role' = 'admin') OR user_id = auth.uid());
+  TO authenticated
+  USING (private.is_admin() OR user_id = auth.uid());
 
 CREATE INDEX IF NOT EXISTS idx_agent_audit_logs_user_created
   ON agent_audit_logs(user_id, created_at DESC);
@@ -108,14 +111,17 @@ ALTER TABLE chat_embeddings ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "chat_embeddings_user_select"
   ON chat_embeddings FOR SELECT
-  USING (owner_id = auth.uid() OR (auth.jwt()->>'role' = 'admin'));
+  TO authenticated
+  USING (owner_id = auth.uid() OR private.is_admin());
 
 CREATE POLICY "chat_embeddings_user_insert"
   ON chat_embeddings FOR INSERT
+  TO authenticated
   WITH CHECK (owner_id = auth.uid());
 
 CREATE POLICY "chat_embeddings_user_delete"
   ON chat_embeddings FOR DELETE
+  TO authenticated
   USING (owner_id = auth.uid());
 
 CREATE INDEX IF NOT EXISTS idx_chat_embeddings_owner

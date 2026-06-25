@@ -4,12 +4,15 @@ import 'package:aricie/screens/update/update_screen.dart';
 import 'package:aricie/services/update_service.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:aricie/domain/entities/box.dart';
+import 'package:aricie/domain/entities/subscription.dart';
 import 'package:aricie/domain/entities/user.dart';
 import 'package:aricie/domain/entities/sync_log.dart';
 import 'package:aricie/domain/usecases/admin/get_all_users.dart';
 import 'package:aricie/domain/usecases/admin/get_all_devices.dart';
+import 'package:aricie/domain/usecases/admin/get_all_subscriptions.dart';
 import 'package:aricie/domain/usecases/admin/get_sync_logs.dart';
 import 'admin_box_detail_screen.dart';
+import 'admin_subscription_detail_screen.dart';
 import 'admin_user_detail_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -25,15 +28,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
 
   List<Box> _boxes = [];
   List<User> _users = [];
+  List<Subscription> _subscriptions = [];
   List<SyncLog> _logs = [];
   bool _loadingBoxes = true;
   bool _loadingUsers = true;
+  bool _loadingSubscriptions = true;
   bool _loadingLogs = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _loadAll();
   }
 
@@ -44,7 +49,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   }
 
   Future<void> _loadAll() async {
-    await Future.wait([_loadBoxes(), _loadUsers(), _loadLogs()]);
+    await Future.wait([_loadBoxes(), _loadUsers(), _loadSubscriptions(), _loadLogs()]);
   }
 
   Future<void> _loadBoxes() async {
@@ -75,6 +80,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       (data) => _logs = data,
     );
     if (mounted) setState(() => _loadingLogs = false);
+  }
+
+  Future<void> _loadSubscriptions() async {
+    setState(() => _loadingSubscriptions = true);
+    final result = await GetAllSubscriptions(sl(), sl()).call();
+    result.fold(
+      (_) {},
+      (data) => _subscriptions = data,
+    );
+    if (mounted) setState(() => _loadingSubscriptions = false);
   }
 
   Future<void> _checkUpdate() async {
@@ -112,6 +127,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
           tabs: [
             Tab(text: 'Boîtiers (${_boxes.length})'),
             Tab(text: 'Utilisateurs (${_users.length})'),
+            Tab(text: 'Licences (${_subscriptions.length})'),
             const Tab(text: 'Synchronisations'),
           ],
         ),
@@ -119,6 +135,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
       body: TabBarView(controller: _tabController, children: [
         _buildBoxesTab(),
         _buildUsersTab(),
+        _buildSubscriptionsTab(),
         _buildLogsTab(),
       ]),
     );
@@ -203,6 +220,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
               subtitle: Text(
                 '${log.status.name} · ${log.timestamp.toIso8601String().substring(0, 19)}',
               ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionsTab() {
+    if (_loadingSubscriptions) return const Center(child: CircularProgressIndicator());
+    if (_subscriptions.isEmpty) return const Center(child: Text('Aucune licence'));
+    return RefreshIndicator(
+      onRefresh: _loadSubscriptions,
+      child: ListView.builder(
+        itemCount: _subscriptions.length,
+        itemBuilder: (context, i) {
+          final subscription = _subscriptions[i];
+          final owner = _users.where((u) => u.id == subscription.userId).firstOrNull;
+          final isValid = subscription.isValid;
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: ListTile(
+              leading: Icon(
+                isValid ? Icons.verified : Icons.cancel_outlined,
+                color: isValid ? Colors.green : Colors.red,
+              ),
+              title: Text(owner?.email ?? subscription.userId),
+              subtitle: Text(
+                'Type: ${subscription.type.name} · ${subscription.isActive ? 'active' : 'inactive'}\n'
+                'Renouvellement: ${subscription.autoRenew ? 'oui' : 'non'}',
+              ),
+              isThreeLine: true,
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(context, MaterialPageRoute(
+                builder: (_) => AdminSubscriptionDetailScreen(
+                  subscription: subscription,
+                  owner: owner,
+                ),
+              )).then((_) => _loadSubscriptions()),
             ),
           );
         },

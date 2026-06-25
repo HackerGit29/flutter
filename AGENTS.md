@@ -145,7 +145,7 @@ Flutter Chat / Voice
 | `agent_audit_logs` | Journal immuable des décisions de l'agent                       |
 | `chat_embeddings`  | Vecteurs RAG pgvector scope par `owner_id`                      |
 
-All tables use RLS. Full schema in `docs/supabase/init_db.sql` and `supabase/migrations/`.
+All tables use RLS. Admin bypass via `private.is_admin()` (SECURITY DEFINER querying `public.users.role`). Full schema in `docs/supabase/init_db.sql` and `supabase/migrations/`.
 
 ## 2026 project evolution (in progress)
 

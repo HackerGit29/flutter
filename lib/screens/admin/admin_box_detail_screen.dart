@@ -5,7 +5,9 @@ import 'package:aricie/domain/entities/box.dart';
 import 'package:aricie/domain/entities/sync_log.dart';
 import 'package:aricie/domain/usecases/admin/reset_device.dart';
 import 'package:aricie/domain/usecases/admin/assign_device.dart';
+import 'package:aricie/domain/usecases/admin/force_sync.dart';
 import 'package:aricie/domain/usecases/admin/get_sync_logs.dart';
+import 'package:aricie/domain/usecases/admin/override_ownership.dart';
 
 class AdminBoxDetailScreen extends StatefulWidget {
   final Box box;
@@ -19,6 +21,7 @@ class _AdminBoxDetailScreenState extends State<AdminBoxDetailScreen> {
   List<SyncLog> _logs = [];
   bool _loadingLogs = true;
   bool _resetting = false;
+  bool _forcingSync = false;
 
   @override
   void initState() {
@@ -88,6 +91,71 @@ class _AdminBoxDetailScreenState extends State<AdminBoxDetailScreen> {
     }
   }
 
+  Future<void> _overrideOwnership() async {
+    final userIdController = TextEditingController();
+    final reasonController = TextEditingController();
+    final result = await showDialog<({String userId, String reason})>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Override ownership'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: userIdController,
+              decoration: const InputDecoration(labelText: 'ID utilisateur cible', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonController,
+              minLines: 2,
+              maxLines: 4,
+              decoration: const InputDecoration(labelText: 'Justification', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, (
+              userId: userIdController.text.trim(),
+              reason: reasonController.text.trim(),
+            )),
+            child: const Text('Confirmer'),
+          ),
+        ],
+      ),
+    );
+    if (result == null || result.userId.isEmpty || result.reason.isEmpty) return;
+
+    final overrideResult = await OverrideOwnership(sl(), sl()).call(
+      widget.box.id,
+      result.userId,
+      result.reason,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(overrideResult.isLeft() ? 'Erreur lors de l\'override' : 'Ownership modifié'),
+        backgroundColor: overrideResult.isLeft() ? Colors.red : Colors.green,
+      ));
+    }
+  }
+
+  Future<void> _forceSync() async {
+    setState(() => _forcingSync = true);
+    final result = await ForceSync(sl(), sl()).call(widget.box.id);
+    if (mounted) setState(() => _forcingSync = false);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result.isLeft() ? 'Erreur lors de la synchronisation' : 'Synchronisation forcée'),
+        backgroundColor: result.isLeft() ? Colors.red : Colors.green,
+      ));
+    }
+    if (result.isRight()) await _loadLogs();
+  }
+
   @override
   Widget build(BuildContext context) {
     final box = widget.box;
@@ -133,6 +201,20 @@ class _AdminBoxDetailScreenState extends State<AdminBoxDetailScreen> {
                 label: const Text('Réinitialiser'),
                 onPressed: _resetting ? null : _resetBox,
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+              )),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: ElevatedButton.icon(
+                icon: _forcingSync ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.sync),
+                label: const Text('Forcer sync'),
+                onPressed: _forcingSync ? null : _forceSync,
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: OutlinedButton.icon(
+                icon: const Icon(Icons.admin_panel_settings),
+                label: const Text('Override'),
+                onPressed: _overrideOwnership,
               )),
             ]),
             const SizedBox(height: 24),

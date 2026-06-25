@@ -7,42 +7,35 @@ class SupabaseAuthDataSource {
 
   Future<Map<String, dynamic>> signIn(String email, String password) async {
     final response = await _client.auth.signInWithPassword(email: email, password: password);
-    if (response.user == null) throw Exception('Authentication failed');
-    try {
-      final userData = await _client.from('users').select().eq('id', response.user!.id).single();
-      return userData;
-    } catch (e) {
-      // Create missing public.users record if it doesn't exist
-      final newUser = {
-        'id': response.user!.id,
-        'email': response.user!.email ?? email,
-        'role': 'user',
-        'status': 'active',
-      };
-      await _client.from('users').insert(newUser);
-      return newUser;
+
+    final authUser = response.user;
+    if (authUser == null) {
+      throw Exception('Authentication failed');
     }
+
+    final userData = await _client.from('users').select().eq('id', authUser.id).maybeSingle();
+    if (userData != null) return userData;
+
+    return _createUserProfile(authUser, email);
   }
 
   Future<Map<String, dynamic>> signUp(String email, String password) async {
     final response = await _client.auth.signUp(email: email, password: password);
-    if (response.user == null) throw Exception('Registration failed');
-    final newUser = {
-      'id': response.user!.id,
-      'email': response.user!.email ?? email,
-      'role': 'user',
-      'status': 'active',
-    };
-    try {
-      await _client.from('users').insert(newUser);
-    } catch (_) {
-      // Ignore if it already exists
+
+    final authUser = response.user;
+    if (authUser == null) {
+      throw Exception('Registration failed');
     }
+
     try {
-      final userData = await _client.from('users').select().eq('id', response.user!.id).single();
-      return userData;
-    } catch (e) {
-      return newUser;
+      return await _createUserProfile(authUser, email);
+    } on PostgrestException catch (e) {
+      if (e.code != '23505') rethrow;
+
+      final userData = await _client.from('users').select().eq('id', authUser.id).maybeSingle();
+      if (userData != null) return userData;
+
+      throw Exception('User profile already exists but could not be loaded');
     }
   }
 
@@ -51,7 +44,12 @@ class SupabaseAuthDataSource {
   Future<Map<String, dynamic>?> getCurrentUser() async {
     final user = _client.auth.currentUser;
     if (user == null) return null;
-    final data = await _client.from('users').select().eq('id', user.id).single();
+
+    final data = await _client.from('users').select().eq('id', user.id).maybeSingle();
+    if (data == null) {
+      throw Exception('User profile not found');
+    }
+
     return data;
   }
 
@@ -60,5 +58,16 @@ class SupabaseAuthDataSource {
     if (session == null) throw Exception('No session');
     final refreshed = await _client.auth.setSession(session.accessToken);
     return refreshed.session!.accessToken;
+  }
+
+  Future<Map<String, dynamic>> _createUserProfile(User authUser, String fallbackEmail) async {
+    final newUser = {
+      'id': authUser.id,
+      'email': authUser.email ?? fallbackEmail,
+      'role': 'user',
+      'status': 'active',
+    };
+
+    return _client.from('users').insert(newUser).select().single();
   }
 }

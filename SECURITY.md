@@ -64,7 +64,7 @@ All implementations must adhere to the following mitigations:
 ### 7. Access Control (M2)
 
 - **Requirement**: Role-based access control (RBAC) with strict perimeter separation.
-- **Action**: Enforce `user_id` ownership on all database queries. Admin routes require `role == admin` JWT claim.
+- **Action**: Enforce `user_id` ownership on all database queries. Admin bypass via `private.is_admin()` SECURITY DEFINER function (queries `public.users.role`, not JWT claims).
 - **Check**: Verify RLS policies on all tables. Audit use-cases for permission checks.
 - **Status**: ✅ RLS policies defined in `docs/supabase/init_db.sql`. Admin use-cases include RBAC checks.
 

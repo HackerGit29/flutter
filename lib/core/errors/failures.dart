@@ -67,6 +67,9 @@ class AdminPermissionFailure extends Failure {
 class CannotModifySelfFailure extends Failure {
   const CannotModifySelfFailure([super.message = 'Vous ne pouvez pas modifier votre propre compte']);
 }
+class CannotModifyAdminFailure extends Failure {
+  const CannotModifyAdminFailure([super.message = 'Vous ne pouvez pas modifier un autre administrateur']);
+}
 
 class SyncUnauthorizedFailure extends Failure {
   const SyncUnauthorizedFailure([super.message = 'Synchronisation non autorisée']);

@@ -153,27 +153,52 @@ class _ChatbotScreenState extends State<ChatbotScreen>
             break;
 
           case 'tool_result':
-            final success = event.data['success'] as bool? ?? false;
-            final toolLabel = currentActionType != null
-                ? _toolLabelToFrench(currentActionType!)
-                : '';
-            if (success) {
-              fullText += _isVoiceMode
-                  ? '$toolLabel effectué.\n'
-                  : '✓ Terminé.\n';
+            // Gérer les résultats d'outils de manière défensive
+            if (event.data is Map &&
+                (event.data as Map).containsKey('success')) {
+              // C'est un résultat d'action standard (succès/échec)
+              final success = event.data['success'] as bool? ?? false;
+              final toolLabel =
+                  currentActionType != null
+                      ? _toolLabelToFrench(currentActionType!)
+                      : '';
+              if (success) {
+                fullText +=
+                    _isVoiceMode ? '$toolLabel effectué.\n' : '✓ Terminé.\n';
+              } else {
+                final reason = event.data['reason'] as String?;
+                final msg = switch (reason) {
+                  'appliance_not_found_or_ambiguous' =>
+                    _isVoiceMode
+                        ? 'Appareil introuvable.'
+                        : 'Appareil introuvable.',
+                  'rate_limited' =>
+                    _isVoiceMode
+                        ? 'Trop de commandes, veuillez patienter.'
+                        : 'Trop de commandes.',
+                  'not_owned' =>
+                    _isVoiceMode
+                        ? 'Action non autorisée sur cet appareil.'
+                        : 'Action non autorisée.',
+                  _ =>
+                    _isVoiceMode
+                        ? 'Action non disponible.'
+                        : 'Action non disponible.',
+                };
+                fullText += '$msg\n';
+              }
             } else {
-              final reason = event.data['reason'] as String?;
-              final msg = switch (reason) {
-                'appliance_not_found_or_ambiguous' =>
-                  _isVoiceMode ? 'Appareil introuvable.' : '⚠️ Appareil introuvable.',
-                'rate_limited' =>
-                  _isVoiceMode ? 'Trop de commandes, veuillez patienter.' : '⏳ Trop de commandes.',
-                'not_owned' =>
-                  _isVoiceMode ? 'Action non autorisée sur cet appareil.' : '🚫 Action non autorisée.',
-                _ =>
-                  _isVoiceMode ? 'Action non disponible.' : '⚠️ Action non disponible.',
-              };
-              fullText += '$msg\n';
+              // C'est probablement un résultat de requête de données (ex: consommation)
+              // L'agent va formuler la réponse, nous confirmons juste la récupération
+              // pour éviter le crash.
+              final toolLabel =
+                  currentActionType != null
+                      ? _toolLabelToFrench(currentActionType!)
+                      : 'Commande';
+              fullText +=
+                  _isVoiceMode
+                      ? '$toolLabel récupéré.\n'
+                      : 'Données récupérées.\n';
             }
             _updateLastBotMessage(
               text: fullText,
@@ -183,8 +208,8 @@ class _ChatbotScreenState extends State<ChatbotScreen>
             break;
 
           case 'error':
-            final msg = event.data['message'] as String? ??
-                'Une erreur est survenue.';
+            final msg =
+                event.data['message'] as String? ?? 'Une erreur est survenue.';
             fullText += msg;
             _updateLastBotMessage(
               text: fullText,
@@ -233,8 +258,11 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     _scrollToBottom();
   }
 
-  void _finalizeBotMessage(String text,
-      {String? actionType, bool isError = false}) {
+  void _finalizeBotMessage(
+    String text, {
+    String? actionType,
+    bool isError = false,
+  }) {
     setState(() {
       _isTyping = false;
       if (_messages.isNotEmpty && !_messages.last.isUser) {
@@ -338,7 +366,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Assistant Énergie',
+                  'Aricie',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.onSurface,
@@ -348,9 +376,10 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                   _isTyping ? 'En train d\'écrire...' : 'En ligne',
                   style: TextStyle(
                     fontSize: 12,
-                    color: _isTyping
-                        ? Theme.of(context).colorScheme.primary
-                        : Colors.green,
+                    color:
+                        _isTyping
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.green,
                   ),
                 ),
               ],
@@ -362,14 +391,14 @@ class _ChatbotScreenState extends State<ChatbotScreen>
           IconButton(
             icon: Icon(
               _isVoiceMode ? Icons.record_voice_over : Icons.voice_over_off,
-              color: _isVoiceMode
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
+              color:
+                  _isVoiceMode ? Theme.of(context).colorScheme.primary : null,
             ),
             onPressed: _toggleVoiceMode,
-            tooltip: _isVoiceMode
-                ? 'Désactiver le mode vocal'
-                : 'Activer le mode vocal',
+            tooltip:
+                _isVoiceMode
+                    ? 'Désactiver le mode vocal'
+                    : 'Activer le mode vocal',
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -391,105 +420,106 @@ class _ChatbotScreenState extends State<ChatbotScreen>
       body: Column(
         children: [
           Expanded(
-            child: _messages.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Lottie.asset(
-                          'assets/animations/chatbot_avatar.json',
-                          width: 200,
-                          height: 200,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Commencez une conversation',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.6),
+            child:
+                _messages.isEmpty
+                    ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Lottie.asset(
+                            'assets/animations/chatbot_avatar.json',
+                            width: 200,
+                            height: 200,
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Dites "éteins le chauffe-eau" ou "quelle est ma consommation ?"',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurface
-                                .withValues(alpha: 0.4),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Commencez une conversation',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.6),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
-                  )
-                : AnimationLimiter(
-                    child: ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 12,
+                          const SizedBox(height: 8),
+                          Text(
+                            'Dites "éteins le chauffe-eau" ou "quelle est ma consommation ?"',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.4),
+                            ),
+                          ),
+                        ],
                       ),
-                      itemCount: _messages.length,
-                      itemBuilder: (context, index) {
-                        final message = _messages[index];
-                        final showDate =
-                            index == 0 ||
-                            !_isSameDay(
+                    )
+                    : AnimationLimiter(
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 16,
+                          horizontal: 12,
+                        ),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          final message = _messages[index];
+                          final showDate =
+                              index == 0 ||
+                              !_isSameDay(
                                 message.timestamp,
                                 _messages[index - 1].timestamp,
                               );
 
-                        return AnimationConfiguration.staggeredList(
-                          position: index,
-                          duration: const Duration(milliseconds: 350),
-                          child: SlideAnimation(
-                            verticalOffset: 20.0,
-                            child: FadeInAnimation(
-                              child: Column(
-                                children: [
-                                  if (showDate)
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 8.0,
-                                      ),
-                                      child: Center(
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 6,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .surfaceContainerHighest,
-                                            borderRadius:
-                                                BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            _formatDate(message.timestamp),
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onSurfaceVariant,
+                          return AnimationConfiguration.staggeredList(
+                            position: index,
+                            duration: const Duration(milliseconds: 350),
+                            child: SlideAnimation(
+                              verticalOffset: 20.0,
+                              child: FadeInAnimation(
+                                child: Column(
+                                  children: [
+                                    if (showDate)
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 8.0,
+                                        ),
+                                        child: Center(
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  Theme.of(context)
+                                                      .colorScheme
+                                                      .surfaceContainerHighest,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Text(
+                                              _formatDate(message.timestamp),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color:
+                                                    Theme.of(context)
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  MessageBubble(message: message),
-                                ],
+                                    MessageBubble(message: message),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
           ),
           if (_isTyping && _messages.isNotEmpty && !_messages.last.isStreaming)
             Padding(
@@ -519,6 +549,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
       'set_speed' => 'Réglage de vitesse',
       'lock' => 'Verrouillage',
       'unlock' => 'Déverrouillage',
+      'get_energy_consumption' => 'Lecture consommation',
       _ => 'Commande',
     };
   }

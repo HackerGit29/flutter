@@ -9,7 +9,7 @@
 -- admin_actions : audit trail administrateur
 
 -- RLS : user_id = auth.uid() sur boxes, appliances, energy_data, sync_logs
--- Admin bypass via JWT role claim
+-- Admin bypass via private.is_admin() (SECURITY DEFINER function)
 
 -- Types enum
 CREATE TYPE box_status AS ENUM ('active', 'inactive', 'blocked');

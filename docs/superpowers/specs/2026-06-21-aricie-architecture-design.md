@@ -382,27 +382,27 @@ CREATE INDEX idx_admin_actions_timestamp ON admin_actions(timestamp DESC);
 ```sql
 -- devices : user voit ses devices, admin voit tout
 CREATE POLICY devices_user_select ON devices FOR SELECT
-  USING (user_id = auth.uid() OR auth.jwt()->>'role' = 'admin');
+  USING (user_id = auth.uid() OR private.is_admin());
 CREATE POLICY devices_user_insert ON devices FOR INSERT
-  WITH CHECK (user_id = auth.uid());
+  WITH CHECK (user_id = auth.uid() OR private.is_admin());
 CREATE POLICY devices_user_update ON devices FOR UPDATE
-  USING (user_id = auth.uid() OR auth.jwt()->>'role' = 'admin');
+  USING (user_id = auth.uid() OR private.is_admin());
 CREATE POLICY devices_user_delete ON devices FOR DELETE
-  USING (user_id = auth.uid() OR auth.jwt()->>'role' = 'admin');
+  USING (user_id = auth.uid() OR private.is_admin());
 
 -- subscriptions : user voit la sienne, admin voit tout
 CREATE POLICY subscriptions_select ON subscriptions FOR SELECT
-  USING (user_id = auth.uid() OR auth.jwt()->>'role' = 'admin');
+  USING (user_id = auth.uid() OR private.is_admin());
 
 -- sync_logs : user voit ses logs, admin voit tout
 CREATE POLICY sync_logs_select ON sync_logs FOR SELECT
-  USING (user_id = auth.uid() OR auth.jwt()->>'role' = 'admin');
+  USING (user_id = auth.uid() OR private.is_admin());
 
 -- admin_actions : admin only
 CREATE POLICY admin_actions_select ON admin_actions FOR SELECT
-  USING (auth.jwt()->>'role' = 'admin');
+  USING (private.is_admin());
 CREATE POLICY admin_actions_insert ON admin_actions FOR INSERT
-  WITH CHECK (auth.jwt()->>'role' = 'admin');
+  WITH CHECK (private.is_admin());
 ```
 
 ### Migration des données existantes
