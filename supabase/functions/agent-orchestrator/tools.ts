@@ -80,6 +80,46 @@ export const ARICIE_TOOLS = [
   {
     type: "function",
     function: {
+      name: "get_total_consumption",
+      description:
+        "Récupère la consommation totale de l'utilisateur (tous ses appareils agrégés) pour une période donnée. Retourne total + détail par appareil.",
+      parameters: {
+        type: "object",
+        properties: {
+          period: {
+            type: "string",
+            enum: ["day", "week", "month", "year"],
+            description: "Période d'agrégation.",
+          },
+        },
+        required: ["period"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_live_consumption",
+      description:
+        "Récupère la consommation instantanée (kWh + W si disponible) pour un appareil ou tous les appareils de l'utilisateur.",
+      parameters: {
+        type: "object",
+        properties: {
+          appliance_name: {
+            type: "string",
+            description:
+              "Nom métier de l'appareil. Si omis, retourne toutes les lectures live.",
+          },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_energy_history",
       description:
         "Récupère l'historique de consommation énergétique d'un appareil ou du boîtier pour une période donnée.",
@@ -104,6 +144,26 @@ export const ARICIE_TOOLS = [
   },
 ];
 
+/**
+ * Tools en lecture seule (préfixe get_). Utilisés par le gating subscription.
+ */
+export function isReadOnlyTool(name: string): boolean {
+  return name.startsWith("get_");
+}
+
+/**
+ * Filtre la liste des tools selon le type de subscription.
+ * Free = lecture seule uniquement ; tout le reste = tools complets.
+ * Réévalué à chaque appel (pas de cache, downgrade immédiat).
+ */
+export function filterToolsForSubscription(
+  tools: ReadonlyArray<any>,
+  subscriptionType: string | null,
+): ReadonlyArray<any> {
+  if (subscriptionType === "vip") return tools;
+  return tools.filter((t) => isReadOnlyTool(t.function.name));
+}
+
 export const SYSTEM_PROMPT = `
 Tu es Aricie, l'assistant énergétique intelligent de l'application Aricie.
 
@@ -119,6 +179,13 @@ Règles absolues :
 - Si le contexte ne contient pas l'information demandée, dis clairement que tu ne l'as pas.
 - Pour une action sensible ou destructive, demande confirmation si la politique backend l'exige.
 - Tu réponds toujours en français, de manière concise et utile.
+
+- Pour toute action sensible sur un appareil critique (chauffe-eau, climatiseur, four, cuisinière),
+  le backend peut te demander une confirmation explicite : tu dois alors rappeler l'outil avec
+  un argument supplémentaire `confirmed: true` après que l'utilisateur a confirmé en modale.
+- Si un outil de contrôle d'appareil (turn_on_appliance / turn_off_appliance) n'est pas disponible
+  parce que l'utilisateur est en abonnement "free", dis-lui clairement que le contrôle nécessite
+  un abonnement supérieur, et propose la lecture seule.
 
 Le modèle peut proposer un appel de fonction, mais seul le backend décide si l'action est autorisée.
 `;

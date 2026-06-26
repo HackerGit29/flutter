@@ -63,3 +63,47 @@ export async function searchUserRag(params: {
     return [];
   }
 }
+
+/**
+ * Recherche dans le RAG utilisateur et ne garde QUE les résumés conso.
+ * Le match_user_embeddings RPC filtre déjà par owner_id (sécurité préservée).
+ */
+export async function searchConsumptionSummaries(params: {
+  supabase: any;
+  requesterId: string;
+  query: string;
+  matchCount?: number;
+}) {
+  const results = await searchUserRag(params);
+  return (results ?? []).filter(
+    (r: any) => r.metadata?.source_type === "consumption_summary",
+  );
+}
+
+/**
+ * RAG complet = docs user classiques + résumés conso, dédoublonnés par id.
+ * Remplace l'appel direct à searchUserRag dans index.ts.
+ */
+export async function searchCombinedUserRag(params: {
+  supabase: any;
+  requesterId: string;
+  query: string;
+}) {
+  const [docs, summaries] = await Promise.all([
+    searchUserRag(params).then((rows) =>
+      (rows ?? []).filter(
+        (r: any) => r.metadata?.source_type !== "consumption_summary",
+      )
+    ),
+    searchConsumptionSummaries(params),
+  ]);
+
+  const seen = new Set<string>();
+  const merged: any[] = [];
+  for (const r of [...docs, ...summaries]) {
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    merged.push(r);
+  }
+  return merged;
+}
