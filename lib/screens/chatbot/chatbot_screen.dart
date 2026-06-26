@@ -2,10 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/chat_message.dart';
 import '../../widgets/chat/typing_indicator.dart';
 import '../../widgets/chat/message_bubble.dart';
 import '../../widgets/chat/chat_input.dart';
+import '../../widgets/confirmation_dialog.dart';
+import '../../widgets/live_consumption_indicator.dart';
 import '../../services/agent_service.dart';
 import '../../services/voice_service.dart';
 import 'package:uuid/uuid.dart';
@@ -27,6 +30,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   final AgentService _agentService = AgentService.instance;
   late String _sessionId;
   StreamSubscription<AgentStreamEvent>? _streamSubscription;
+  Map<String, dynamic>? _pendingCriticalAction;
 
   @override
   void initState() {
@@ -153,9 +157,29 @@ class _ChatbotScreenState extends State<ChatbotScreen>
             break;
 
           case 'tool_result':
+            final requiresConfirmation =
+                event.data['requires_confirmation'] == true;
+            if (requiresConfirmation) {
+              final applianceName =
+                  event.data['appliance_name'] as String? ?? 'appareil';
+              final action = event.data['action'] as String? ?? 'on';
+              final actionLabel = action == 'on' ? 'allumer' : 'éteindre';
+              _pendingCriticalAction = {
+                'appliance_name': applianceName,
+                'action': action,
+              };
+              _updateLastBotMessage(
+                text:
+                    '⚠️ Action sensible : $actionLabel $applianceName. '
+                        'Veuillez confirmer.',
+                isStreaming: false,
+                actionType: currentActionType,
+              );
+              break;
+            }
+
             // Gérer les résultats d'outils de manière défensive
-            if (event.data is Map &&
-                (event.data as Map).containsKey('success')) {
+            if ((event.data as Map).containsKey('success')) {
               // C'est un résultat d'action standard (succès/échec)
               final success = event.data['success'] as bool? ?? false;
               final toolLabel =
@@ -220,6 +244,14 @@ class _ChatbotScreenState extends State<ChatbotScreen>
 
           case 'done':
             _finalizeBotMessage(fullText, actionType: currentActionType);
+            if (_pendingCriticalAction != null) {
+              final pending = _pendingCriticalAction!;
+              _pendingCriticalAction = null;
+              _askCriticalConfirmation(
+                applianceName: pending['appliance_name'] as String,
+                action: pending['action'] as String,
+              );
+            }
             break;
         }
       },
@@ -419,6 +451,10 @@ class _ChatbotScreenState extends State<ChatbotScreen>
       ),
       body: Column(
         children: [
+          if (Supabase.instance.client.auth.currentUser != null)
+            LiveConsumptionIndicator(
+              userId: Supabase.instance.client.auth.currentUser!.id,
+            ),
           Expanded(
             child:
                 _messages.isEmpty
@@ -538,6 +574,26 @@ class _ChatbotScreenState extends State<ChatbotScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _askCriticalConfirmation({
+    required String applianceName,
+    required String action,
+  }) async {
+    final confirmed = await showConfirmationDialog(
+      context,
+      title: 'Confirmer l\'action',
+      body:
+          'Voulez-vous vraiment ${action == "on" ? "allumer" : "éteindre"} '
+          '$applianceName ?',
+      confirmLabel: 'Oui, ${action == "on" ? "allumer" : "éteindre"}',
+    );
+
+    if (!mounted || !confirmed) return;
+
+    // Renvoie un message user qui re-déclenche le tool_call avec confirmed: true.
+    // Le LLM rappelle turn_*_appliance et inclut confirmé dans ses arguments.
+    _addMessage('Oui, confirme ${action == "on" ? "allumer" : "éteindre"} $applianceName', true);
   }
 
   String _toolLabelToFrench(String tool) {
