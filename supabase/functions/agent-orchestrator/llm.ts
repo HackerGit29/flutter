@@ -172,6 +172,7 @@ export async function detectToolOrAnswer(params: {
   message: string;
   operationalContext: unknown;
   ragContext?: unknown;
+  tools?: ReadonlyArray<any>;
 }) {
   const messages: ChatMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
@@ -192,7 +193,7 @@ export async function detectToolOrAnswer(params: {
 
   const { response } = await callLLMWithFallback({
     messages,
-    tools: ARICIE_TOOLS,
+    tools: params.tools ?? ARICIE_TOOLS,
     tool_choice: "auto",
     temperature: 0.2,
     max_tokens: 600,

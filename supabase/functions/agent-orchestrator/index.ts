@@ -4,17 +4,24 @@ import { detectToolOrAnswer, streamFinalAnswer, LlmHttpError } from "./llm.ts";
 import {
   resolveApplianceByName,
   checkDeviceActionPolicy,
+  evaluateCriticality,
 } from "./policy.ts";
 import {
   enqueueDeviceCommand,
   getRealtimeConsumption,
   getDeviceStatus,
   getEnergyHistory,
+  getLiveConsumption,
+  getTotalConsumption,
 } from "./actions.ts";
 import { audit } from "./audit.ts";
-import { searchUserRag } from "./rag.ts";
+import { searchCombinedUserRag } from "./rag.ts";
+import {
+  ARICIE_TOOLS,
+  SYSTEM_PROMPT,
+  filterToolsForSubscription,
+} from "./tools.ts";
 import type { ChatRequest, ToolCall } from "./types.ts";
-import { SYSTEM_PROMPT } from "./tools.ts";
 
 /**
  * Construit le contexte opérationnel de l'utilisateur :
@@ -110,6 +117,56 @@ async function handleToolCall(params: {
           success: false,
           reason:
             "Aucun appareil unique correspondant n'a été trouvé pour cet utilisateur.",
+        }),
+      };
+    }
+
+    const criticality = evaluateCriticality(resolved.appliance_name);
+    const isHighRisk = criticality === "high";
+    const isConfirmed = args.confirmed === true;
+
+    if (isHighRisk && !isConfirmed) {
+      await audit({
+        supabase: params.supabase,
+        requesterId: params.requesterId,
+        action: name,
+        targetType: "appliance",
+        targetId: resolved.appliance_id,
+        status: "pending",
+        details: {
+          reason: "high_criticality_requires_confirmation",
+          appliance_name: resolved.appliance_name,
+          criticality,
+        },
+      });
+
+      await writeSse(params.controller, "tool_pending", {
+        tool: name,
+        label: `${actionLabel} de ${resolved.appliance_name} (confirmation requise)`,
+        requires_confirmation: true,
+        criticality,
+        appliance_name: resolved.appliance_name,
+        action,
+      });
+
+      await writeSse(params.controller, "tool_result", {
+        tool: name,
+        success: false,
+        requires_confirmation: true,
+        criticality,
+        appliance_name: resolved.appliance_name,
+        action,
+      });
+
+      return {
+        role: "tool" as const,
+        tool_call_id: params.toolCall.id,
+        content: JSON.stringify({
+          success: false,
+          requires_confirmation: true,
+          criticality,
+          appliance_name: resolved.appliance_name,
+          action,
         }),
       };
     }
@@ -321,6 +378,76 @@ async function handleToolCall(params: {
     };
   }
 
+  // --- Conso agrégée (RPC SECURITY DEFINER) ---
+  if (name === "get_total_consumption") {
+    await writeSse(params.controller, "tool_pending", {
+      tool: name,
+      label: `Agrégation de la consommation sur ${args.period ?? "day"}`,
+    });
+
+    const period = (args.period ?? "day") as "day" | "week" | "month" | "year";
+    const total = await getTotalConsumption({
+      supabase: params.supabase,
+      requesterId: params.requesterId,
+      period,
+    });
+
+    await writeSse(params.controller, "tool_result", {
+      tool: name,
+      success: true,
+    });
+
+    return {
+      role: "tool" as const,
+      tool_call_id: params.toolCall.id,
+      content: JSON.stringify({ success: true, total }),
+    };
+  }
+
+  // --- Conso live (realtime_power) ---
+  if (name === "get_live_consumption") {
+    await writeSse(params.controller, "tool_pending", {
+      tool: name,
+      label: args.appliance_name
+        ? `Lecture live de ${args.appliance_name}`
+        : "Lecture live globale",
+    });
+
+    const live = await getLiveConsumption({
+      supabase: params.supabase,
+      requesterId: params.requesterId,
+      applianceName: args.appliance_name,
+    });
+
+    if (live === null) {
+      await writeSse(params.controller, "tool_result", {
+        tool: name,
+        success: false,
+        reason: "appliance_not_found_or_ambiguous",
+      });
+
+      return {
+        role: "tool" as const,
+        tool_call_id: params.toolCall.id,
+        content: JSON.stringify({
+          success: false,
+          reason: "Appareil introuvable ou ambigu.",
+        }),
+      };
+    }
+
+    await writeSse(params.controller, "tool_result", {
+      tool: name,
+      success: true,
+    });
+
+    return {
+      role: "tool" as const,
+      tool_call_id: params.toolCall.id,
+      content: JSON.stringify({ success: true, live }),
+    };
+  }
+
   // Tool inconnu
   return {
     role: "tool" as const,
@@ -385,8 +512,14 @@ Deno.serve(async (req) => {
           authUser.id,
         );
 
-        // RAG : recherche contextuelle scope par owner
-        const ragContext = await searchUserRag({
+        // Tool gating par subscription.type (free = lecture seule, pas de cache)
+        const allowedTools = filterToolsForSubscription(
+          ARICIE_TOOLS,
+          operationalContext.subscription_type,
+        );
+
+        // RAG : recherche contextuelle scope par owner (docs + résumés conso)
+        const ragContext = await searchCombinedUserRag({
           supabase,
           requesterId: authUser.id,
           query: body.message,
@@ -397,6 +530,7 @@ Deno.serve(async (req) => {
           message: body.message,
           operationalContext,
           ragContext,
+          tools: allowedTools,
         });
 
         // Si pas de tool call, réponse directe
