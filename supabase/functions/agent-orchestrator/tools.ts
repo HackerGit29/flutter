@@ -213,7 +213,7 @@ Règles absolues :
 
 - Pour toute action sensible sur un appareil critique (chauffe-eau, climatiseur, four, cuisinière),
   le backend peut te demander une confirmation explicite : tu dois alors rappeler l'outil avec
-  un argument supplémentaire `confirmed: true` après que l'utilisateur a confirmé en modale.
+  un argument supplémentaire \`confirmed: true\` après que l'utilisateur a confirmé en modale.
 - Si un outil de contrôle d'appareil (turn_on_appliance / turn_off_appliance) n'est pas disponible
   parce que l'utilisateur est en abonnement "free", dis-lui clairement que le contrôle nécessite
   un abonnement supérieur, et propose la lecture seule.

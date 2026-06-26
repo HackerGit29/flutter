@@ -93,7 +93,11 @@ CREATE TABLE IF NOT EXISTS sync_logs (
   ip_address TEXT,
   timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_sync_logs_box_id ON sync_logs(box_id);
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sync_logs' AND column_name='box_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_sync_logs_box_id ON sync_logs(box_id);
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_sync_logs_user_id ON sync_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_sync_logs_timestamp ON sync_logs(timestamp DESC);
 
