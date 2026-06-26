@@ -4,11 +4,13 @@ on:
   push:
     branches:
       - main
+      - master
     tags:
       - 'v*'
   pull_request:
     branches:
       - main
+      - master
       - "release/*"
       - "hotfix/*"
 
@@ -44,7 +46,7 @@ jobs:
           echo '{
             "version": "'${GITHUB_REF_NAME#v}'",
             "buildNumber": '$GITHUB_RUN_NUMBER',
-            "apkUrl": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/aricie-release.apk",
+            "apkUrl": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/app-release.apk",
             "releaseNotes": "Consultez les notes de version sur GitHub.",
             "forceUpdate": false,
             "releaseDate": "'$(date -u +%Y-%m-%d)'"
