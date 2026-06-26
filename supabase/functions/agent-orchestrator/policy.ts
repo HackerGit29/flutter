@@ -79,3 +79,26 @@ export async function checkDeviceActionPolicy(params: {
     allowed: true,
   };
 }
+
+/**
+ * Appareils à risque : confirmation modale obligatoire avant allumage/extinction.
+ * Hardcodé ici (pas de migration), suffit pour le scope actuel.
+ */
+export const CRITICAL_APPLIANCES = [
+  "chauffe-eau",
+  "chauffe eau",
+  "climatiseur",
+  "clim",
+  "four",
+  "cuisinière",
+  "cuisiniere",
+];
+
+/**
+ * Évalue la criticité métier d'un appareil à partir de son nom.
+ * Retourne "high" si le nom matche un appareil critique (insensible casse/accents).
+ */
+export function evaluateCriticality(applianceName: string): "high" | "low" {
+  const lower = applianceName.toLowerCase();
+  return CRITICAL_APPLIANCES.some((c) => lower.includes(c)) ? "high" : "low";
+}

@@ -31,3 +31,5 @@ export type PolicyDecision = {
   allowed: boolean;
   reason?: string;
 };
+
+export type AuditStatus = "allowed" | "blocked" | "failed" | "success" | "pending";

@@ -1,3 +1,4 @@
+import { resolveApplianceByName } from "./policy.ts";
 import type { ResolvedAppliance } from "./types.ts";
 
 /**
@@ -129,4 +130,65 @@ export async function getEnergyHistory(params: {
   if (error) throw error;
 
   return data ?? [];
+}
+
+export type LivePowerRow = {
+  appliance_id: string;
+  appliance_name: string;
+  power_kwh: number;
+  instant_power_w: number | null;
+  updated_at: string;
+};
+
+/**
+ * Lit realtime_power pour l'utilisateur courant.
+ * Si applianceName est fourni, résout puis filtre (null si ambigu).
+ */
+export async function getLiveConsumption(params: {
+  supabase: any;
+  requesterId: string;
+  applianceName?: string;
+}): Promise<LivePowerRow[] | null> {
+  let query = params.supabase
+    .from("realtime_power")
+    .select("appliance_id, power_kwh, instant_power_w, updated_at, appliances!inner(name)")
+    .eq("user_id", params.requesterId);
+
+  if (params.applianceName) {
+    const resolved = await resolveApplianceByName({
+      supabase: params.supabase,
+      requesterId: params.requesterId,
+      applianceName: params.applianceName,
+    });
+    if (!resolved) return null;
+    query = query.eq("appliance_id", resolved.appliance_id);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data ?? []).map((row: any) => ({
+    appliance_id: row.appliance_id,
+    appliance_name: row.appliances?.name ?? "",
+    power_kwh: Number(row.power_kwh),
+    instant_power_w: row.instant_power_w !== null ? Number(row.instant_power_w) : null,
+    updated_at: row.updated_at,
+  }));
+}
+
+/**
+ * Appelle la RPC SECURITY DEFINER sum_total_consumption.
+ * total + détail par appareil, scope strict par requester_id.
+ */
+export async function getTotalConsumption(params: {
+  supabase: any;
+  requesterId: string;
+  period: "day" | "week" | "month" | "year";
+}) {
+  const { data, error } = await params.supabase.rpc("sum_total_consumption", {
+    requester_id: params.requesterId,
+    period: params.period,
+  });
+  if (error) throw error;
+  return data;
 }

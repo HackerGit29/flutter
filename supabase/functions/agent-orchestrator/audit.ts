@@ -8,7 +8,7 @@ export async function audit(params: {
   action: string;
   targetType?: string;
   targetId?: string;
-  status: "allowed" | "blocked" | "failed" | "success";
+  status: "allowed" | "blocked" | "failed" | "success" | "pending";
   details?: Record<string, unknown>;
 }) {
   try {
