@@ -101,7 +101,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   Text(
                     'Créer un compte',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: AppColors.textPrimary,
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
@@ -110,7 +110,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   Text(
                     'Inscrivez-vous pour accéder à toutes les fonctionnalités',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textSecondary,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -167,7 +167,7 @@ class _SignupScreenState extends State<SignupScreen> {
                               Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: AppColors.textInverse.withValues(alpha: 0.2),
+                                  color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Icon(
@@ -185,16 +185,16 @@ class _SignupScreenState extends State<SignupScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Vous avez déjà un compte?',
                         style: TextStyle(
-                          color: AppColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       TextButton(
                         onPressed: _navigateToLogin,
                         style: TextButton.styleFrom(
-                          foregroundColor: AppColors.interactive,
+                          foregroundColor: Theme.of(context).colorScheme.primary,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
                         child: const Text('Se connecter'),
@@ -209,8 +209,8 @@ class _SignupScreenState extends State<SignupScreen> {
                     children: [
                       Text(
                         'Copyright ${DateTime.now().year} Aricie ©',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                         ),
                         textAlign: TextAlign.center,
@@ -222,7 +222,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           TextButton(
                             onPressed: () {},
                             style: TextButton.styleFrom(
-                              foregroundColor: AppColors.interactive,
+                              foregroundColor: Theme.of(context).colorScheme.primary,
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -230,17 +230,17 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                             child: const Text('Politique de confidentialité'),
                           ),
-                          const Text(
+                          Text(
                             '•',
                             style: TextStyle(
-                              color: AppColors.textSecondary,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                               fontSize: 12,
                             ),
                           ),
                           TextButton(
                             onPressed: () {},
                             style: TextButton.styleFrom(
-                              foregroundColor: AppColors.interactive,
+                              foregroundColor: Theme.of(context).colorScheme.primary,
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,

@@ -118,8 +118,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     'Connexion',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontWeight: FontWeight.bold,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -127,8 +127,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text(
                     'Connectez-vous à votre compte',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppSpacing.s8),
@@ -137,15 +137,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Adresse email',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: AppColors.textSecondary,
-                        ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(height: AppSpacing.s2),
+                    ),
+                    const SizedBox(height: AppSpacing.s2),
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
@@ -157,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderSide: BorderSide.none,
                           ),
                           filled: true,
-                          fillColor: AppColors.bgTertiary,
+                          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 16,
@@ -184,12 +184,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Mot de passe',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
-                          color: AppColors.textSecondary,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       const SizedBox(height: AppSpacing.s2),
@@ -216,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderSide: BorderSide.none,
                           ),
                           filled: true,
-                          fillColor: AppColors.bgTertiary,
+                          fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 16,
@@ -239,8 +239,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: () {
                         // TODO: Implémenter la récupération de mot de passe
                       },
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.interactive,
+                            style: TextButton.styleFrom(
+                              foregroundColor: Theme.of(context).colorScheme.primary,
                         padding: EdgeInsets.zero,
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -277,7 +277,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               Container(
                                 padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: AppColors.textInverse.withValues(alpha: 0.2),
+                                  color: Theme.of(context).colorScheme.onPrimary.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Icon(
@@ -295,16 +295,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Vous n\'avez pas de compte?',
                         style: TextStyle(
-                          color: AppColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                       TextButton(
                         onPressed: _navigateToSignup,
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.interactive,
+                    style: TextButton.styleFrom(
+                          foregroundColor: Theme.of(context).colorScheme.primary,
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
                         child: const Text('S\'inscrire'),
@@ -319,8 +319,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       Text(
                         'Copyright ${DateTime.now().year} Aricie ©',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                         ),
                         textAlign: TextAlign.center,
@@ -332,7 +332,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextButton(
                             onPressed: () {},
                             style: TextButton.styleFrom(
-                              foregroundColor: AppColors.interactive,
+                              foregroundColor: Theme.of(context).colorScheme.primary,
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -340,17 +340,17 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             child: const Text('Politique de confidentialité'),
                           ),
-                          const Text(
+                          Text(
                             '•',
                             style: TextStyle(
-                              color: AppColors.textSecondary,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                               fontSize: 12,
                             ),
                           ),
                           TextButton(
                             onPressed: () {},
                             style: TextButton.styleFrom(
-                              foregroundColor: AppColors.interactive,
+                              foregroundColor: Theme.of(context).colorScheme.primary,
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
