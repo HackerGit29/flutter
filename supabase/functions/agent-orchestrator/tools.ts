@@ -142,6 +142,37 @@ export const ARICIE_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "push_tip",
+      description:
+        "Envoie un conseil d'économie personnalisé en notification push à l'utilisateur. " +
+        "Utiliser UNIQUEMENT quand l'agent détecte un pattern actionable pendant la conversation " +
+        "et que l'utilisateur est en abonnement VIP. Le titre doit faire max 60 caractères, " +
+        "le corps max 200 caractères.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: {
+            type: "string",
+            description: "Titre court du conseil (max 60 caractères).",
+          },
+          body: {
+            type: "string",
+            description: "Corps du conseil (max 200 caractères).",
+          },
+          severity: {
+            type: "string",
+            enum: ["info", "warning"],
+            description: "Niveau d'urgence du conseil.",
+          },
+        },
+        required: ["title", "body"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 /**

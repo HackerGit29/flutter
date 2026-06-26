@@ -9,6 +9,7 @@ import 'providers/theme_provider.dart';
 import 'theme/app_theme.dart';
 import 'services/notification_service.dart';
 import 'services/update_service.dart';
+import 'services/tips_realtime_service.dart';
 import 'core/constants.dart';
 import 'core/di/injection_container.dart';
 
@@ -47,6 +48,8 @@ void main() async {
   };
   await notificationService.init();
   await notificationService.requestPermissions();
+
+  TipsRealtimeService.instance.start();
 
   await notificationService.showPeriodicNotification(
     id: 1,

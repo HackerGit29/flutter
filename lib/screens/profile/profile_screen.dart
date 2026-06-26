@@ -48,8 +48,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bgApp,
-      appBar: AppBar(title: const Text('Profil')),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: AppBar(
+        title: const Text('Profil'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 0,
+      ),
       body: _buildBody(context),
     );
   }
@@ -113,13 +117,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           title: const Text('Modifier le profil'),
           onTap: () {},
         ),
-        Divider(color: AppColors.textMuted),
+        Divider(color: Theme.of(context).colorScheme.outlineVariant),
         ListTile(
           leading: const Icon(Icons.notifications_outlined),
           title: const Text('Préférences de notification'),
           onTap: () {},
         ),
-        Divider(color: AppColors.textMuted),
+        Divider(color: Theme.of(context).colorScheme.outlineVariant),
         if (_user?.isAdmin == true) ...[
           ListTile(
             leading: const Icon(Icons.admin_panel_settings, color: Colors.orange),
@@ -130,7 +134,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               MaterialPageRoute(builder: (_) => const AdminDashboardScreen()),
             ),
           ),
-          Divider(color: AppColors.textMuted),
+          Divider(color: Theme.of(context).colorScheme.outlineVariant),
         ],
         ListTile(
           leading: const Icon(Icons.logout),

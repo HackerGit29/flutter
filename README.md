@@ -10,8 +10,8 @@ Application Flutter de suivi et gestion de consommation énergétique avec objet
 | State           | Riverpod + Provider                                   |
 | Auth            | Supabase Auth                                         |
 | Base de données | Supabase PostgreSQL                                   |
-| IoT             | MQTT (WSS/TLS) via `mqtt_client`                      |
-| IA              | Flowise agent (chatbot)à revoir avec les nouveaux SDK |
+| IoT             | MQTT (WSS/TLS) via `mqtt_client` (app subscribe uniquement; worker publie commandes via table `device_commands`) |
+| IA              | Agent‑orchestrator (Azure OpenAI GPT‑4o / Phi‑4‑mini‑instruct) avec RAG pgvector, streaming SSE, policy engine et file d’attente de commandes MQTT |
 | Architecture    | Clean Architecture (core/data/domain/presentation)    |
 
 ## Requirements
@@ -92,7 +92,7 @@ flutter run
 - Statistiques : historique, tendances
 - Appareils : gestion CRUD, contrôle on/off via MQTT
 - Paramètres : thème, état MQTT, liste appareils
-- Chatbot : Flowise AI intégré
+- Chatbot : agent‑orchestrator (Azure OpenAI GPT‑4o / Phi‑4‑mini‑instruct) avec streaming SSE
 - Administration : gestion utilisateurs, boîtiers, licences (admin only)
 
 ## Contribuer

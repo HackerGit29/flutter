@@ -17,6 +17,47 @@ if (!mqttToken) {
   throw new Error("FLESPI_MQTT_WORKER_TOKEN is required");
 }
 
+const TIPS_GENERATOR_URL = process.env.TIPS_GENERATOR_URL;
+
+// Cooldown 1h par (user_id, appliance_id) — évite spam sur pic persistant.
+const lastLivePushByAppliance = new Map();
+const LIVE_PUSH_COOLDOWN_MS = 60 * 60 * 1000;
+
+async function evaluateLiveTip(userId, applianceId) {
+  const key = `${userId}:${applianceId}`;
+  const last = lastLivePushByAppliance.get(key);
+  if (last && Date.now() - last < LIVE_PUSH_COOLDOWN_MS) return;
+
+  if (!TIPS_GENERATOR_URL) {
+    console.warn("[TIPS] TIPS_GENERATOR_URL non configuré, skip");
+    return;
+  }
+
+  try {
+    const res = await fetch(`${TIPS_GENERATOR_URL}/evaluate-live`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ userId, applianceId }),
+    });
+    if (!res.ok) {
+      console.error(`[TIPS] evaluate-live HTTP ${res.status}`);
+      return;
+    }
+    const json = await res.json();
+    if (json.pushed) {
+      lastLivePushByAppliance.set(key, Date.now());
+      console.log(
+        `[TIPS] live push user=${userId} appliance=${applianceId} rule=${json.tip?.ruleId}`,
+      );
+    }
+  } catch (err) {
+    console.error("[TIPS] evaluate-live error:", err);
+  }
+}
+
 const mqttUrl = `mqtts://${mqttHost}:${mqttPort}`;
 
 const client = mqtt.connect(mqttUrl, {
@@ -115,6 +156,7 @@ client.on("message", async (topic, payload, packet) => {
             boxId: appliance.box_id,
             payload: { kwh_total: kwh, power_w: watts },
           });
+          await evaluateLiveTip(appliance.user_id, appliance.id);
         }
       }
       return; // télémétrie ≠ ACK, on ne traite pas plus loin

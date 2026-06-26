@@ -37,7 +37,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
     final result = await GetUserAppliances(sl()).call();
     result.fold(
-      (failure) => _showError('Erreur lors du chargement des appareils'),
+      (_) {},
       (appliances) {
         setState(() {
           _appliances = appliances;
@@ -53,8 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
     final result = await GetUserAppliances(sl()).call();
     result.fold(
-      (failure) {
-        _showError('Erreur lors du chargement des appareils');
+      (_) {
         setState(() => _isLoading = false);
       },
       (appliances) {
@@ -256,9 +255,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                           children: [
                             Lottie.asset(
                               'assets/animations/empty_devices.json',
-                              width: 180, height: 180,
+                              width: 150, height: 150,
                             ),
-                            const SizedBox(height: AppSpacing.s4),
+                            const SizedBox(height: AppSpacing.s1),
                             Text('Aucun appareil trouvé',
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),

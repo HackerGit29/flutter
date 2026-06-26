@@ -3,10 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:aricie/core/di/injection_container.dart';
-import 'package:aricie/domain/entities/box.dart';
 import 'package:aricie/domain/entities/appliance.dart';
 import 'package:aricie/domain/usecases/auth/get_current_user.dart';
 import 'package:aricie/domain/usecases/devices/get_user_devices.dart';
@@ -18,6 +16,7 @@ import 'statistics/statistics_screen.dart';
 import 'devices/devices_screen.dart';
 import 'settings/settings_screen.dart';
 import '../widgets/chatbot_floating_button.dart';
+import '../widgets/daily_energy_tip_banner.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -94,9 +93,8 @@ class _DashboardTabState extends State<DashboardTab> {
   double _temperature = 0.0;
   double _humidity = 0.0;
 
-  final String _currentDate = DateFormat('dd MMMM').format(DateTime.now());
-
   StreamSubscription<BoxTelemetry>? _telemetrySub;
+  List<FlSpot> _weeklySpots = [];
 
   @override
   void initState() {
@@ -146,6 +144,18 @@ class _DashboardTabState extends State<DashboardTab> {
     result.fold((_) {}, (data) {
       _applianceEnergy = data;
       _totalConsumption = data.values.fold(0.0, (a, b) => a + b);
+    });
+
+    final historyResult = await GetEnergyHistory(sl()).call(
+      userId: user.id,
+      timeFrame: 'Semaine',
+      limit: 7,
+    );
+    historyResult.fold((_) {}, (data) {
+      final sorted = data..sort((a, b) => a.date.compareTo(b.date));
+      _weeklySpots = List.generate(sorted.length, (i) {
+        return FlSpot(i.toDouble(), sorted[i].totalDay);
+      });
     });
   }
 
@@ -197,12 +207,6 @@ class _DashboardTabState extends State<DashboardTab> {
                                   'Mon Tableau de Bord',
                                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                Text(
-                                  _currentDate,
-                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    color: AppColors.textMuted,
                                   ),
                                 ),
                               ],
@@ -331,12 +335,7 @@ class _DashboardTabState extends State<DashboardTab> {
                               ),
                             ),
                             const SizedBox(height: AppSpacing.s4),
-                            _buildTipCard(
-                              'Réduisez votre consommation en éteignant les appareils en veille',
-                              Icons.lightbulb_outline,
-                              AppColors.accentGold.withValues(alpha: 0.3),
-                              AppColors.accentGold,
-                            ),
+                            const DailyEnergyTipBanner(),
                           ],
                         ),
                       ),
@@ -501,10 +500,9 @@ class _DashboardTabState extends State<DashboardTab> {
         borderData: FlBorderData(show: false),
         lineBarsData: [
           LineChartBarData(
-            spots: const [
-              FlSpot(0, 3), FlSpot(1, 2), FlSpot(2, 5), FlSpot(3, 3.1),
-              FlSpot(4, 4), FlSpot(5, 3), FlSpot(6, 4),
-            ],
+            spots: _weeklySpots.isEmpty
+                ? const [FlSpot(0, 0)]
+                : _weeklySpots,
             isCurved: true,
             gradient: LinearGradient(colors: [
               Theme.of(context).colorScheme.primary,
@@ -529,22 +527,5 @@ class _DashboardTabState extends State<DashboardTab> {
       ),
     );
   }
-
-  Widget _buildTipCard(String tip, IconData icon, Color backgroundColor, Color iconColor) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.s4),
-      decoration: BoxDecoration(color: backgroundColor, borderRadius: BorderRadius.circular(AppRadius.md), boxShadow: [AppShadows.sm]),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.s3),
-            decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(AppRadius.sm)),
-            child: Icon(icon, color: iconColor),
-          ),
-          const SizedBox(width: AppSpacing.s4),
-          Expanded(child: Text(tip, style: Theme.of(context).textTheme.bodyLarge)),
-        ],
-      ),
-    );
-  }
 }
+

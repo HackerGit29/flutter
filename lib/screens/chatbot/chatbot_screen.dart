@@ -14,7 +14,8 @@ import '../../services/voice_service.dart';
 import 'package:uuid/uuid.dart';
 
 class ChatbotScreen extends StatefulWidget {
-  const ChatbotScreen({super.key});
+  final String? initialMessage;
+  const ChatbotScreen({super.key, this.initialMessage});
 
   @override
   State<ChatbotScreen> createState() => _ChatbotScreenState();
@@ -31,6 +32,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   late String _sessionId;
   StreamSubscription<AgentStreamEvent>? _streamSubscription;
   Map<String, dynamic>? _pendingCriticalAction;
+  String? _initialMessage;
 
   @override
   void initState() {
@@ -41,6 +43,16 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     );
     _sessionId = const Uuid().v4();
     _showWelcomeMessage();
+
+    _initialMessage = widget.initialMessage;
+    if (_initialMessage != null && _initialMessage!.isNotEmpty) {
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted && _initialMessage != null) {
+          _addMessage(_initialMessage!, true);
+          _initialMessage = null;
+        }
+      });
+    }
   }
 
   @override
@@ -170,7 +182,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
               };
               _updateLastBotMessage(
                 text:
-                    '⚠️ Action sensible : $actionLabel $applianceName. '
+                    'Action sensible : $actionLabel $applianceName.'
                         'Veuillez confirmer.',
                 isStreaming: false,
                 actionType: currentActionType,

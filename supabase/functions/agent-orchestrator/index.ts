@@ -448,6 +448,43 @@ async function handleToolCall(params: {
     };
   }
 
+  // --- Push tip (VIP only via filterToolsForSubscription) ---
+  if (name === "push_tip") {
+    await audit({
+      supabase: params.supabase,
+      requesterId: params.requesterId,
+      action: "push_tip",
+      targetType: "user",
+      status: "allowed",
+      details: { title: args.title, severity: args.severity ?? "info" },
+    });
+
+    const { error } = await params.supabase
+      .from("energy_tips_realtime")
+      .insert({
+        user_id: params.requesterId,
+        title: args.title,
+        body: args.body,
+        icon: "lightbulb",
+        severity: args.severity ?? "info",
+        source: "agent",
+      });
+
+    await writeSse(params.controller, "tool_result", {
+      tool: name,
+      success: !error,
+    });
+
+    return {
+      role: "tool" as const,
+      tool_call_id: params.toolCall.id,
+      content: JSON.stringify({
+        success: !error,
+        pushed_to: "energy_tips_realtime",
+      }),
+    };
+  }
+
   // Tool inconnu
   return {
     role: "tool" as const,
