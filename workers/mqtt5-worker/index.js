@@ -65,9 +65,60 @@ client.on("error", (err) => {
   console.error("[MQTT5] Error:", err);
 });
 
+async function upsertRealtimePower({ applianceId, userId, boxId, payload }) {
+  if (payload.kwh_total === undefined) return;
+
+  const { error } = await supabase
+    .from("realtime_power")
+    .upsert(
+      {
+        appliance_id: applianceId,
+        user_id: userId,
+        box_id: boxId,
+        power_kwh: payload.kwh_total,
+        instant_power_w: payload.power_w ?? null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "appliance_id" },
+    );
+
+  if (error) {
+    console.error("[TELEMETRY] realtime_power upsert error:", error);
+  }
+}
+
 client.on("message", async (topic, payload, packet) => {
   try {
     const message = JSON.parse(payload.toString());
+
+    // Télémétrie per-boîtier : upsert realtime_power pour chaque appliance du box
+    if (topic.startsWith("aricie/v1/boxes/") && topic.endsWith("/telemetry")) {
+      const boxUid = topic.split("/")[3];
+      const { data: appliances, error: appliancesError } = await supabase
+        .from("appliances")
+        .select("id, user_id, box_id, relay_index, boxes!inner(uid_hardware)")
+        .eq("boxes.uid_hardware", boxUid);
+
+      if (appliancesError) {
+        console.error("[TELEMETRY] appliances lookup error:", appliancesError);
+      } else if (Array.isArray(appliances)) {
+        // payload peut contenir power_w par relais (relay_index -> watts)
+        const relayPowers = message.relay_power_w ?? {};
+        for (const appliance of appliances) {
+          const kwh = message.kwh_total_per_relay?.[appliance.relay_index] ??
+            message.kwh_total ?? 0;
+          const watts = relayPowers[appliance.relay_index] ??
+            message.power_w ?? null;
+          await upsertRealtimePower({
+            applianceId: appliance.id,
+            userId: appliance.user_id,
+            boxId: appliance.box_id,
+            payload: { kwh_total: kwh, power_w: watts },
+          });
+        }
+      }
+      return; // télémétrie ≠ ACK, on ne traite pas plus loin
+    }
 
     if (!message.command_id) {
       console.warn("[ACK] Missing command_id:", topic, message);
