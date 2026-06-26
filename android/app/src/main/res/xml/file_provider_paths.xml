@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!--
+      Maps to the directory returned by getExternalStorageDirectory():
+        /Android/data/<package>/files
+      The downloaded APK lives at .../files/aricie-update.apk.
+    -->
+    <external-files-path
+        name="external_files"
+        path="." />
+</paths>

@@ -59,6 +59,7 @@ void main() async {
   );
 
   await initDependencies();
+  await UpdateService.init();
 
   runApp(
     ChangeNotifierProvider(

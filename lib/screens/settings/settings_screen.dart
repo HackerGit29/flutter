@@ -5,6 +5,9 @@ import 'package:aricie/domain/usecases/devices/add_device.dart';
 import 'package:aricie/domain/usecases/devices/remove_device.dart';
 import 'package:aricie/domain/usecases/devices/rename_appliance.dart';
 import 'package:aricie/domain/entities/appliance.dart';
+import 'package:aricie/domain/entities/subscription.dart';
+import 'package:aricie/domain/usecases/license/redeem_product_key.dart';
+import 'package:aricie/domain/usecases/license/get_user_subscription.dart';
 
 import 'package:aricie/screens/update/update_screen.dart';
 import 'package:aricie/services/update_service.dart';
@@ -29,6 +32,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   final MqttService _mqttService = MqttService();
   late AnimationController _animationController;
   List<Appliance> _appliances = [];
+  Subscription? _subscription;
   bool _isLoading = true;
   bool _isExpanded = false;
 
@@ -46,6 +50,12 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
 
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadSubscription() async {
+    final result = await GetUserSubscription(sl()).call();
+    result.fold((_) {}, (sub) => _subscription = sub);
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadAndInitializeMQTT() async {
@@ -76,6 +86,67 @@ class _SettingsScreenState extends State<SettingsScreen>
       boxUid: boxUid,
       mqttToken: AppConstants.flespiAppToken,
     );
+  }
+
+  Future<void> _redeemProductKey() async {
+    final keyController = TextEditingController();
+    final confirmed = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Activer Premium'),
+        content: TextField(
+          controller: keyController,
+          decoration: const InputDecoration(
+            labelText: 'Clé produit',
+            hintText: 'XXXX-XXXX-XXXX-XXXX',
+            border: OutlineInputBorder(),
+          ),
+          textCapitalization: TextCapitalization.characters,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, keyController.text.trim()), child: const Text('Activer')),
+        ],
+      ),
+    );
+    if (confirmed == null || confirmed.isEmpty) return;
+
+    final result = await RedeemProductKey(sl()).call(confirmed);
+    if (!mounted) return;
+
+    if (result.isRight()) {
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Lottie.asset('assets/animations/success_premium.json', width: 120, height: 120),
+              const SizedBox(height: 16),
+              const Text('Compte Premium activé !', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer'))],
+        ),
+      );
+      await _loadSubscription();
+    } else {
+      final msg = result.fold((f) => f.message, (_) => 'Erreur inconnue');
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Lottie.asset('assets/animations/error_premium.json', width: 120, height: 120),
+              const SizedBox(height: 16),
+              Text(msg, textAlign: TextAlign.center, style: const TextStyle(fontSize: 14)),
+            ],
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer'))],
+        ),
+      );
+    }
   }
 
   Future<void> _addDevice() async {
@@ -184,8 +255,9 @@ class _SettingsScreenState extends State<SettingsScreen>
       duration: const Duration(seconds: 2),
     )..repeat();
 
-    // Charger les appareils et initialiser MQTT en même temps
+    // Charger les appareils, l'abonnement et initialiser MQTT
     _loadAndInitializeMQTT();
+    _loadSubscription();
 
     Future.delayed(const Duration(milliseconds: 100), () {
       setState(() {
@@ -217,6 +289,8 @@ class _SettingsScreenState extends State<SettingsScreen>
               const CommonHeader(title: 'Paramètres'),
               const SizedBox(height: AppSpacing.s4),
               _buildThemeSelector(themeProvider),
+              const SizedBox(height: AppSpacing.s4),
+              _buildPremiumCard(),
               const SizedBox(height: AppSpacing.s6),
               _buildMqttStatusIndicator(),
               const SizedBox(height: AppSpacing.s4),
@@ -500,6 +574,52 @@ class _SettingsScreenState extends State<SettingsScreen>
                     .withValues(alpha: 0.3)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPremiumCard() {
+    final isVip = _subscription?.isVip ?? false;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.all(AppSpacing.s4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: [AppShadows.sm],
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 50, height: 50,
+            child: Lottie.asset(
+              isVip ? 'assets/animations/premium.json' : 'assets/animations/smart_phone.json',
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.s4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(isVip ? 'Compte Premium' : 'Compte Gratuit',
+                  style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: AppSpacing.s1),
+                Text(
+                  isVip ? 'Toutes les fonctionnalités activées' : 'Passez à Premium pour plus de fonctionnalités',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (!isVip)
+            ElevatedButton(
+              onPressed: _redeemProductKey,
+              child: const Text('Activer'),
+            ),
+        ],
       ),
     );
   }

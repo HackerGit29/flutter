@@ -44,7 +44,7 @@ All implementations must adhere to the following mitigations:
 - **Requirement**: No secrets in source code.
 - **Action**: Use `--dart-define` at compile time or `.env` files. Ensure `.env` is in `.gitignore`.
 - **Check**: Audit `main.dart`, `constants.dart`, and all service files for hardcoded keys.
-- **Status**: ✅ `SUPABASE_URL` and `SUPABASE_ANON_KEY` are passed via `--dart-define`.
+- **Status**: ✅ `SUPABASE_URL` and `SUPABASE_ANON_KEY` are passed via `--dart-define`. `supabaseServiceRoleKey` and `flespiWorkerToken` removed from `constants.dart` (2026-06-26).
 
 ### 5. Binary Protection (M7)
 
@@ -91,4 +91,5 @@ This project follows the OMT_2024_v2 mobile threat model framework. Regular secu
 
 | Date | Type | Scope | Findings |
 |------|------|-------|----------|
+| 2026-06-26 | Secrets cleanup | constants.dart | `supabaseServiceRoleKey` and `flespiWorkerToken` removed — both leaked backend-only secrets into the Flutter client. |
 | 2026-06-21 | Initial | OMT_2024_v2 full audit | Critical risks in MQTT (cleartext) and DeviceCrypto (naive hashing) identified and mitigated. Infrastructure added for challenge-response and secure MQTT. |

@@ -8,15 +8,17 @@ UI components, state management, and screens.
 - **Dashboard** (`DashboardTab` intégré dans `HomeScreen`) :
   - Température/humidité temps réel depuis `BoxTelemetry` (stream MQTT unique)
   - Consommation journalière depuis `GetEnergyByAppliance`
+  - **LiveConsumptionIndicator** : conso temps réel par appareil depuis `RealtimePowerService` (stream MQTT)
   - Grille d'appareils dynamique (nom, conso) issues de `GetUserAppliances`
+  - `DailyEnergyTipBanner` : conseils d'économie depuis Edge Function
 - **Features**:
-  - `DevicesScreen`: Grille de toutes les appliances avec toggle MQTT. États des relais lus depuis `telemetryStream` (`BoxTelemetry.relays`). Contrôle via `sendControlCommand(boxUid, relayIndex)`.
-  - `StatisticsScreen`: Graphique de consommation et répartition par appliance via `energy_data`.
+  - `DevicesScreen`: Grille lecture seule des appliances avec toggle on/off. Catégories dérivées des données. Le toggle écrit dans `device_commands` (file d'attente worker MQTT5). Plus de FAB/add/delete (admin only).
+  - `StatisticsScreen`: Graphique de consommation, répartition par appliance + **LiveConsumptionIndicator** en haut.
   - `ChatbotScreen`: AI assistant interface.
   - `ProfileScreen`: Détails du compte + lien vers Admin (visible si `isAdmin`).
   - `SettingsScreen`: Renommer/supprimer appliances, thème, statut MQTT.
 - **Admin**:
-  - `AdminDashboardScreen`: 3 tabs (Boîtiers, Utilisateurs, Synchronisations). Liste avec statut, navigation vers détails.
+  - `AdminDashboardScreen`: 3 tabs (Boîtiers, Utilisateurs, Synchronisations). FAB pour créer un boîtier + 3 appliances associées. Liste avec statut, navigation vers détails.
   - `AdminBoxDetailScreen`: Infos boîtier, assigner utilisateur, réinitialiser, historique sync.
   - `AdminUserDetailScreen`: Infos utilisateur, suspendre/activer, changer rôle, liste des boîtiers.
 

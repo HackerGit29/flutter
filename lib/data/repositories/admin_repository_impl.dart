@@ -2,8 +2,10 @@ import 'package:aricie/core/errors/failures.dart';
 import 'package:aricie/data/datasources/supabase_admin_datasource.dart';
 import 'package:aricie/domain/entities/user.dart';
 import 'package:aricie/domain/entities/box.dart';
+import 'package:aricie/domain/entities/appliance.dart';
 import 'package:aricie/domain/entities/subscription.dart';
 import 'package:aricie/domain/entities/sync_log.dart';
+import 'package:aricie/domain/entities/admin_action.dart';
 import 'package:aricie/domain/repositories/admin_repository.dart';
 import 'package:dartz/dartz.dart';
 
@@ -159,6 +161,36 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
+  Future<Either<Failure, Box>> createBox({
+    required String uidHardware,
+    required String name,
+    String? location,
+    required String userId,
+  }) async {
+    try {
+      final data = await _remote.createBox(
+        uidHardware: uidHardware,
+        name: name,
+        location: location,
+        userId: userId,
+      );
+      return Right(Box.fromJson(data));
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Appliance>>> createAppliancesForBox(String boxId, String userId) async {
+    try {
+      final data = await _remote.createAppliancesForBox(boxId, userId);
+      return Right(data.map((json) => Appliance.fromJson(json)).toList());
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> logAdminAction({
     required String adminId,
     required String action,
@@ -175,6 +207,26 @@ class AdminRepositoryImpl implements AdminRepository {
         if (details != null) 'details': details,
       });
       return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<AdminAction>>> getAdminActions({int limit = 50}) async {
+    try {
+      final data = await _remote.getAdminActions(limit: limit);
+      return Right(data.map((json) => AdminAction.fromJson(json)).toList());
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<Map<String, dynamic>>>> getDeviceCommands({int limit = 50}) async {
+    try {
+      final data = await _remote.getDeviceCommands(limit: limit);
+      return Right(data);
     } catch (e) {
       return Left(ServerFailure());
     }

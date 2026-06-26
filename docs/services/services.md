@@ -32,9 +32,6 @@ Service IoT connecté au broker flespi en MQTT 5.0.
 3. Émet sur `telemetryStream` (broadcast)
 4. `latestTelemetry` garde la dernière valeur synchrone
 
-### Commande directe (debug uniquement)
-`sendDebugControlCommand(boxUid, relayIndex, action)` — réservé au mode debug (`kDebugMode`). En production, toute commande passe par l'agent IA.
-
 ### Initialisation
 ```dart
 await mqttService.initialize(

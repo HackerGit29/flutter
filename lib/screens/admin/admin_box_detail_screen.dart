@@ -142,6 +142,19 @@ class _AdminBoxDetailScreenState extends State<AdminBoxDetailScreen> {
   }
 
   Future<void> _forceSync() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Forcer la synchronisation'),
+        content: Text('Forcer la sync du boîtier "${widget.box.name}" ?\nUID: ${widget.box.uidHardware}'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Forcer'), style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white)),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
     setState(() => _forcingSync = true);
     final result = await ForceSync(sl(), sl()).call(widget.box.id);
     if (mounted) setState(() => _forcingSync = false);

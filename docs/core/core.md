@@ -9,7 +9,7 @@ The core module contains application-wide utilities, security, and dependency in
 - `SECURITY.md`: Authoritative security standards (OMT_2024_v2) for the project.
 
 ## Supabase Edge Functions
-Deux Edge Functions Deno/TypeScript pour l'agent IA et le contrôle IoT.
+Edge Functions Deno/TypeScript pour l'agent IA, le contrôle IoT et le pipeline énergie.
 
 ### agent-orchestrator
 L'orchestrateur central de l'agent conversationnel Aricie.
@@ -26,6 +26,9 @@ L'orchestrateur central de l'agent conversationnel Aricie.
 | `rag.ts` | Embeddings + RAG vectoriel scope par `owner_id` |
 | `stream.ts` | Utilitaires SSE (headers, write events) |
 | `types.ts` | Types TypeScript partagés |
+
+### energy-aggregator
+ETL quotidien : lit `realtime_power` (table du worker MQTT5) et upsert dans `energy_data` pour les stats historique. Un seul fichier : `index.ts`.
 
 ### Secrets requis
 
@@ -51,14 +54,19 @@ FLESPI_MQTT_WORKER_TOKEN=
 
 > Les secrets ne sont jamais accessibles côté client Flutter.
 
-## Migration SQL (agent_tables)
-Référence : `supabase/migrations/20260623000001_agent_tables.sql`
+## Migrations SQL
 
+### agent_tables (`20260623000001_agent_tables.sql`)
 | Table | Description |
 |---|---|
 | `device_commands` | File d'attente des commandes appareil (pending → sent → acknowledged/failed) |
 | `agent_audit_logs` | Journal immuable des décisions de l'agent |
 | `chat_embeddings` | Vecteurs RAG scope par `owner_id` (pgvector) |
+
+### admin_provisioning (`20260626000003_admin_provisioning.sql`)
+- Nettoie les lignes `uid_hardware = ''` dans `boxes`
+- Ajoute `CHECK (length(uid_hardware) > 8)` sur `boxes.uid_hardware`
+- Ajoute `DELETE` policy admin sur `appliances` (permet à l'admin de supprimer des appliances orphelines)
 
 ### Fonctions RPC
 - `match_user_embeddings(query_embedding, requester_id, match_count)` : Recherche vectorielle scopée par utilisateur

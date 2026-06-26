@@ -58,7 +58,7 @@ lib/
     usecases/                ← 26+ use-cases across auth, boxes, appliances, energy, license, sync, admin
   presentation/              ← Screens, widgets, theme
     screens/                 ← Auth, Home (Dashboard/Stats/Devices/Settings), Admin, Chatbot
-    widgets/                 ← PremiumGateWidget, MetricChart, ChatBubble, ChatInput, MessageBubble
+    widgets/                 ← PremiumGateWidget, MetricChart, LiveConsumptionIndicator, ChatBubble, ChatInput, MessageBubble
     theme/                   ← app_theme.dart (light/dark, Material 3)
   services/                  ← External service integrations
     agent_service.dart       ← SSE client → Edge Function agent-orchestrator
@@ -75,9 +75,11 @@ supabase/
   functions/
     ai-chat/                 ← Edge Function : Chat simple Phi-4-mini-instruct
     agent-orchestrator/      ← Edge Function : Azure OpenAI + tool calling + SSE
+    energy-aggregator/       ← Edge Function : ETL realtime_power → energy_data
   migrations/
     20260621133535_init_schema.sql
     20260623000001_agent_tables.sql  ← device_commands, agent_audit_logs, chat_embeddings
+    20260626000003_admin_provisioning.sql  ← CHECK constraint, DELETE policy admin
 
 workers/
   mqtt5-worker/              ← Node.js worker MQTT 5 (mqtt.js v5)
@@ -96,6 +98,7 @@ workers/
 | `supabase/functions/agent-orchestrator/`  | Edge Function avancée (tool calling + SSE + RAG)                |
 | `supabase/functions/transcribe-audio/index.ts` | Edge Function : audio → gpt-4o-transcribe → texte          |
 | `supabase/functions/text-to-speech/index.ts`   | Edge Function : texte → Azure Neural TTS → audio MP3        |
+| `supabase/functions/energy-aggregator/index.ts`| Edge Function : ETL realtime_power → energy_data quotidien  |
 | `lib/services/mqtt_service.dart`          | IoT messaging (telemetry stream, control commands)              |
 | `lib/services/agent_service.dart`         | SSE client for agent-orchestrator Edge Function                 |
 | `lib/services/voice_service.dart`         | STT (Azure transcribe) + TTS (Azure Neural TTS)                 |
@@ -104,6 +107,7 @@ workers/
 | `lib/theme/app_theme.dart`                | Light/dark theme (Material 3, seed `#4A6572`)                   |
 | `lib/screens/home_screen.dart`            | Main dashboard (tabs: Dashboard, Stats, Devices, Settings)      |
 | `lib/screens/chatbot/chatbot_screen.dart` | Chat UI with SSE streaming + voice mode toggle                  |
+| `lib/widgets/live_consumption_indicator.dart` | Widget conso live temps réel (stream MQTT)                  |
 
 ## AI Agent Architecture
 
@@ -149,12 +153,16 @@ All tables use RLS. Admin bypass via `private.is_admin()` (SECURITY DEFINER quer
 
 ## 2026 project evolution (in progress)
 
-- **AI Agent v2**: Flowise → Supabase Edge Functions + Phi-4-mini-instruct (chat) / Azure OpenAI (tool calling)
+- **AI Agent v2**: Flowise → Supabase Edge Functions + Phi-4-mini-instruct (chat) / Azure OpenAI (tool calling) ✅
 - **Voice mode**: STT/TTS intégré au chatbot avec toggle dans l'AppBar ✅
-- **Live streaming**: SSE streaming typé (token/tool_pending/tool_result/done)
+- **Live streaming**: SSE streaming typé (token/tool_pending/tool_result/done) ✅
 - **Device control from chat**: "Éteins le chauffe-eau" → Policy Engine → MQTT ✅
 - **RAG vectoriel**: pgvector scope par utilisateur ✅
 - **Worker MQTT**: Découplage commande via device_commands + webhook ✅
+- **Admin provisioning**: Création boîtiers/appareils depuis dashboard admin ✅
+- **Pipeline stats**: Edge Function energy-aggregator + LiveConsumptionIndicator ✅
+- **Refonte UI appareils**: DevicesScreen lecture seule, toggle via device_commands ✅
+- **Nettoyage secrets**: supabaseServiceRoleKey, flespiWorkerToken retirés de constants.dart ✅
 - **Phi-4-mini-instruct**: Déployé sur Azure Foundry (chat et agent) ✅
 - **GPT-4o**: En attente d'augmentation de quota
 
@@ -274,6 +282,22 @@ Logs de démarrage OK :
 ## Versioning
 
 Semantic Versioning 2.0.0. Canonical version in `pubspec.yaml`. See `VERSION.md`.
+
+## Relevant Files
+
+| File                                      | Role                                                            |
+| ----------------------------------------- | --------------------------------------------------------------- |
+| `lib/screens/devices/devices_screen.dart`     | Refondu (lecture seule, sans FAB/MQTT, catégories dérivées)      |
+| `lib/data/datasources/supabase_appliance_datasource.dart` | `toggleAppliance` écrit `device_commands` + `appliances.update` |
+| `lib/data/datasources/supabase_admin_datasource.dart` | Nouvelles méthodes `createBox` et `createAppliancesForBox` |
+| `lib/domain/usecases/admin/create_box_for_user.dart` | Use-case admin création boîtier |
+| `lib/domain/usecases/admin/create_appliances_for_box.dart` | Use-case admin création 3 appliances |
+| `lib/screens/admin/admin_dashboard_screen.dart` | FAB + dialog création boîtier (onglet Boîtiers) |
+| `supabase/migrations/20260626000003_admin_provisioning.sql` | CHECK constraint + DELETE policy |
+| `supabase/functions/energy-aggregator/index.ts` | ETL realtime_power → energy_data |
+| `lib/core/constants.dart` | `supabaseServiceRoleKey` et `flespiWorkerToken` supprimés |
+| `lib/services/mqtt_service.dart` | `sendDebugControlCommand` supprimé |
+| `lib/widgets/live_consumption_indicator.dart` | Widget conso live temps réel |
 
 ## Gotchas
 

@@ -40,5 +40,23 @@ class SupabaseLicenseDataSource {
       .select().eq('subscription_id', subscriptionId).maybeSingle();
     return response;
   }
+
+  Future<Map<String, dynamic>?> findProductKey(String key) async {
+    final response = await _client.from('product_keys')
+      .select('id, is_used')
+      .eq('key', key)
+      .maybeSingle();
+    return response;
+  }
+
+  Future<Map<String, dynamic>?> claimProductKey(String id, String userId) async {
+    final response = await _client.from('product_keys')
+      .update({'is_used': true, 'used_by': userId, 'used_at': DateTime.now().toIso8601String()})
+      .eq('id', id)
+      .eq('is_used', false)
+      .select('id')
+      .maybeSingle();
+    return response;
+  }
 }
 

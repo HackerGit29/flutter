@@ -7,6 +7,7 @@ import 'package:aricie/domain/entities/appliance.dart';
 import 'package:aricie/domain/usecases/auth/get_current_user.dart';
 import 'package:aricie/domain/usecases/devices/get_energy_data.dart';
 import 'package:aricie/domain/usecases/devices/get_user_appliances.dart';
+import 'package:aricie/widgets/live_consumption_indicator.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -27,6 +28,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   Map<String, double> _applianceEnergy = {};
   List<Appliance> _appliances = [];
   double _totalConsumption = 0.0;
+  String? _userId;
   bool _isLoading = true;
 
   @override
@@ -44,6 +46,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       setState(() => _isLoading = false);
       return;
     }
+    _userId = user.id;
 
     await Future.wait([
       _loadEnergyHistory(user.id),
@@ -115,6 +118,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildTimeFrameSelector(),
+                    const SizedBox(height: AppSpacing.s4),
+                    if (_userId != null) LiveConsumptionIndicator(userId: _userId!),
                     const SizedBox(height: AppSpacing.s6),
                     _buildCurrentConsumptionCard(),
                     const SizedBox(height: AppSpacing.s6),

@@ -37,6 +37,26 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
 
   Future<void> _toggleSuspend() async {
     final user = widget.user;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(user.isSuspended ? 'Activer l\'utilisateur' : 'Suspendre l\'utilisateur'),
+        content: Text('${user.isSuspended ? 'Activer' : 'Suspendre'} "${user.email}" ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(user.isSuspended ? 'Activer' : 'Suspendre'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: user.isSuspended ? Colors.green : Colors.red,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
     final result = user.isSuspended
         ? await ActivateUser(sl(), sl()).call(user.id)
         : await SuspendUser(sl(), sl()).call(user.id);

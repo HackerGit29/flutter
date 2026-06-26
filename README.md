@@ -10,7 +10,7 @@ Application Flutter de suivi et gestion de consommation énergétique avec objet
 | State           | Riverpod + Provider                                   |
 | Auth            | Supabase Auth                                         |
 | Base de données | Supabase PostgreSQL                                   |
-| IoT             | MQTT (WSS/TLS) via `mqtt_client` (app subscribe uniquement; worker publie commandes via table `device_commands`) |
+| IoT             | MQTT 5.0 (TCP TLS/WSS) via `mqtt5_client` (app subscribe telemetry/status; worker publie commandes via `device_commands`) |
 | IA              | Agent‑orchestrator (Azure OpenAI GPT‑4o / Phi‑4‑mini‑instruct) avec RAG pgvector, streaming SSE, policy engine et file d’attente de commandes MQTT |
 | Architecture    | Clean Architecture (core/data/domain/presentation)    |
 
@@ -65,7 +65,10 @@ Le projet a évolué vers une architecture multi-utilisateurs avec :
 - **Périmètres stricts** : Chaque utilisateur possède ses boîtiers, isolation totale
 - **Abonnements** : Système de licence FREE/VIP
 - **Synchronisation** : Paire unique boîtier ↔ utilisateur via UID matériel
-- **Nouvelle BDD** : Tables `licences`, `subscriptions`, `sync_logs`, `admin_actions`, `roles`
+- **Provisionnement admin** : Création boîtiers + appareils depuis dashboard admin (plus de CRUD utilisateur)
+- **Pipeline stats** : Edge Function `energy-aggregator` + `LiveConsumptionIndicator` pour conso temps réel
+- **Toggle IoT** : Toute commande appareil passe par `device_commands` (file d'attente worker MQTT5)
+- **Nouvelle BDD** : Tables `licences`, `subscriptions`, `sync_logs`, `admin_actions`, `roles`, migrations `20260623000001` (agent) et `20260626000003` (admin)
 
 Voir `AGENTS.md` pour les détails techniques et commandes.
 
@@ -88,12 +91,12 @@ flutter run
 
 `Splash → Onboarding → Auth (Login/Signup) → Dashboard`
 
-- Dashboard : température, humidité, consommation (temps réel MQTT)
-- Statistiques : historique, tendances
-- Appareils : gestion CRUD, contrôle on/off via MQTT
+- Dashboard : température, humidité, consommation temps réel (MQTT), **conso live par appareil**, conseils économie
+- Statistiques : historique, tendances, **conso live en haut de page**
+- Appareils : lecture seule, toggle via `device_commands` (admin crée les boîtiers depuis le dashboard admin)
 - Paramètres : thème, état MQTT, liste appareils
 - Chatbot : agent‑orchestrator (Azure OpenAI GPT‑4o / Phi‑4‑mini‑instruct) avec streaming SSE
-- Administration : gestion utilisateurs, boîtiers, licences (admin only)
+- Administration : gestion utilisateurs, boîtiers, licences, **création de boîtiers + 3 appareils** (admin only)
 
 ## Contribuer
 

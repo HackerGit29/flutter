@@ -4,7 +4,7 @@ This document defines the versioning strategy for the aricie project.
 
 ## Current Version
 
-**1.0.0+1** (as defined in `pubspec.yaml`)
+**1.3.0+1** (as defined in `pubspec.yaml`)
 
 ## Versioning Scheme
 
@@ -24,7 +24,7 @@ MAJOR.MINOR.PATCH+BUILD
 The canonical version is stored in `pubspec.yaml` under the `version` field:
 
 ```yaml
-version: 1.0.0+1
+version: 1.3.0+1
 ```
 
 ## Release Process
@@ -51,4 +51,7 @@ The `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/) forma
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 1.3.0+1 | 2026-06-26 | Admin provisioning, pipeline stats, refonte UI appareils, nettoyage secrets |
+| 1.2.0+1 | 2026-06-26 | CI/CD release pipeline |
+| 1.1.0+1 | 2026-06-25 | Agent RAG, subscription tiers, device_commands |
 | 1.0.0+1 | 2026-06-21 | Initial release |

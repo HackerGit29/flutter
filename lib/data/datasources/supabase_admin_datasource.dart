@@ -88,4 +88,48 @@ class SupabaseAdminDataSource {
     final response = await _client.from('admin_actions').insert(action).select().single();
     return response;
   }
+
+  Future<Map<String, dynamic>> createBox({
+    required String uidHardware,
+    required String name,
+    String? location,
+    required String userId,
+  }) async {
+    final response = await _client.from('boxes').insert({
+      'uid_hardware': uidHardware,
+      'name': name,
+      if (location != null) 'location': location,
+      'user_id': userId,
+      'status': 'active',
+    }).select().single();
+    return response;
+  }
+
+  Future<List<Map<String, dynamic>>> createAppliancesForBox(String boxId, String userId) async {
+    final rows = List.generate(3, (i) => {
+      'box_id': boxId,
+      'user_id': userId,
+      'relay_index': i + 1,
+      'name': 'Appareil ${i + 1}',
+      'is_on': false,
+    });
+    final response = await _client.from('appliances').insert(rows).select();
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<List<Map<String, dynamic>>> getAdminActions({int limit = 50}) async {
+    final response = await _client.from('admin_actions')
+      .select()
+      .order('timestamp', ascending: false)
+      .limit(limit);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  Future<List<Map<String, dynamic>>> getDeviceCommands({int limit = 50}) async {
+    final response = await _client.from('device_commands')
+      .select()
+      .order('created_at', ascending: false)
+      .limit(limit);
+    return List<Map<String, dynamic>>.from(response);
+  }
 }

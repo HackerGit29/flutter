@@ -59,15 +59,42 @@ Deno.serve(async (req: Request) => {
     (a: any) => a.name === "app-release.apk",
   );
 
+  // Client reports its current version (e.g. "1.3.0+1") via header.
+  // Compare to tag_name so we only return updateAvailable=true when newer.
+  const remoteTag = (release.tag_name ?? "v0").replace(/^v/, "");
+  const remoteVer = parseSemver(remoteTag);
+  const clientRaw = req.headers.get("x-app-version") ?? "0.0.0+0";
+  const clientVer = parseSemver(clientRaw.split("+")[0]);
+  const newer = compareSemver(remoteVer, clientVer) > 0;
+
   return new Response(JSON.stringify({
-    updateAvailable: true,
-    version: release.tag_name.replace(/^v/, ""),
+    updateAvailable: newer && !!apkAsset?.browser_download_url,
+    version: remoteTag,
     buildNumber: release.id,
     apkUrl: apkAsset?.browser_download_url ?? null,
-    releaseNotes: release.body?.slice(0, 2048) ?? release.name ?? "",
+    releaseNotes: "",
     forceUpdate: false,
     releaseDate: release.published_at,
   }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
+
+function parseSemver(input: string): [number, number, number] {
+  const m = String(input).trim().match(/^(\d+)\.(\d+)(?:\.(\d+))?/);
+  return [
+    Number(m?.[1] ?? 0),
+    Number(m?.[2] ?? 0),
+    Number(m?.[3] ?? 0),
+  ];
+}
+
+function compareSemver(
+  a: [number, number, number],
+  b: [number, number, number],
+): number {
+  for (let i = 0; i < 3; i++) {
+    if (a[i] !== b[i]) return a[i] - b[i];
+  }
+  return 0;
+}

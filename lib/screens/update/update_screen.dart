@@ -122,45 +122,16 @@ class _UpdateScreenState extends State<UpdateScreen>
                   ),
                 ),
               ),
-              if (info.releaseDate != null) ...[
-                const SizedBox(height: AppSpacing.s2),
-                Text(
-                  'Publiée le ${info.releaseDate}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
+              const SizedBox(height: AppSpacing.s4),
+              Text(
+                'Mettez Aricie à jour pour profiter des dernières améliorations et continuer à suivre votre consommation.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                  height: 1.4,
                 ),
-              ],
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: AppSpacing.s6),
-              if (info.releaseNotes != null && info.releaseNotes!.isNotEmpty) ...[
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'Notes de version',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.s2),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(AppSpacing.s4),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    boxShadow: [AppShadows.sm],
-                  ),
-                  child: Text(
-                    info.releaseNotes!,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.s6),
-              ],
               if (_isDownloading) ...[
                 LinearProgressIndicator(
                   value: _downloadProgress,

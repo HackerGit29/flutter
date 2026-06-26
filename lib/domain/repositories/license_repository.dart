@@ -8,4 +8,5 @@ abstract class LicenseRepository {
   Future<Either<Failure, Subscription>> cancelSubscription();
   Future<Either<Failure, bool>> checkLicenseValidity();
   Future<Either<Failure, bool>> isFeatureAllowed(String featureName);
+  Future<Either<Failure, Subscription>> redeemProductKey(String key);
 }

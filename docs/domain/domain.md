@@ -23,9 +23,9 @@ Defines the business logic, entities, and repository interfaces.
 
 ## Use Cases
 - **Auth**: Login, Register, Logout, GetCurrentUser.
-- **Boxes**: AddBox, RemoveBox, GetUserBoxes, PairBoxWithUid, RenameBox.
-- **Appliances**: GetUserAppliances, ToggleAppliance, RenameAppliance.
+- **Boxes**: GetUserBoxes (lecture seule — l'utilisateur n'ajoute plus de boîtier).
+- **Appliances**: GetUserAppliances, ToggleAppliance (écrit dans `device_commands` + optimiste `appliances.update`), RenameAppliance.
 - **Energy**: GetEnergyHistory, GetEnergyByAppliance.
 - **License**: GetSubscription, UpgradeToVip, Cancel, CheckValidity.
 - **Sync**: RequestSync, ValidateOwnership, VerifyCrypto, LogResult.
-- **Admin**: SuspendUser, ActivateUser, AssignRole, GetAllBoxes, ResetBox, AssignBox, ForceSync.
+- **Admin**: SuspendUser, ActivateUser, AssignRole, GetAllBoxes, ResetBox, AssignBox, ForceSync, **CreateBoxForUser**, **CreateAppliancesForBox**.

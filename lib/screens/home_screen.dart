@@ -17,6 +17,7 @@ import 'devices/devices_screen.dart';
 import 'settings/settings_screen.dart';
 import '../widgets/chatbot_floating_button.dart';
 import '../widgets/daily_energy_tip_banner.dart';
+import '../widgets/live_consumption_indicator.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -93,6 +94,7 @@ class _DashboardTabState extends State<DashboardTab> {
   double _temperature = 0.0;
   double _humidity = 0.0;
 
+  String? _userId;
   StreamSubscription<BoxTelemetry>? _telemetrySub;
   List<FlSpot> _weeklySpots = [];
 
@@ -112,6 +114,7 @@ class _DashboardTabState extends State<DashboardTab> {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
+    _userId = user.id;
 
     await Future.wait([
       _loadBoxes(),
@@ -253,6 +256,8 @@ class _DashboardTabState extends State<DashboardTab> {
                         ],
                       ),
                       const SizedBox(height: AppSpacing.s6),
+                      if (_userId != null) LiveConsumptionIndicator(userId: _userId!),
+                      const SizedBox(height: AppSpacing.s4),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s4),
                         child: Row(

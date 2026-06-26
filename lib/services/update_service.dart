@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:android_intent_plus/android_intent.dart';
 import 'package:aricie/core/constants.dart';
 
 class UpdateInfo {
@@ -66,6 +69,7 @@ class UpdateService {
         headers: {
           'Authorization': 'Bearer $token',
           'apikey': AppConstants.supabaseAnonKey,
+          'x-app-version': _currentVersion,
         },
       ).timeout(const Duration(seconds: 15));
 
@@ -98,8 +102,10 @@ class UpdateService {
       );
       if (response.statusCode != 200) return null;
 
-      final dir = Directory.systemTemp;
-      final file = File('${dir.path}/aricie-update.apk');
+      // Write to app's external cache so FileProvider can serve it.
+      final dir = await getExternalStorageDirectory();
+      final base = dir?.path ?? Directory.systemTemp.path;
+      final file = File('$base/aricie-update.apk');
       await file.writeAsBytes(response.bodyBytes);
       return file.path;
     } catch (_) {
@@ -108,8 +114,31 @@ class UpdateService {
   }
 
   Future<void> installApk(String filePath) async {
-    if (Platform.isAndroid) {
-      await Process.run('open', [filePath]);
+    if (kIsWeb) return;
+    if (!Platform.isAndroid) return;
+
+    // Use FileProvider authority declared in AndroidManifest.xml so the
+    // system installer can read the file on Android 7+ / scoped storage.
+    const authority = 'com.aricie.app.fileprovider';
+    final intent = AndroidIntent(
+      action: 'android.intent.action.VIEW',
+      data: 'content://$authority/aricie-update.apk',
+      type: 'application/vnd.android.package-archive',
+      flags: <int>[1 /* FLAG_GRANT_READ_URI_PERMISSION */],
+    );
+    try {
+      await intent.launch();
+    } catch (_) {
+      // Fallback: try the legacy file:// scheme on very old devices.
+      await Process.run('am', [
+        'start',
+        '-a',
+        'android.intent.action.VIEW',
+        '-d',
+        'file://$filePath',
+        '-t',
+        'application/vnd.android.package-archive',
+      ]);
     }
   }
 

@@ -97,4 +97,31 @@ class LicenseRepositoryImpl implements LicenseRepository {
       (valid) => Right(valid),
     );
   }
+
+  @override
+  Future<Either<Failure, Subscription>> redeemProductKey(String key) async {
+    try {
+      final userId = await _local.getCachedUserId();
+      if (userId == null) return Left(SessionExpiredFailure());
+
+      final existingSub = await _remote.getUserSubscription(userId);
+      if (existingSub != null && existingSub['is_active'] == true) {
+        return Left(AlreadyHasActiveSubscriptionFailure());
+      }
+
+      final keyData = await _remote.findProductKey(key);
+      if (keyData == null) return Left(LicenseExpiredFailure('Clé produit invalide'));
+      if (keyData['is_used'] == true) return Left(LicenseExpiredFailure('Clé produit déjà utilisée'));
+
+      final claimed = await _remote.claimProductKey(keyData['id'] as String, userId);
+      if (claimed == null) return Left(LicenseExpiredFailure('Clé déjà utilisée (concurrence)'));
+
+      final sub = await _remote.createSubscription(userId, 'vip');
+      return Right(Subscription.fromJson(sub));
+    } on AlreadyHasActiveSubscriptionFailure {
+      return Left(AlreadyHasActiveSubscriptionFailure());
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
 }
