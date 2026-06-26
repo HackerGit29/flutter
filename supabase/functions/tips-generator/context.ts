@@ -109,10 +109,6 @@ export async function buildTipContext(
     )
     .map((a: any) => a.name as string);
 
-  // peakHourKwh : pas de granularité horaire dans energy_data → on omet
-  // (la règle `evening_peak` ne matchera pas tant qu'on n'a pas cette donnée).
-  const peakHourKwh = undefined;
-
   return {
     userId,
     todayKwh: todayTotal,
@@ -120,7 +116,6 @@ export async function buildTipContext(
     weekAvgDailyKwh,
     topAppliances,
     inactiveAppliancesOn,
-    peakHourKwh,
     subscriptionType: (subscriptionRes.data?.type as "free" | "vip") ?? "free",
   };
 }

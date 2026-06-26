@@ -169,39 +169,6 @@ class MqttService {
     }
   }
 
-  Future<void> sendDebugControlCommand({
-    required String boxUid,
-    required int relayIndex,
-    required String action,
-  }) async {
-    if (!kDebugMode) {
-      throw UnsupportedError(
-        'Les commandes MQTT directes sont désactivées en production.',
-      );
-    }
-
-    if (!['on', 'off'].contains(action.toLowerCase())) {
-      return;
-    }
-
-    final topic = 'aricie/v1/boxes/$boxUid/relays/$relayIndex/cmd';
-
-    final payload = jsonEncode({
-      'command_id': 'debug-${DateTime.now().millisecondsSinceEpoch}',
-      'action': action.toLowerCase(),
-      'relay_index': relayIndex,
-      'source': 'flutter_debug',
-      'issued_at': DateTime.now().toUtc().toIso8601String(),
-    });
-
-    _client.publish(
-      topic,
-      payload,
-      MqttQos.atLeastOnce,
-      retain: false,
-    );
-  }
-
   void _onSubscribed(String topic) {
     debugPrint('[MQTT5] Abonné à $topic');
   }

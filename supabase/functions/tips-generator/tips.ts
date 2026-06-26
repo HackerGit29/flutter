@@ -21,7 +21,7 @@ export interface TipContext {
   weekAvgDailyKwh: number;
   topAppliances: TipAppliance[];
   inactiveAppliancesOn: string[];
-  peakHourKwh?: { hour: number; kwh: number };
+
   subscriptionType: "free" | "vip";
 }
 
@@ -106,22 +106,6 @@ const tips: readonly TipRule[] = [
         `Vous consommez ${(ctx.todayKwh / ctx.weekAvgDailyKwh).toFixed(1)}× votre moyenne ` +
         `hebdo (${ctx.weekAvgDailyKwh.toFixed(1)} kWh/j). Identifiez l'appareil qui a changé.`,
       icon: "bolt",
-    }),
-  },
-  {
-    ruleId: "evening_peak",
-    severity: "info",
-    condition: (ctx) =>
-      !!ctx.peakHourKwh &&
-      ctx.peakHourKwh.hour >= 18 && ctx.peakHourKwh.hour <= 22 &&
-      ctx.peakHourKwh.kwh > ctx.todayKwh / 8,
-    build: (ctx) => ({
-      title: "Pic de conso en soirée",
-      body:
-        `Votre pic du jour est entre ${ctx.peakHourKwh!.hour}h-${ctx.peakHourKwh!.hour + 1}h. ` +
-        `Décaler les appareils gros consommateurs (lave-linge, four) avant 17h ` +
-        `divise la conso de ~15%.`,
-      icon: "warning",
     }),
   },
   {

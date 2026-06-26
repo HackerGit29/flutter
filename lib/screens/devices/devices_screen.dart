@@ -3,15 +3,9 @@ import 'dart:async';
 import 'package:aricie/core/di/injection_container.dart';
 import 'package:aricie/domain/usecases/devices/get_user_appliances.dart';
 import 'package:aricie/domain/usecases/devices/toggle_device.dart';
-import 'package:aricie/domain/usecases/devices/add_device.dart';
-import 'package:aricie/domain/usecases/devices/remove_device.dart';
 import 'package:aricie/domain/entities/appliance.dart';
-import 'package:aricie/services/mqtt_service.dart';
-import 'package:aricie/models/box_telemetry.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
-import 'package:mqtt5_client/mqtt5_client.dart';
-import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../../widgets/common_header.dart';
 
 class DevicesScreen extends StatefulWidget {
@@ -21,73 +15,31 @@ class DevicesScreen extends StatefulWidget {
   State<DevicesScreen> createState() => _DevicesScreenState();
 }
 
-class _DevicesScreenState extends State<DevicesScreen>
-    with SingleTickerProviderStateMixin {
-  final _mqttService = MqttService();
+class _DevicesScreenState extends State<DevicesScreen> {
   List<Appliance> _appliances = [];
   bool _isLoading = true;
-  late TabController _tabController;
 
-  final Map<String, bool> _deviceStates = {};
-
-  List<StreamSubscription> _subscriptions = [];
-  final List<String> _categories = [
-    'Tous', 'Salon', 'Cuisine', 'Chambre', 'Autres',
-  ];
   String _selectedCategory = 'Tous';
+
+  List<String> get _categories {
+    final locs = _appliances
+      .map((a) => a.location)
+      .whereType<String>()
+      .where((l) => l.isNotEmpty)
+      .toSet()
+      .toList();
+    locs.sort();
+    return ['Tous', ...locs];
+  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _categories.length, vsync: this);
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        setState(() {
-          _selectedCategory = _categories[_tabController.index];
-        });
-      }
-    });
-
-    _initializeMqtt();
     _loadAppliances();
-  }
-
-  Future<void> _initializeMqtt() async {
-    await _mqttService.initialize(
-      boxUid: '',
-      mqttToken: '',
-    );
-
-    final latest = _mqttService.latestTelemetry;
-    if (latest != null) {
-      _updateDeviceStates(latest);
-    }
-
-    _subscriptions.add(
-      _mqttService.telemetryStream.listen(_updateDeviceStates)
-    );
-  }
-
-  void _updateDeviceStates(BoxTelemetry telemetry) {
-    setState(() {
-      for (final relay in telemetry.relays) {
-        _deviceStates[relay.index.toString()] = relay.isOn;
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    for (var subscription in _subscriptions) {
-      subscription.cancel();
-    }
-    _tabController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadAppliances() async {
     setState(() => _isLoading = true);
-
     final result = await GetUserAppliances(sl()).call();
     result.fold(
       (failure) {
@@ -103,245 +55,21 @@ class _DevicesScreenState extends State<DevicesScreen>
     );
   }
 
-  Future<void> _addDevice() async {
-    final nameController = TextEditingController();
-    String selectedLocation = 'Salon';
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.md),
-          ),
-          title: const Text('Ajouter un boîtier'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(
-                  labelText: 'Nom du boîtier',
-                  hintText: 'Ex: Boîtier cuisine',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                  prefixIcon: const Icon(Icons.devices),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.s4),
-              DropdownButtonFormField<String>(
-                initialValue: selectedLocation,
-                decoration: InputDecoration(
-                  labelText: 'Emplacement',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                  prefixIcon: const Icon(Icons.location_on),
-                ),
-                items: ['Salon', 'Cuisine', 'Chambre', 'Salle de bain', 'Bureau', 'Autres']
-                  .map((loc) => DropdownMenuItem(value: loc, child: Text(loc)))
-                  .toList(),
-                onChanged: (value) {
-                  setDialogState(() {
-                    selectedLocation = value!;
-                  });
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Annuler'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-              ),
-              child: const Text('Ajouter'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (result == true && mounted) {
-      final name = nameController.text.trim();
-      if (name.isNotEmpty) {
-        final addResult = await AddDevice(sl()).call(name, selectedLocation);
-        addResult.fold(
-          (failure) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Erreur: ${failure.message}'),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                ),
-              );
-            }
-          },
-          (_) async {
-            await _loadAppliances();
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Boîtier "$name" ajouté avec succès'),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
-                  ),
-                ),
-              );
-            }
-          },
-        );
-      }
-    }
-  }
-
-  Future<void> _deleteAppliance(Appliance appliance) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-        ),
-        title: const Text('Confirmer la suppression'),
-        content: Text('Supprimer tout le boîtier contenant "${appliance.name}" ?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accentDot,
-              foregroundColor: AppColors.textInverse,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-            ),
-            child: const Text('Supprimer'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && mounted) {
-      final result = await RemoveDevice(sl()).call(appliance.boxId);
-      result.fold(
-        (failure) {
-          debugPrint('Error deleting box: ${failure.message}');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: const Text('Erreur lors de la suppression'),
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-              ),
-            );
-          }
-        },
-        (_) async {
-          await _loadAppliances();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Boîtier "${appliance.name}" supprimé'),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-              ),
-            );
-          }
-        },
-      );
-    }
-  }
-
   Future<void> _toggleAppliance(Appliance appliance, bool newState) async {
-    final relayIndex = appliance.relayIndex;
-
-    bool isConnected = await _checkMqttConnection();
-    if (!isConnected) {
-      await _mqttService.initialize(
-        boxUid: appliance.boxUid ?? '',
-        mqttToken: '',
-      );
-      isConnected = await _checkMqttConnection();
-      if (!isConnected) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Erreur de connexion au broker MQTT'),
-              backgroundColor: AppColors.textInverse,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-        return;
-      }
-    }
-
-    await _mqttService.sendDebugControlCommand(
-      boxUid: appliance.boxUid ?? '',
-      relayIndex: relayIndex,
-      action: newState ? 'on' : 'off',
-    );
-
     setState(() {
-      _deviceStates[relayIndex.toString()] = newState;
-    });
-
-    await ToggleDevice(sl()).call(appliance.id, newState);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${newState ? 'Activation' : 'Désactivation'} de ${appliance.name}...'),
-          duration: const Duration(seconds: 1),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.sm)),
-        ),
-      );
-    }
-  }
-
-  Future<bool> _checkMqttConnection() async {
-    Completer<bool> completer = Completer<bool>();
-
-    StreamSubscription? subscription;
-    subscription = _mqttService.connectionState.listen((state) {
-      if (state == MqttConnectionState.connected) {
-        subscription?.cancel();
-        if (!completer.isCompleted) completer.complete(true);
-      } else if (state == MqttConnectionState.disconnected) {
-        subscription?.cancel();
-        if (!completer.isCompleted) completer.complete(false);
+      final idx = _appliances.indexWhere((a) => a.id == appliance.id);
+      if (idx >= 0) {
+        _appliances[idx] = appliance.copyWith(isOn: newState);
       }
     });
-
-    Future.delayed(const Duration(seconds: 2), () {
-      subscription?.cancel();
-      if (!completer.isCompleted) completer.complete(false);
-    });
-
-    return completer.future;
+    final result = await ToggleDevice(sl()).call(appliance.id, newState);
+    result.fold(
+      (failure) {
+        debugPrint('Toggle error: ${failure.message}');
+        _loadAppliances();
+      },
+      (_) {},
+    );
   }
 
   List<Appliance> _getFilteredAppliances() {
@@ -354,6 +82,7 @@ class _DevicesScreenState extends State<DevicesScreen>
   @override
   Widget build(BuildContext context) {
     final filteredAppliances = _getFilteredAppliances();
+    final categories = _categories;
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -366,14 +95,29 @@ class _DevicesScreenState extends State<DevicesScreen>
               const SizedBox(height: AppSpacing.s2),
               CommonHeader(title: 'Mes Appareils'),
               const SizedBox(height: AppSpacing.s6),
-              TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                labelColor: Theme.of(context).colorScheme.primary,
-                unselectedLabelColor: AppColors.textPrimary.withValues(alpha: 0.7),
-                indicatorSize: TabBarIndicatorSize.label,
-                dividerColor: Colors.transparent,
-                tabs: _categories.map((cat) => Tab(text: cat)).toList(),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: categories.map((cat) {
+                    final selected = cat == _selectedCategory;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: AppSpacing.s2),
+                      child: ChoiceChip(
+                        label: Text(cat),
+                        selected: selected,
+                        onSelected: (v) {
+                          setState(() => _selectedCategory = cat);
+                        },
+                        selectedColor: Theme.of(context).colorScheme.primaryContainer,
+                        labelStyle: TextStyle(
+                          color: selected
+                            ? Theme.of(context).colorScheme.onPrimaryContainer
+                            : AppColors.textPrimary.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
               const SizedBox(height: AppSpacing.s4),
               Text(
@@ -388,7 +132,8 @@ class _DevicesScreenState extends State<DevicesScreen>
                   ? const Center(child: CircularProgressIndicator())
                   : filteredAppliances.isEmpty
                     ? _buildEmptyState()
-                    : AnimationLimiter(
+                    : RefreshIndicator(
+                        onRefresh: _loadAppliances,
                         child: GridView.builder(
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
@@ -399,16 +144,7 @@ class _DevicesScreenState extends State<DevicesScreen>
                           itemCount: filteredAppliances.length,
                           itemBuilder: (context, index) {
                             final appliance = filteredAppliances[index];
-                            return AnimationConfiguration.staggeredGrid(
-                              position: index,
-                              duration: const Duration(milliseconds: 375),
-                              columnCount: 2,
-                              child: ScaleAnimation(
-                                child: FadeInAnimation(
-                                  child: _buildApplianceCard(appliance),
-                                ),
-                              ),
-                            );
+                            return _buildApplianceCard(appliance);
                           },
                         ),
                       ),
@@ -416,10 +152,6 @@ class _DevicesScreenState extends State<DevicesScreen>
             ],
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addDevice,
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -444,24 +176,10 @@ class _DevicesScreenState extends State<DevicesScreen>
           const SizedBox(height: AppSpacing.s2),
           Text(
             _selectedCategory == 'Tous'
-              ? 'Ajoutez des boîtiers pour commencer'
+              ? 'Aucun appareil connecté. Contactez votre administrateur.'
               : 'Aucun appareil dans cette catégorie',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: AppColors.textPrimary.withValues(alpha: 0.7)),
-          ),
-          const SizedBox(height: AppSpacing.s6),
-          ElevatedButton.icon(
-            onPressed: _addDevice,
-            icon: const Icon(Icons.add),
-            label: const Text('Ajouter un boîtier'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s6, vertical: AppSpacing.s3),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-            ),
           ),
         ],
       ),
@@ -469,8 +187,7 @@ class _DevicesScreenState extends State<DevicesScreen>
   }
 
   Widget _buildApplianceCard(Appliance appliance) {
-    final relayIndex = appliance.relayIndex;
-    final bool isActive = _deviceStates[relayIndex.toString()] ?? false;
+    final bool isActive = appliance.isOn;
 
     return GestureDetector(
       onTap: () => _showApplianceDetails(appliance),
@@ -570,15 +287,14 @@ class _DevicesScreenState extends State<DevicesScreen>
   }
 
   void _showApplianceDetails(Appliance appliance) {
-    final relayIndex = appliance.relayIndex;
-    final bool isActive = _deviceStates[relayIndex.toString()] ?? false;
+    final bool isActive = appliance.isOn;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.6,
+        height: MediaQuery.of(context).size.height * 0.5,
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
           borderRadius: const BorderRadius.only(
@@ -652,53 +368,8 @@ class _DevicesScreenState extends State<DevicesScreen>
                   ],
                 ),
               ),
-              const Divider(),
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.s6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        _buildActionButton('Programmer', Icons.schedule, AppColors.textInverse, () {}),
-                        const SizedBox(width: AppSpacing.s4),
-                        _buildActionButton('Historique', Icons.history, AppColors.textInverse, () {}),
-                        const SizedBox(width: AppSpacing.s4),
-                        _buildActionButton('Supprimer', Icons.delete, AppColors.textInverse, () {
-                          Navigator.pop(context);
-                          _deleteAppliance(appliance);
-                        }),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButton(String label, IconData icon, Color color, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.s3),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color),
-            ),
-            const SizedBox(height: AppSpacing.s2),
-            Text(label,
-              style: TextStyle(color: color.withValues(alpha: 0.8), fontWeight: FontWeight.w500),
-              textAlign: TextAlign.center),
-          ],
         ),
       ),
     );

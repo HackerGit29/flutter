@@ -34,6 +34,31 @@ class SupabaseApplianceDataSource {
   }
 
   Future<Map<String, dynamic>> toggleAppliance(String applianceId, bool isOn) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw Exception('User not authenticated');
+
+    final appliance = await _client.from('appliances')
+      .select('*, boxes!inner(uid_hardware)')
+      .eq('id', applianceId)
+      .single();
+
+    final boxId = appliance['box_id'] as String;
+    final boxUid = (appliance['boxes'] as Map<String, dynamic>)['uid_hardware'] as String? ?? '';
+    final relayIndex = appliance['relay_index'] as int;
+    final name = appliance['name'] as String;
+
+    await _client.from('device_commands').insert({
+      'user_id': userId,
+      'box_id': boxId,
+      'box_uid': boxUid,
+      'appliance_id': applianceId,
+      'appliance_name': name,
+      'relay_index': relayIndex,
+      'action': isOn ? 'on' : 'off',
+      'status': 'pending',
+      'requested_by': 'user_toggle',
+    });
+
     final response = await _client.from('appliances')
       .update({'is_on': isOn}).eq('id', applianceId).select().single();
     return response;

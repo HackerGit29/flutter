@@ -130,11 +130,8 @@ az containerapp create `
 # Logs temps réel
 az containerapp logs show --name mqtt5-worker --resource-group rg-paossimb-7935 --type console --tail 100
 
-# Liste des révisions
+# Révisions
 az containerapp revision list --name mqtt5-worker --resource-group rg-paossimb-7935 -o table
-
-# Replicas
-az containerapp replica list --name mqtt5-worker --resource-group rg-paossimb-7935 -o table
 ```
 
 ## Logs de démarrage OK
@@ -147,31 +144,9 @@ az containerapp replica list --name mqtt5-worker --resource-group rg-paossimb-79
 
 ## Troubleshooting
 
-### CrashLoopBackOff
-
-```bash
-# 1. Voir les logs
-az containerapp logs show --name mqtt5-worker --resource-group rg-paossimb-7935 --type console --tail 50
-
-# 2. Vérifier les secrets dans les env vars
-az containerapp show --name mqtt5-worker --resource-group rg-paossimb-7935 --query "properties.template.containers[0].env"
-
-# 3. Re-deployer avec fix
-pwsh scripts/azure/deploy-mqtt5-worker.ps1
-```
-
-### `Failed to connect to broker`
-
-Cause probable : token Flespi invalide ou expiré.
-- Vérifier `FLESPI_MQTT_WORKER_TOKEN` dans les secrets du Container App
-- Tester la connexion MQTT depuis la VM : `mosquitto_sub -h mqtt.flespi.io -p 8883 -t test -u <token> -P "" --tls-use-os-certs`
-
-### Supabase errors
-
-Cause probable: `SUPABASE_URL` ou `SUPABASE_SERVICE_ROLE_KEY` invalides.
-- Re-générer la service role key dans Supabase Dashboard → Settings → API
-- Mettre à jour le secret dans le Container App : `az containerapp secret set ...`
-
-### `Ready = False`
-
-Normal pour un worker background sans HTTP server. Le container est Running mais le health probe HTTP (port 80) ne répond pas. Vérifier les logs pour confirmer que le worker tourne.
+| Symptôme | Cause probable | Action |
+|---|---|---|
+| CrashLoopBackOff | Secrets manquants ou invalides | `az containerapp logs show --tail 50`, vérifier les secrets via `az containerapp show --query "properties.template.containers[0].env"`, re-deployer |
+| `Failed to connect to broker` | Token Flespi invalide/expiré | Vérifier `FLESPI_MQTT_WORKER_TOKEN`, tester avec `mosquitto_sub -h mqtt.flespi.io -p 8883 -t test -u <token>` |
+| Supabase errors | URL ou service_role_key invalides | Re-générer la clé dans Supabase Dashboard → Settings → API |
+| `Ready = False` | Normal (worker background, pas de HTTP) | Vérifier les logs. Si le worker tourne et traite des commandes, c'est OK |

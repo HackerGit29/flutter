@@ -9,7 +9,7 @@ const baseCtx = (overrides: Partial<TipContext> = {}): TipContext => ({
   weekAvgDailyKwh: 8,
   topAppliances: [],
   inactiveAppliancesOn: [],
-  peakHourKwh: undefined,
+
   subscriptionType: "free",
   ...overrides,
 });
@@ -42,7 +42,7 @@ Deno.test("pickTip → default when rien ne matche", () => {
     todayKwh: 3,
     weekAvgDailyKwh: 3.5,
     topAppliances: [
-      { id: "a1", name: "Lampe", kwh: 1, share: 0.3, isOn: true, liveWatts: 50, typicalWatts: 60 },
+      { id: "a1", name: "Lampe", kwh: 1, share: 0.1, isOn: true, liveWatts: 50, typicalWatts: 60 },
     ],
   }));
   assertEquals(tip.ruleId, "default");
