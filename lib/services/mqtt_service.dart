@@ -17,10 +17,12 @@ class MqttService {
 
   late StreamController<MqttConnectionState> _connectionStateController;
   late StreamController<BoxTelemetry> _telemetryController;
+  late StreamController<Map<int, RelayState>> _relayStatesController;
 
   StreamSubscription? _updatesSubscription;
 
   BoxTelemetry? _latestTelemetry;
+  Map<int, RelayState>? _latestRelayStates;
 
   bool _isInitializing = false;
   bool _initialized = false;
@@ -38,11 +40,17 @@ class MqttService {
 
   BoxTelemetry? get latestTelemetry => _latestTelemetry;
 
+  Stream<Map<int, RelayState>> get relayStatesStream =>
+      _relayStatesController.stream;
+
+  Map<int, RelayState>? get latestRelayStates => _latestRelayStates;
+
   /// Crée un MqttService. La factory (MqttService.create()) est
   /// recommandée car elle initialise les StreamControllers en lazy.
   MqttService() {
     _connectionStateController = StreamController<MqttConnectionState>.broadcast();
     _telemetryController = StreamController<BoxTelemetry>.broadcast();
+    _relayStatesController = StreamController<Map<int, RelayState>>.broadcast();
   }
 
   Future<void> initialize({
@@ -168,7 +176,15 @@ class MqttService {
 
         _latestTelemetry = telemetry;
         _telemetryController.add(telemetry);
-        debugPrint('[MQTT5] Télémétrie reçue: temp=${telemetry.temperature}°C, hum=${telemetry.humidity}%');
+
+        final relayMap = <int, RelayState>{};
+        for (final relay in telemetry.relays) {
+          relayMap[relay.index] = relay;
+        }
+        _latestRelayStates = relayMap;
+        _relayStatesController.add(relayMap);
+
+        debugPrint('[MQTT5] Télémétrie reçue: temp=${telemetry.temperature}°C, hum=${telemetry.humidity}%, relais=${telemetry.relays.length}');
       } catch (e) {
         debugPrint('[MQTT5] Erreur parsing télémétrie: $e');
       }
@@ -207,5 +223,6 @@ class MqttService {
     await _updatesSubscription?.cancel();
     await _connectionStateController.close();
     await _telemetryController.close();
+    await _relayStatesController.close();
   }
 }

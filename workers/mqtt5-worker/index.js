@@ -153,7 +153,7 @@ client.on("message", async (topic, payload, packet) => {
       const boxUid = topic.split("/")[3];
       const { data: appliances, error: appliancesError } = await supabase
         .from("appliances")
-        .select("id, user_id, box_id, relay_index, boxes!inner(uid_hardware)")
+        .select("id, user_id, box_id, relay_index, is_on, boxes!inner(uid_hardware)")
         .eq("boxes.uid_hardware", boxUid);
 
       if (appliancesError) {
@@ -173,6 +173,26 @@ client.on("message", async (topic, payload, packet) => {
             payload: { kwh_total: kwh, power_w: watts },
           });
           await evaluateLiveTip(appliance.user_id, appliance.id);
+
+          if (message.relays && Array.isArray(message.relays)) {
+            const relayStatus = message.relays.find(
+              (r) => r.index === appliance.relay_index
+            );
+            if (relayStatus && typeof relayStatus.status === 'string') {
+              const newIsOn = relayStatus.status === 'on';
+              if (newIsOn !== appliance.is_on) {
+                const { error: syncErr } = await supabase
+                  .from('appliances')
+                  .update({ is_on: newIsOn })
+                  .eq('id', appliance.id);
+                if (syncErr) {
+                  console.error('[TELEMETRY] is_on sync error:', syncErr);
+                } else {
+                  console.log(`[TELEMETRY] Appliance ${appliance.id} is_on corrected to ${newIsOn}`);
+                }
+              }
+            }
+          }
         }
       }
       return; // télémétrie ≠ ACK, on ne traite pas plus loin
@@ -183,22 +203,57 @@ client.on("message", async (topic, payload, packet) => {
       return;
     }
 
-    const { error } = await supabase
+    // Fetch the command row to know which appliance/action this ACK concerns
+    const { data: cmdRow, error: cmdErr } = await supabase
       .from("device_commands")
-      .update({
-        status: message.success ? "acknowledged" : "failed",
-        acknowledged_at: new Date().toISOString(),
-        ack_payload: message,
-        error_message: message.success ? null : "Device returned failure ACK",
-      })
-      .eq("id", message.command_id);
+      .select("id, action, appliance_id")
+      .eq("id", message.command_id)
+      .maybeSingle();
 
-    if (error) {
-      console.error("[ACK] Supabase update error:", error);
+    if (cmdErr) {
+      console.error("[ACK] Could not fetch device_command:", cmdErr);
       return;
     }
 
-    console.log(`[ACK] Command ${message.command_id} acknowledged`);
+    const updates = {
+      status: message.success ? "acknowledged" : "failed",
+      acknowledged_at: new Date().toISOString(),
+      ack_payload: message,
+      error_message: message.success ? null : "Device returned failure ACK",
+    };
+
+    const { error: updateError } = await supabase
+      .from("device_commands")
+      .update(updates)
+      .eq("id", message.command_id);
+
+    if (updateError) {
+      console.error("[ACK] Supabase update error:", updateError);
+      return;
+    }
+
+    console.log(`[ACK] Command ${message.command_id} ${message.success ? 'acknowledged' : 'failed'}`);
+
+    // If acknowledged and we have an appliance_id, update appliance.is_on to reflect the action
+    try {
+      if (message.success && cmdRow && cmdRow.appliance_id) {
+        // Prefer action from the ACK payload if provided, otherwise fall back to stored action
+        const action = message.action || cmdRow.action || null;
+        if (action === 'on' || action === 'off') {
+          const { error: appErr } = await supabase
+            .from('appliances')
+            .update({ is_on: action === 'on' })
+            .eq('id', cmdRow.appliance_id);
+          if (appErr) {
+            console.error('[ACK] Failed to update appliance state:', appErr);
+          } else {
+            console.log(`[ACK] Appliance ${cmdRow.appliance_id} is_on set to ${action === 'on'}`);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[ACK] Error while updating appliance state:', e);
+    }
   } catch (err) {
     console.error("[ACK] Invalid ACK payload:", err);
   }

@@ -27,7 +27,7 @@ import paho.mqtt.client as mqtt
 
 HOST = "mqtt.flespi.io"
 PORT = 8883
-TELEMETRY_INTERVAL = 5  # secondes
+TELEMETRY_INTERVAL = 2  # secondes
 
 if len(sys.argv) < 3:
     print(f"Usage: {sys.argv[0]} <boxUid> <flespi_token>", file=sys.stderr)

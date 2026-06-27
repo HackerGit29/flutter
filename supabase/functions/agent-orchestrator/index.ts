@@ -29,35 +29,68 @@ import type { ChatRequest, ToolCall } from "./types.ts";
  */
 async function buildOperationalContext(supabase: any, requesterId: string) {
   try {
-    const { data: appliances, error } = await supabase
+    // Appliances (full list - used to compute counts and basic metadata)
+    const { data: appliancesData, error: appliancesError } = await supabase
       .from("appliances")
-      .select("name, location, is_on, relay_index")
-      .eq("user_id", requesterId)
-      .limit(20);
+      .select("id, name, location, is_on, relay_index, box_id")
+      .eq("user_id", requesterId);
 
-    if (error) throw error;
+    if (appliancesError) throw appliancesError;
 
+    const appliances = (appliancesData ?? []) as any[];
+    const appliancesCount = appliances.length;
+
+    // Boxes (needed for box count and uid information)
+    const { data: boxesData, error: boxesError } = await supabase
+      .from("boxes")
+      .select("id, uid_hardware, is_active, is_blocked, location")
+      .eq("user_id", requesterId);
+
+    if (boxesError) throw boxesError;
+
+    const boxes = (boxesData ?? []) as any[];
+    const boxesCount = boxes.length;
+
+    // Subscription details (include end_date so the agent can answer expiration questions)
     const { data: subscription } = await supabase
       .from("subscriptions")
-      .select("type, is_active")
+      .select("type, is_active, end_date")
       .eq("user_id", requesterId)
       .single();
 
     return {
-      available_appliances: appliances?.map((a: any) => ({
+      available_appliances: appliances.map((a: any) => ({
+        id: a.id,
         name: a.name,
         location: a.location,
         is_on: a.is_on,
-      })) ?? [],
+        box_id: a.box_id,
+      })),
+      appliances_count: appliancesCount,
+      boxes: boxes.map((b: any) => ({
+        id: b.id,
+        uid: b.uid_hardware,
+        is_active: b.is_active,
+        is_blocked: b.is_blocked,
+        location: b.location,
+      })),
+      boxes_count: boxesCount,
       subscription_type: subscription?.type ?? "free",
       subscription_active: subscription?.is_active ?? false,
+      subscription_end: subscription?.end_date ? new Date(subscription.end_date).toISOString() : null,
+      is_vip: (subscription?.type ?? "free") === "vip",
     };
   } catch (error) {
     console.error("Build operational context error:", error);
     return {
       available_appliances: [],
+      appliances_count: 0,
+      boxes: [],
+      boxes_count: 0,
       subscription_type: "free",
       subscription_active: false,
+      subscription_end: null,
+      is_vip: false,
     };
   }
 }
