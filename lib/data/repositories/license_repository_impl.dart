@@ -112,6 +112,9 @@ class LicenseRepositoryImpl implements LicenseRepository {
       final keyData = await _remote.findProductKey(key);
       if (keyData == null) return Left(LicenseExpiredFailure('Clé produit invalide'));
       if (keyData['is_used'] == true) return Left(LicenseExpiredFailure('Clé produit déjà utilisée'));
+      if (keyData['expires_at'] != null && DateTime.parse(keyData['expires_at'] as String).isBefore(DateTime.now())) {
+        return Left(LicenseExpiredFailure('Clé produit expirée'));
+      }
 
       final claimed = await _remote.claimProductKey(keyData['id'] as String, userId);
       if (claimed == null) return Left(LicenseExpiredFailure('Clé déjà utilisée (concurrence)'));

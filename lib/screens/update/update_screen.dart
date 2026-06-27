@@ -19,6 +19,7 @@ class _UpdateScreenState extends State<UpdateScreen>
   bool _isDownloading = false;
   double _downloadProgress = 0;
   String? _downloadedPath;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -37,36 +38,42 @@ class _UpdateScreenState extends State<UpdateScreen>
 
   Future<void> _startDownload() async {
     if (widget.updateInfo.apkUrl == null) return;
+    final url = widget.updateInfo.apkUrl!;
 
     setState(() {
       _isDownloading = true;
       _downloadProgress = 0;
+      _errorMessage = null;
     });
 
-    for (var i = 1; i <= 10; i++) {
-      await Future.delayed(const Duration(milliseconds: 300));
+    try {
+      await for (final progress in _updateService.downloadApk(url)) {
+        if (!mounted) return;
+        if (progress < 0) {
+          setState(() {
+            _isDownloading = false;
+            _errorMessage = 'Téléchargement impossible. Vérifiez votre connexion et réessayez.';
+          });
+          return;
+        }
+        setState(() => _downloadProgress = progress);
+      }
       if (!mounted) return;
-      setState(() => _downloadProgress = i / 10);
-    }
-
-    final path = await _updateService.downloadApk(widget.updateInfo.apkUrl!);
-
-    if (!mounted) return;
-    setState(() {
-      _isDownloading = false;
-      _downloadedPath = path;
-    });
-
-    if (path != null) {
-      _updateService.installApk(path);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Échec du téléchargement. Réessayez.'),
-          backgroundColor: AppColors.accentDot,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      final path = await _updateService.apkDestination();
+      setState(() {
+        _isDownloading = false;
+        _downloadedPath = path;
+      });
+      // Auto-launch the installer once the APK is on disk.
+      if (path != null) {
+        await _updateService.installApk(path);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isDownloading = false;
+        _errorMessage = 'Téléchargement impossible. Vérifiez votre connexion et réessayez.';
+      });
     }
   }
 
@@ -153,11 +160,21 @@ class _UpdateScreenState extends State<UpdateScreen>
                   color: AppColors.accentMint, size: 48),
                 const SizedBox(height: AppSpacing.s3),
                 Text(
-                  'Téléchargement terminé',
+                  'Installation en cours...',
                   style: theme.textTheme.titleMedium?.copyWith(
                     color: AppColors.accentMint,
                     fontWeight: FontWeight.bold,
                   ),
+                ),
+                const SizedBox(height: AppSpacing.s4),
+              ],
+              if (_errorMessage != null) ...[
+                Text(
+                  _errorMessage!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: AppColors.accentDot,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.s4),
               ],

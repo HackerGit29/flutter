@@ -43,7 +43,7 @@ class SupabaseLicenseDataSource {
 
   Future<Map<String, dynamic>?> findProductKey(String key) async {
     final response = await _client.from('product_keys')
-      .select('id, is_used')
+      .select('id, is_used, expires_at')
       .eq('key', key)
       .maybeSingle();
     return response;

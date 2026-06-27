@@ -95,22 +95,47 @@ class UpdateService {
     }
   }
 
-  Future<String?> downloadApk(String url) async {
+  /// Downloads the APK and emits real byte-progress in [0..1].
+  Stream<double> downloadApk(String url) async* {
+    final client = http.Client();
     try {
-      final response = await http.get(Uri.parse(url)).timeout(
-        const Duration(minutes: 5),
-      );
-      if (response.statusCode != 200) return null;
-
-      // Write to app's external cache so FileProvider can serve it.
+      final request = http.Request('GET', Uri.parse(url));
+      final response = await client.send(request).timeout(
+            const Duration(minutes: 10),
+          );
+      if (response.statusCode != 200) {
+        yield -1;
+        return;
+      }
+      final total = response.contentLength ?? 0;
       final dir = await getExternalStorageDirectory();
       final base = dir?.path ?? Directory.systemTemp.path;
       final file = File('$base/aricie-update.apk');
-      await file.writeAsBytes(response.bodyBytes);
-      return file.path;
+      final sink = file.openWrite();
+      var received = 0;
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        if (total > 0) {
+          yield received / total;
+        }
+      }
+      await sink.flush();
+      await sink.close();
+      yield 1.0;
+      // Signal completion by emitting the file path via a sentinel value.
+      // We can't carry the path in a double; return via side-channel below.
+      // Consumers should rely on [apkDestination] after the stream completes.
     } catch (_) {
-      return null;
+      yield -1;
+    } finally {
+      client.close();
     }
+  }
+
+  Future<String?> apkDestination() async {
+    final dir = await getExternalStorageDirectory();
+    return '${dir?.path ?? Directory.systemTemp.path}/aricie-update.apk';
   }
 
   Future<void> installApk(String filePath) async {

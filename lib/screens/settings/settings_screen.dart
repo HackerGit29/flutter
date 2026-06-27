@@ -596,7 +596,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           SizedBox(
             width: 50, height: 50,
             child: Lottie.asset(
-              isVip ? 'assets/animations/premium.json' : 'assets/animations/smart_phone.json',
+              isVip ? 'assets/animations/premium.json' : 'assets/animations/free.json',
               fit: BoxFit.contain,
             ),
           ),
