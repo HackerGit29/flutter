@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -33,6 +34,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   StreamSubscription<AgentStreamEvent>? _streamSubscription;
   Map<String, dynamic>? _pendingCriticalAction;
   String? _initialMessage;
+  int? _editingIndex;
 
   @override
   void initState() {
@@ -72,7 +74,18 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   }
 
   void _addMessage(String text, bool isUser) {
+    if (isUser && _editingIndex != null) {
+      final index = _editingIndex!;
+      final old = _messages[index];
+      _messages[index] = old.copyWith(text: text, isEdited: true);
+      _editingIndex = null;
+      _scrollToBottom();
+      _streamResponse(text);
+      return;
+    }
+
     final message = ChatMessage(
+      id: const Uuid().v4(),
       text: text,
       isUser: isUser,
       timestamp: DateTime.now(),
@@ -91,6 +104,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
 
   void _addBotMessage(String text, {String? actionType, bool isError = false}) {
     final message = ChatMessage(
+      id: const Uuid().v4(),
       text: text,
       isUser: false,
       timestamp: DateTime.now(),
@@ -120,6 +134,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
 
     // Ajouter un message bot vide (streaming)
     final streamingMessage = ChatMessage(
+      id: const Uuid().v4(),
       text: '',
       isUser: false,
       timestamp: DateTime.now(),
@@ -289,10 +304,12 @@ class _ChatbotScreenState extends State<ChatbotScreen>
   }) {
     setState(() {
       if (_messages.isNotEmpty && !_messages.last.isUser) {
+        final last = _messages.last;
         _messages[_messages.length - 1] = ChatMessage(
+          id: last.id,
           text: text,
           isUser: false,
-          timestamp: _messages.last.timestamp,
+          timestamp: last.timestamp,
           isStreaming: isStreaming,
           actionType: actionType,
           isError: isError,
@@ -310,10 +327,12 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     setState(() {
       _isTyping = false;
       if (_messages.isNotEmpty && !_messages.last.isUser) {
+        final last = _messages.last;
         _messages[_messages.length - 1] = ChatMessage(
+          id: last.id,
           text: text,
           isUser: false,
-          timestamp: _messages.last.timestamp,
+          timestamp: last.timestamp,
           actionType: actionType,
           isError: isError,
         );
@@ -559,7 +578,24 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                                           ),
                                         ),
                                       ),
-                                    MessageBubble(message: message),
+                                    MessageBubble(
+                                      message: message,
+                                      onCopy: () {
+                                        Clipboard.setData(ClipboardData(text: message.text));
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(
+                                              content: Text('Copié'),
+                                              duration: Duration(seconds: 1),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      onEdit: () {
+                                        _editingIndex = index;
+                                        setState(() {});
+                                      },
+                                    ),
                                   ],
                                 ),
                               ),
@@ -577,11 +613,46 @@ class _ChatbotScreenState extends State<ChatbotScreen>
                 child: TypingIndicator(),
               ),
             ),
+          if (_editingIndex != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+              child: Row(
+                children: [
+                  Icon(Icons.edit_rounded, size: 16,
+                    color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Modification du message...',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _editingIndex = null),
+                    child: Text(
+                      'Annuler',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ChatInput(
             onSendMessage: (text) {
               _addMessage(text, true);
             },
             isVoiceMode: _isVoiceMode,
+            editingText: _editingIndex != null
+                ? _messages[_editingIndex!].text
+                : null,
           ),
         ],
       ),

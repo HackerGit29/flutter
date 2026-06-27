@@ -7,11 +7,13 @@ enum MicState { idle, recording, processing }
 class ChatInput extends StatefulWidget {
   final Function(String) onSendMessage;
   final bool isVoiceMode;
+  final String? editingText;
 
   const ChatInput({
     super.key,
     required this.onSendMessage,
     this.isVoiceMode = false,
+    this.editingText,
   });
 
   @override
@@ -34,6 +36,17 @@ class _ChatInputState extends State<ChatInput>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
+  }
+
+  @override
+  void didUpdateWidget(ChatInput oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.editingText != null && widget.editingText != oldWidget.editingText) {
+      _textController.text = widget.editingText!;
+      _textController.selection = TextSelection.fromPosition(
+        TextPosition(offset: widget.editingText!.length),
+      );
+    }
   }
 
   @override
