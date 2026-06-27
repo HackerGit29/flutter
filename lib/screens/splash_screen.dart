@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:provider/provider.dart';
 import 'package:aricie/theme/app_theme.dart';
+import 'package:aricie/providers/subscription_provider.dart';
 import 'onboarding_screen.dart';
 import 'home_screen.dart';
 import '../services/auth_service.dart';
@@ -30,7 +32,7 @@ class _SplashScreenState extends State<SplashScreen> {
     
     if (mounted) {
       if (isLoggedIn) {
-        // Rediriger vers l'écran d'accueil si l'utilisateur est connecté
+        await context.read<SubscriptionProvider>().load();
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
         );

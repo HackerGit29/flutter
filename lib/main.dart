@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'screens/splash_screen.dart';
 import 'screens/update/update_screen.dart';
 import 'providers/theme_provider.dart';
+import 'providers/subscription_provider.dart';
 import 'theme/app_theme.dart';
 import 'services/notification_service.dart';
 import 'services/update_service.dart';
@@ -62,8 +63,11 @@ void main() async {
   await UpdateService.init();
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+      ],
       child: const MyApp(),
     ),
   );

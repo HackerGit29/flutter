@@ -5,9 +5,7 @@ import 'package:aricie/domain/usecases/devices/add_device.dart';
 import 'package:aricie/domain/usecases/devices/remove_device.dart';
 import 'package:aricie/domain/usecases/devices/rename_appliance.dart';
 import 'package:aricie/domain/entities/appliance.dart';
-import 'package:aricie/domain/entities/subscription.dart';
 import 'package:aricie/domain/usecases/license/redeem_product_key.dart';
-import 'package:aricie/domain/usecases/license/get_user_subscription.dart';
 
 import 'package:aricie/screens/update/update_screen.dart';
 import 'package:aricie/services/update_service.dart';
@@ -19,6 +17,7 @@ import 'package:aricie/theme/app_theme.dart';
 import '../../services/mqtt_service.dart';
 import '../../widgets/common_header.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/subscription_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -32,7 +31,6 @@ class _SettingsScreenState extends State<SettingsScreen>
   final MqttService _mqttService = MqttService();
   late AnimationController _animationController;
   List<Appliance> _appliances = [];
-  Subscription? _subscription;
   bool _isLoading = true;
   bool _isExpanded = false;
 
@@ -50,12 +48,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
 
     setState(() => _isLoading = false);
-  }
-
-  Future<void> _loadSubscription() async {
-    final result = await GetUserSubscription(sl()).call();
-    result.fold((_) {}, (sub) => _subscription = sub);
-    if (mounted) setState(() {});
   }
 
   Future<void> _loadAndInitializeMQTT() async {
@@ -129,7 +121,7 @@ class _SettingsScreenState extends State<SettingsScreen>
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Fermer'))],
         ),
       );
-      await _loadSubscription();
+      await context.read<SubscriptionProvider>().load();
     } else {
       final msg = result.fold((f) => f.message, (_) => 'Erreur inconnue');
       await showDialog(
@@ -255,9 +247,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       duration: const Duration(seconds: 2),
     )..repeat();
 
-    // Charger les appareils, l'abonnement et initialiser MQTT
     _loadAndInitializeMQTT();
-    _loadSubscription();
 
     Future.delayed(const Duration(milliseconds: 100), () {
       setState(() {
@@ -582,7 +572,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Widget _buildPremiumCard() {
-    final isVip = _subscription?.isVip ?? false;
+    final isVip = context.watch<SubscriptionProvider>().isVip;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.all(AppSpacing.s4),
