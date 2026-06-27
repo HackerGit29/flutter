@@ -144,10 +144,12 @@ class UpdateService {
 
     // Use FileProvider authority declared in AndroidManifest.xml so the
     // system installer can read the file on Android 7+ / scoped storage.
+    // file_provider_paths.xml maps name="external_files" → getExternalStorageDirectory() root,
+    // so the APK at .../files/aricie-update.apk becomes the content URI below.
     const authority = 'com.aricie.app.fileprovider';
     final intent = AndroidIntent(
       action: 'android.intent.action.VIEW',
-      data: 'content://$authority/aricie-update.apk',
+      data: 'content://$authority/external_files/aricie-update.apk',
       type: 'application/vnd.android.package-archive',
       flags: <int>[1 /* FLAG_GRANT_READ_URI_PERMISSION */],
     );
