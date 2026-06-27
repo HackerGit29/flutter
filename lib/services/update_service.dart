@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as dev;
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -96,40 +97,56 @@ class UpdateService {
   }
 
   /// Downloads the APK and emits real byte-progress in [0..1].
+  /// Yields -1 on any error.
+  ///
+  /// GitHub release assets redirect via 302 → signed S3 URL.
+  /// We use [http.get] (which follows redirects automatically) instead of
+  /// [http.Client.send] which does NOT follow redirects on all platforms.
   Stream<double> downloadApk(String url) async* {
-    final client = http.Client();
     try {
-      final request = http.Request('GET', Uri.parse(url));
-      final response = await client.send(request).timeout(
-            const Duration(minutes: 10),
-          );
+      dev.log('[UpdateService] Starting download: $url', name: 'UpdateService');
+
+      // http.get() follows redirects automatically (GitHub → S3 signed URL).
+      final response = await http.get(Uri.parse(url)).timeout(
+        const Duration(minutes: 10),
+      );
+
+      dev.log(
+        '[UpdateService] HTTP ${response.statusCode} — contentLength: ${response.contentLength}',
+        name: 'UpdateService',
+      );
+
       if (response.statusCode != 200) {
+        dev.log(
+          '[UpdateService] Download failed: HTTP ${response.statusCode}\n${response.body}',
+          name: 'UpdateService',
+          level: 900,
+        );
         yield -1;
         return;
       }
-      final total = response.contentLength ?? 0;
+
+      final total = response.contentLength ?? response.bodyBytes.length;
       final dir = await getExternalStorageDirectory();
       final base = dir?.path ?? Directory.systemTemp.path;
       final file = File('$base/aricie-update.apk');
-      final sink = file.openWrite();
-      var received = 0;
-      await for (final chunk in response.stream) {
-        sink.add(chunk);
-        received += chunk.length;
-        if (total > 0) {
-          yield received / total;
-        }
-      }
-      await sink.flush();
-      await sink.close();
+      await file.writeAsBytes(response.bodyBytes);
+
+      dev.log(
+        '[UpdateService] APK saved to ${file.path} ($total bytes)',
+        name: 'UpdateService',
+      );
+
       yield 1.0;
-      // Signal completion by emitting the file path via a sentinel value.
-      // We can't carry the path in a double; return via side-channel below.
-      // Consumers should rely on [apkDestination] after the stream completes.
-    } catch (_) {
+    } catch (e, st) {
+      dev.log(
+        '[UpdateService] Download exception: $e',
+        name: 'UpdateService',
+        level: 900,
+        error: e,
+        stackTrace: st,
+      );
       yield -1;
-    } finally {
-      client.close();
     }
   }
 
