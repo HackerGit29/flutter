@@ -55,7 +55,7 @@
 ## [1.1.0+1] — 2026-06-25
 
 ### Added
-- Agent RAG vectoriel avec pgvector
+- Agent RAG vectoriel 
 - Subscription tiers (Premium/Gratuit)
 - `device_commands` file d'attente IoT
 - Tool calling avec Azure OpenAI
@@ -64,8 +64,8 @@
 
 ### Added
 - Initial release
-- Auth (email + Google)
+- Auth email
 - Dashboard, Stats, Devices, Settings
-- Chatbot avec Phi-4-mini-instruct
+- Chatbot 
 - MQTT 5.0 IoT avec Flespi
 - Edge Functions Supabase
