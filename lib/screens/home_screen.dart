@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aricie/theme/app_theme.dart';
+import 'package:aricie/core/constants.dart';
 import 'package:aricie/core/di/injection_container.dart';
 import 'package:aricie/domain/entities/appliance.dart';
 import 'package:aricie/domain/usecases/auth/get_current_user.dart';
@@ -11,13 +13,15 @@ import 'package:aricie/domain/usecases/devices/get_user_devices.dart';
 import 'package:aricie/domain/usecases/devices/get_user_appliances.dart';
 import 'package:aricie/domain/usecases/devices/get_energy_data.dart';
 import 'package:aricie/services/mqtt_service.dart';
+import 'package:aricie/services/update_service.dart';
 import 'package:aricie/models/box_telemetry.dart';
 import 'statistics/statistics_screen.dart';
 import 'devices/devices_screen.dart';
 import 'settings/settings_screen.dart';
+import 'update/update_screen.dart';
 import '../widgets/chatbot_floating_button.dart';
-import '../widgets/daily_energy_tip_banner.dart';
 import '../widgets/live_consumption_indicator.dart';
+import '../services/tips_realtime_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,6 +39,33 @@ class _HomeScreenState extends State<HomeScreen> {
     const DevicesScreen(),
     const SettingsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Vérification de mise à jour post-authentification (cooldown 24h).
+    // Si une MAJ est trouvée, une notification locale est envoyée ET
+    // l'UpdateScreen s'affiche automatiquement.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUpdates();
+    });
+  }
+
+  Future<void> _checkForUpdates() async {
+    // checkForUpdateIfNeeded gère le cooldown 24h et la notification.
+    // On s'abonne aussi au stream pour naviguer vers UpdateScreen.
+    UpdateService.instance.onUpdate((info) {
+      if (info.updateAvailable && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => UpdateScreen(updateInfo: info),
+          ),
+        );
+      }
+    });
+    await UpdateService.instance.checkForUpdateIfNeeded();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +115,7 @@ class DashboardTab extends StatefulWidget {
 }
 
 class _DashboardTabState extends State<DashboardTab> {
-  final _mqttService = MqttService();
+  late final MqttService _mqttService;
   bool _isLoading = true;
 
   List<Appliance> _appliances = [];
@@ -98,10 +129,25 @@ class _DashboardTabState extends State<DashboardTab> {
   StreamSubscription<BoxTelemetry>? _telemetrySub;
   List<FlSpot> _weeklySpots = [];
 
+  String? _tipText;
+  StreamSubscription<EnergyTipEvent>? _tipSub;
+  Timer? _autoClearTimer;
+
   @override
   void initState() {
     super.initState();
-    _initMqttService();
+    _mqttService = sl<MqttService>();
+    TipsRealtimeService.instance.start();
+    _loadDailyTip();
+    _tipSub = TipsRealtimeService.instance.stream.listen((e) {
+      if (!mounted) return;
+      setState(() => _tipText = e.body);
+      _autoClearTimer?.cancel();
+      _autoClearTimer = Timer(const Duration(hours: 24), () {
+        if (!mounted) return;
+        _loadDailyTip();
+      });
+    });
     _loadData();
   }
 
@@ -121,6 +167,8 @@ class _DashboardTabState extends State<DashboardTab> {
       _loadAppliances(),
       _loadEnergy(),
     ]);
+
+    await _initMqttService();
 
     if (mounted) setState(() => _isLoading = false);
   }
@@ -162,12 +210,21 @@ class _DashboardTabState extends State<DashboardTab> {
     });
   }
 
-  void _initMqttService() async {
+  Future<void> _initMqttService() async {
+    final boxUid = _appliances.isNotEmpty
+        ? _appliances.first.boxUid
+        : (AppConstants.flespiDefaultBoxUid.isNotEmpty
+            ? AppConstants.flespiDefaultBoxUid
+            : null);
+    if (boxUid == null) return;
+
     await _mqttService.initialize(
-      boxUid: '',
-      mqttToken: '',
+      boxUid: boxUid,
+      mqttToken: null,
+      force: true,
     );
 
+    _telemetrySub?.cancel();
     _telemetrySub = _mqttService.telemetryStream.listen((telemetry) {
       if (mounted) {
         setState(() {
@@ -178,9 +235,46 @@ class _DashboardTabState extends State<DashboardTab> {
     });
   }
 
+  Future<void> _loadDailyTip() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      _useFallback();
+      return;
+    }
+    final res = await Supabase.instance.client
+        .from('daily_energy_tip')
+        .select('body')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+    if (!mounted) return;
+    if (res != null) {
+      setState(() => _tipText = res['body'] as String);
+    } else {
+      _useFallback();
+    }
+  }
+
+  void _useFallback() {
+    const tips = [
+      'Réduisez votre consommation en éteignant les appareils en veille',
+      'Réglez votre chauffe-eau à 55°C : l\'équilibre idéal entre confort et économies',
+      'Dégivrez votre frigo régulièrement pour éviter 30% de surconsommation',
+      'Lavez à 30°C : 3× moins d\'énergie qu\'à 60°C',
+      'Débranchez les chargeurs inutilisés, ils consomment même à vide',
+      'Préférez le séchage à l\'air libre plutôt que le sèche-linge',
+      'Remplacez vos ampoules par des LED : 85% d\'économie',
+    ];
+    final day = DateTime.now().day;
+    final idx = (day - 1) % tips.length;
+    setState(() => _tipText = tips[idx]);
+  }
+
   @override
   void dispose() {
     _telemetrySub?.cancel();
+    _tipSub?.cancel();
+    _autoClearTimer?.cancel();
     super.dispose();
   }
 
@@ -340,15 +434,54 @@ class _DashboardTabState extends State<DashboardTab> {
                               ),
                             ),
                             const SizedBox(height: AppSpacing.s4),
-                            const DailyEnergyTipBanner(),
+                            if (_tipText != null)
+                              _buildTipCard(
+                                _tipText!,
+                                Icons.lightbulb_outline,
+                                AppColors.accentGold.withValues(alpha: 0.3),
+                                AppColors.accentGold,
+                              ),
                           ],
                         ),
+                      ),
+                      SizedBox(
+                        height: MediaQuery.of(context).padding.bottom + 80,
                       ),
                     ],
                   ),
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildTipCard(String tip, IconData icon, Color backgroundColor, Color iconColor) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.s4),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: [AppShadows.sm],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.s3),
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
+            child: Icon(icon, color: iconColor),
+          ),
+          const SizedBox(width: AppSpacing.s4),
+          Expanded(
+            child: Text(
+              tip,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

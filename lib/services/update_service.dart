@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:aricie/core/constants.dart';
+import 'package:aricie/services/notification_service.dart';
 
 class UpdateInfo {
   final bool updateAvailable;
@@ -48,53 +49,157 @@ class UpdateService {
 
   StreamController<UpdateInfo>? _updateController;
 
-  String get currentVersion => _currentVersion;
-  static String _currentVersion = '0.0.0';
+  // Version semver pure ex: "1.3.0"
+  static String _appVersion = '0.0.0';
+  // Build number ex: "1"
+  static String _appBuildNumber = '0';
+
+  String get appVersion => _appVersion;
+  String get appBuildNumber => _appBuildNumber;
+  /// Version complète affichable : "1.3.0+1"
+  String get currentVersion => '$_appVersion+$_appBuildNumber';
 
   static Future<void> init() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      _currentVersion = '${info.version}+${info.buildNumber}';
-    } catch (_) {}
+      _appVersion = info.version;
+      _appBuildNumber = info.buildNumber;
+      dev.log(
+        '[UpdateService] App version: ${info.version}+${info.buildNumber}',
+        name: 'UpdateService',
+      );
+    } catch (e) {
+      dev.log('[UpdateService] PackageInfo error: $e', name: 'UpdateService');
+    }
   }
 
+  /// Vérifie une mise à jour seulement si le cooldown de 24h est écoulé.
+  /// Appeler après authentification confirmée (HomeScreen.initState).
+  Future<void> checkForUpdateIfNeeded() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastCheckStr = prefs.getString('last_update_check');
+      if (lastCheckStr != null) {
+        final lastCheck = DateTime.tryParse(lastCheckStr);
+        if (lastCheck != null &&
+            DateTime.now().difference(lastCheck) < const Duration(hours: 24)) {
+          dev.log(
+            '[UpdateService] Skipping check — last check was $lastCheckStr',
+            name: 'UpdateService',
+          );
+          return;
+        }
+      }
+      final info = await checkForUpdate();
+      if (info.updateAvailable) {
+        await _sendUpdateNotification(info);
+      }
+    } catch (e) {
+      dev.log(
+        '[UpdateService] checkForUpdateIfNeeded error: $e',
+        name: 'UpdateService',
+      );
+    }
+  }
+
+  /// Vérifie immédiatement une mise à jour (sans cooldown).
+  /// Retourne [UpdateInfo] avec les détails de la release.
   Future<UpdateInfo> checkForUpdate() async {
     try {
       final token = _supabase.auth.currentSession?.accessToken;
       if (token == null) {
+        dev.log(
+          '[UpdateService] No auth token — skipping update check',
+          name: 'UpdateService',
+        );
         return UpdateInfo(updateAvailable: false);
       }
+
+      dev.log(
+        '[UpdateService] Checking update — local: $_appVersion+$_appBuildNumber',
+        name: 'UpdateService',
+      );
 
       final response = await http.get(
         Uri.parse(_edgeFunctionUrl),
         headers: {
           'Authorization': 'Bearer $token',
           'apikey': AppConstants.supabaseAnonKey,
-          'x-app-version': _currentVersion,
+          // Semver pur (sans build) pour la comparaison principale
+          'x-app-version': _appVersion,
+          // Build number séparé pour départager les versions semver égales
+          'x-build-number': _appBuildNumber,
         },
       ).timeout(const Duration(seconds: 15));
 
+      dev.log(
+        '[UpdateService] Edge Function HTTP ${response.statusCode}',
+        name: 'UpdateService',
+      );
+
       if (response.statusCode != 200) {
+        dev.log(
+          '[UpdateService] Edge Function error: ${response.body}',
+          name: 'UpdateService',
+          level: 900,
+        );
         return UpdateInfo(updateAvailable: false);
       }
 
-      final info = UpdateInfo.fromJson(
-        jsonDecode(response.body) as Map<String, dynamic>,
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      dev.log(
+        '[UpdateService] Response: updateAvailable=${body['updateAvailable']} '
+        'remote=${body['version']}+${body['buildNumber']} '
+        'debug=${body['_debug']}',
+        name: 'UpdateService',
       );
 
+      final info = UpdateInfo.fromJson(body);
       _updateController?.add(info);
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('last_update_check', DateTime.now().toIso8601String());
+      await prefs.setString(
+          'last_update_check', DateTime.now().toIso8601String());
       if (info.version != null) {
         await prefs.setString('latest_remote_version', info.version!);
       }
 
       return info;
-    } catch (_) {
+    } catch (e, st) {
+      dev.log(
+        '[UpdateService] checkForUpdate exception: $e',
+        name: 'UpdateService',
+        level: 900,
+        error: e,
+        stackTrace: st,
+      );
       return UpdateInfo(updateAvailable: false);
     }
   }
+
+  /// Envoie une notification locale "Mise à jour disponible".
+  Future<void> _sendUpdateNotification(UpdateInfo info) async {
+    try {
+      await NotificationService().showNotification(
+        id: AppConstants.updateNotificationId,
+        title: '🆕 Mise à jour disponible',
+        body:
+            'Aricie v${info.version ?? "?"} est disponible. Appuyez pour mettre à jour.',
+        payload: 'update',
+      );
+      dev.log(
+        '[UpdateService] Notification envoyée pour v${info.version}',
+        name: 'UpdateService',
+      );
+    } catch (e) {
+      dev.log(
+        '[UpdateService] Notification error: $e',
+        name: 'UpdateService',
+        level: 900,
+      );
+    }
+  }
+
 
   /// Downloads the APK and emits real byte-progress in [0..1].
   /// Yields -1 on any error.

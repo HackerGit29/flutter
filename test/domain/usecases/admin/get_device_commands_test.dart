@@ -51,7 +51,10 @@ class MockDevCmdRepo implements AdminRepository {
   @override
   Future<Either<Failure, Subscription>> revokeSubscription(String subscriptionId) async => Left<Failure, Subscription>(const ServerFailure('mock'));
   @override
-  Future<Either<Failure, Box>> createBox({required String uidHardware, required String name, String? location, required String userId}) async => Left<Failure, Box>(const ServerFailure('mock'));
+  @override
+  Future<Either<Failure, Box>> createBox({required String uidHardware, required String name, String? location, String? userId}) async => Left<Failure, Box>(const ServerFailure('mock'));
+  @override
+  Future<Either<Failure, List<Box>>> getAvailableBoxes() async => const Right<Failure, List<Box>>([]);
   @override
   Future<Either<Failure, List<Appliance>>> createAppliancesForBox(String boxId, String userId) async => Left<Failure, List<Appliance>>(const ServerFailure('mock'));
   @override

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:aricie/models/box_telemetry.dart';
-import 'package:aricie/services/notification_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:aricie/core/constants.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
@@ -16,17 +15,11 @@ class MqttService {
   static const int _wssPort = 443;
   late Mqtt5ClientInterface _client;
 
-  final _connectionStateController =
-      StreamController<MqttConnectionState>.broadcast();
-
-  final _telemetryController =
-      StreamController<BoxTelemetry>.broadcast();
-
-  final _notificationService = NotificationService();
+  late StreamController<MqttConnectionState> _connectionStateController;
+  late StreamController<BoxTelemetry> _telemetryController;
 
   StreamSubscription? _updatesSubscription;
 
-  MqttConnectionState? _previousConnectionState;
   BoxTelemetry? _latestTelemetry;
 
   bool _isInitializing = false;
@@ -45,18 +38,38 @@ class MqttService {
 
   BoxTelemetry? get latestTelemetry => _latestTelemetry;
 
+  /// Crée un MqttService. La factory (MqttService.create()) est
+  /// recommandée car elle initialise les StreamControllers en lazy.
+  MqttService() {
+    _connectionStateController = StreamController<MqttConnectionState>.broadcast();
+    _telemetryController = StreamController<BoxTelemetry>.broadcast();
+  }
+
   Future<void> initialize({
     String? boxUid,
     String? mqttToken,
+    bool force = false,
   }) async {
-    if (_isInitializing || _initialized) return;
+    if (!force && (_isInitializing || _initialized)) return;
 
-    // boxUid requis, token fallback sur celui de l'app mobile
-    _boxUid = boxUid;
+    if (force && _initialized) {
+      await _updatesSubscription?.cancel();
+      try { _client.disconnect(); } catch (_) {}
+      _initialized = false;
+      _isInitializing = false;
+      try { _telemetryController.close(); } catch (_) {}
+      _telemetryController = StreamController<BoxTelemetry>.broadcast();
+    }
+
+    // boxUid is optional — a sensible default ("app") is used when missing,
+    // and the token falls back to the dart-defined Flespi app token.
+    _boxUid = boxUid ?? 'app';
     _mqttToken = mqttToken ?? AppConstants.flespiAppToken;
 
-    if (_boxUid == null || _mqttToken == null) {
-      throw ArgumentError('Box UID and MQTT token are required');
+    if (_mqttToken == null || _mqttToken!.isEmpty) {
+      throw ArgumentError(
+        'MQTT token missing — pass one or define FLESPI_MQTT_APP_TOKEN at build time',
+      );
     }
 
     _isInitializing = true;
@@ -78,7 +91,11 @@ class MqttService {
 
       _client.setCredentials(
         username: _mqttToken!,
-        password: '',
+        // ponytail: Flespi tokens must be sent as both username and password.
+        // Sending password="" makes some MQTT5 stacks encode a malformed
+        // packet (Password flag set but length 0), which Flespi rejects
+        // with badUsernameOrPassword. Mirror the token to the password.
+        password: _mqttToken!,
       );
 
       _client.setOnConnected(() => _onConnected(_boxUid!));
@@ -93,9 +110,9 @@ class MqttService {
       _initialized = true;
     } catch (e) {
       debugPrint('[MQTT5] Connexion impossible: $e');
+      debugPrint('[MQTT5] boxUid=$_boxUid tokenLength=${_mqttToken?.length}');
 
       _connectionStateController.add(MqttConnectionState.disconnected);
-      _previousConnectionState = MqttConnectionState.disconnected;
 
       _scheduleReconnect();
     } finally {
@@ -107,18 +124,6 @@ class MqttService {
     debugPrint('[MQTT5] Connecté');
 
     _connectionStateController.add(MqttConnectionState.connected);
-
-    if (_previousConnectionState == MqttConnectionState.disconnected) {
-      if (!kIsWeb) {
-        _notificationService.showNotification(
-          id: 4,
-          title: 'Connexion rétablie',
-          body: 'La connexion avec le broker MQTT a été rétablie.',
-        );
-      }
-    }
-
-    _previousConnectionState = MqttConnectionState.connected;
 
     _client.subscribe(
       'aricie/v1/boxes/$boxUid/telemetry',
@@ -163,6 +168,7 @@ class MqttService {
 
         _latestTelemetry = telemetry;
         _telemetryController.add(telemetry);
+        debugPrint('[MQTT5] Télémétrie reçue: temp=${telemetry.temperature}°C, hum=${telemetry.humidity}%');
       } catch (e) {
         debugPrint('[MQTT5] Erreur parsing télémétrie: $e');
       }
@@ -178,18 +184,6 @@ class MqttService {
 
     _initialized = false;
     _connectionStateController.add(MqttConnectionState.disconnected);
-
-    if (_previousConnectionState == MqttConnectionState.connected) {
-      if (!kIsWeb) {
-        _notificationService.showNotification(
-          id: 2,
-          title: 'Connexion interrompue',
-          body: 'Tentative de reconnexion en cours...',
-        );
-      }
-    }
-
-    _previousConnectionState = MqttConnectionState.disconnected;
     _scheduleReconnect();
   }
 

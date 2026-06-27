@@ -71,7 +71,7 @@ lib/
       mqtt5_native.dart       ← Client natif TCP TLS
       mqtt5_web.dart          ← Client web WSS
 
-supabase/
+  supabase/
   functions/
     ai-chat/                 ← Edge Function : Chat simple Phi-4-mini-instruct
     agent-orchestrator/      ← Edge Function : Azure OpenAI + tool calling + SSE
@@ -80,12 +80,19 @@ supabase/
     20260621133535_init_schema.sql
     20260623000001_agent_tables.sql  ← device_commands, agent_audit_logs, chat_embeddings
     20260626000003_admin_provisioning.sql  ← CHECK constraint, DELETE policy admin
+    20260627000005_tips_generator_cron.sql  ← Cron hebdo tips énergie
+    20260627000006_boxes_user_id_nullable.sql  ← ALTER boxes.user_id DROP NOT NULL
+    20260627000007_boxes_uid_hardware_check.sql  ← CHECK length(uid_hardware) > 8
 
 workers/
   mqtt5-worker/              ← Node.js worker MQTT 5 (mqtt.js v5)
     package.json
-    index.js                 ← Claim pending → publish cmd → listen ACK
+    index.js                 ← Claim pending → publish cmd → listen ACK + subscribe telemetry
     README.md                ← Build/deploy process, troubleshooting
+  test/box/
+    box_esp32.py             ← Simulateur ESP32 Python (télémétrie, ACK, 3 relays)
+    requirements.txt         ← paho-mqtt
+    README.md                ← Usage et workflow de test
 ```
 
 ## Key entrypoints
@@ -93,7 +100,7 @@ workers/
 | File                                      | Role                                                            |
 | ----------------------------------------- | --------------------------------------------------------------- |
 | `lib/main.dart`                           | App initialization: Supabase, notifications, splash → auth flow |
-| `lib/core/constants.dart`                 | Environment-based configuration (`.env/dev.json`)               |
+| `lib/core/constants.dart`                 | Environment-based configuration (`--dart-define`)               |
 | `supabase/functions/ai-chat/index.ts`     | Edge Function Phi-4-mini-instruct (chat simple)                 |
 | `supabase/functions/agent-orchestrator/`  | Edge Function avancée (tool calling + SSE + RAG)                |
 | `supabase/functions/transcribe-audio/index.ts` | Edge Function : audio → gpt-4o-transcribe → texte          |
@@ -164,6 +171,12 @@ All tables use RLS. Admin bypass via `private.is_admin()` (SECURITY DEFINER quer
 - **Refonte UI appareils**: DevicesScreen lecture seule, toggle via device_commands ✅
 - **Nettoyage secrets**: supabaseServiceRoleKey, flespiWorkerToken retirés de constants.dart ✅
 - **Phi-4-mini-instruct**: Déployé sur Azure Foundry (chat et agent) ✅
+- **MQTT App singleton**: MqttService enregistré via get_it, paramètre `force` dans initialize, StreamController _connectionStateController non recréé pour préserver les abonnements ✅
+- **Boîtiers admin nullables**: ALTER boxes.user_id DROP NOT NULL, dropdown admin corrigé (initialValue → value) ✅
+- **Simulateur ESP32 Python**: workers/test/box/box_esp32.py — télémetrie 5s, ACK, 3 relays ✅
+- **Worker souscrit télémétrie**: souscrit à aricie/v1/boxes/+/telemetry en plus des ACK ✅
+- **FLESPI_DEFAULT_BOX_UID**: compile-time override pour fallback MQTT sans appliances en BDD ✅
+- **Fix UI Settings**: padding bottom kBottomNavigationBarHeight pour éviter débordement navbar ✅
 - **GPT-4o**: En attente d'augmentation de quota
 
 ## Design system (2026)
@@ -199,10 +212,12 @@ Flutter → Edge Function (agent-orchestrator) → device_commands (BDD)
 
 ### Connexion MQTT de l'app
 
-- L'app ne se connecte au broker que si des appareils sont enregistres en BDD
+- `MqttService` est un singleton enregistré via `get_it` (`sl.registerLazySingleton<MqttService>(() => MqttService())`)
+- L'app se connecte au broker avec un `boxUid` (depuis BDD ou `FLESPI_DEFAULT_BOX_UID` en fallback)
 - Le `boxUid` est `uid_hardware` de la table `boxes` (recupere via join appliances/boxes)
-- En cas d'echec de connexion, la notification est envoyee uniquement si l'app a essaye de se connecter
-- Si pas d'appareils : le bouton "Reconnecter" est masque, pas de notification
+- `force: true` dans `initialize()` ne recrée PAS `_connectionStateController` — les `StreamBuilder` déjà montés gardent leur abonnement
+- En cas de connexion échouée, `_scheduleReconnect()` tente une reconnexion après 5s
+- Si pas d'appareils et pas de `FLESPI_DEFAULT_BOX_UID` : connexion MQTT skipée, pas de notification
 
 ## MQTT5 Worker — Build & Deploy
 
@@ -292,12 +307,18 @@ Semantic Versioning 2.0.0. Canonical version in `pubspec.yaml`. See `VERSION.md`
 | `lib/data/datasources/supabase_admin_datasource.dart` | Nouvelles méthodes `createBox` et `createAppliancesForBox` |
 | `lib/domain/usecases/admin/create_box_for_user.dart` | Use-case admin création boîtier |
 | `lib/domain/usecases/admin/create_appliances_for_box.dart` | Use-case admin création 3 appliances |
+| `lib/domain/usecases/admin/get_available_boxes.dart` | Use-case admin boîtiers disponibles |
 | `lib/screens/admin/admin_dashboard_screen.dart` | FAB + dialog création boîtier (onglet Boîtiers) |
-| `supabase/migrations/20260626000003_admin_provisioning.sql` | CHECK constraint + DELETE policy |
-| `supabase/functions/energy-aggregator/index.ts` | ETL realtime_power → energy_data |
-| `lib/core/constants.dart` | `supabaseServiceRoleKey` et `flespiWorkerToken` supprimés |
-| `lib/services/mqtt_service.dart` | `sendDebugControlCommand` supprimé |
-| `lib/widgets/live_consumption_indicator.dart` | Widget conso live temps réel |
+| `lib/screens/home_screen.dart` | Initialisation MQTT après chargement appliances, fallback `FLESPI_DEFAULT_BOX_UID` |
+| `lib/screens/settings/settings_screen.dart` | Statut MQTT via singleton, padding bottom navbar fixé |
+| `lib/services/mqtt_service.dart` | Singleton via get_it, `force` paramètre, `sendDebugControlCommand` supprimé |
+| `lib/core/di/injection_container.dart` | `sl.registerLazySingleton<MqttService>` |
+| `lib/core/constants.dart` | `supabaseServiceRoleKey` et `flespiWorkerToken` supprimés, `flespiDefaultBoxUid` ajouté |
+| `workers/test/box/box_esp32.py` | Simulateur ESP32 Python (télémétrie 5s, ACK, 3 relays) |
+| `workers/mqtt5-worker/index.js` | Souscrit télémétrie (`aricie/v1/boxes/+/telemetry`) |
+| `workers/test/box/README.md` | Instructions simulateur |
+| `supabase/migrations/20260627000006_boxes_user_id_nullable.sql` | ALTER boxes.user_id DROP NOT NULL |
+| `supabase/migrations/20260627000007_boxes_uid_hardware_check.sql` | CHECK length(uid_hardware) > 8 |
 
 ## Gotchas
 

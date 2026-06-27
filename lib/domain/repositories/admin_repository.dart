@@ -22,11 +22,12 @@ abstract class AdminRepository {
   Future<Either<Failure, List<Subscription>>> getAllSubscriptions();
   Future<Either<Failure, Subscription>> activateSubscription(String subscriptionId);
   Future<Either<Failure, Subscription>> revokeSubscription(String subscriptionId);
+  Future<Either<Failure, List<Box>>> getAvailableBoxes();
   Future<Either<Failure, Box>> createBox({
     required String uidHardware,
     required String name,
     String? location,
-    required String userId,
+    String? userId,
   });
   Future<Either<Failure, List<Appliance>>> createAppliancesForBox(String boxId, String userId);
   Future<Either<Failure, void>> logAdminAction({

@@ -40,6 +40,7 @@ void main() async {
   final notificationService = NotificationService();
   notificationService.onNotificationTap = (payload) {
     if (payload == 'update') {
+      // L'user a tapé la notification — vérifier et ouvrir UpdateScreen
       UpdateService.instance.checkForUpdate().then((info) {
         if (info.updateAvailable) {
           navigateToUpdate(info);
@@ -71,23 +72,7 @@ void main() async {
       child: const MyApp(),
     ),
   );
-
-  _checkForUpdates();
-}
-
-Future<void> _checkForUpdates() async {
-  try {
-    final updateInfo = await UpdateService.instance.checkForUpdate();
-    if (!updateInfo.updateAvailable) return;
-
-    final notificationService = NotificationService();
-    await notificationService.showNotification(
-      id: AppConstants.updateNotificationId,
-      title: 'Mise à jour disponible',
-      body: 'Une nouvelle version ${updateInfo.version} est disponible.',
-      payload: 'update',
-    );
-  } catch (_) {}
+  // Le check de MAJ se fait dans HomeScreen.initState, après authentification.
 }
 
 class MyApp extends StatelessWidget {

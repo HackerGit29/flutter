@@ -63,7 +63,11 @@ const mqttUrl = `mqtts://${mqttHost}:${mqttPort}`;
 const client = mqtt.connect(mqttUrl, {
   protocolVersion: 5,
   username: mqttToken,
-  password: "",
+  // ponytail: Flespi tokens must be sent as both username and password.
+  // Sending password="" makes some MQTT5 stacks encode a malformed packet
+  // (Password flag set, length 0), which Flespi rejects with
+  // badUsernameOrPassword. Mirror the token to the password.
+  password: mqttToken,
   clientId: `aricie-worker-${Date.now()}`,
 
   clean: true,
@@ -93,6 +97,18 @@ client.on("connect", (packet) => {
         console.error("[MQTT5] ACK subscribe error:", err);
       } else {
         console.log("[MQTT5] Subscribed to ACK topics");
+      }
+    },
+  );
+
+  client.subscribe(
+    "aricie/v1/boxes/+/telemetry",
+    { qos: 1 },
+    (err) => {
+      if (err) {
+        console.error("[MQTT5] Telemetry subscribe error:", err);
+      } else {
+        console.log("[MQTT5] Subscribed to telemetry topics");
       }
     },
   );

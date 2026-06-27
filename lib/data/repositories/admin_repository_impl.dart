@@ -161,11 +161,21 @@ class AdminRepositoryImpl implements AdminRepository {
   }
 
   @override
+  Future<Either<Failure, List<Box>>> getAvailableBoxes() async {
+    try {
+      final data = await _remote.getAvailableBoxes();
+      return Right(data.map((json) => Box.fromJson(json)).toList());
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
+
+  @override
   Future<Either<Failure, Box>> createBox({
     required String uidHardware,
     required String name,
     String? location,
-    required String userId,
+    String? userId,
   }) async {
     try {
       final data = await _remote.createBox(

@@ -5,6 +5,10 @@ class AppConstants {
   static const String flespiAppToken = String.fromEnvironment('FLESPI_MQTT_APP_TOKEN', defaultValue: '');
   static const String flespiHost = String.fromEnvironment('FLESPI_MQTT_HOST', defaultValue: 'mqtt.flespi.io');
   static const String flespiTcpPort = String.fromEnvironment('FLESPI_MQTT_TCP_PORT', defaultValue: '8883');
+  // ponytail: override via --dart-define=FLESPI_DEFAULT_BOX_UID=<uid> to point the
+  // app at a specific hardware box (e.g. ESP32-A1B2C3D4) when the user has no
+  // appliance bound yet. Empty default = keep the 'app' fallback.
+  static const String flespiDefaultBoxUid = String.fromEnvironment('FLESPI_DEFAULT_BOX_UID', defaultValue: '');
   static const Duration syncTimeout = Duration(seconds: 30);
   static const int syncRateLimitPerMinute = 10;
   static const int adminActionRateLimitPerMinute = 5;

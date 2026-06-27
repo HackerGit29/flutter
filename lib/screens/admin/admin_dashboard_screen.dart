@@ -144,6 +144,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
     final nameController = TextEditingController();
     String? selectedUserId;
     String selectedLocation = 'Salon';
+    String? errorText;
 
     final created = await showDialog<bool>(
       context: context,
@@ -154,6 +155,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (errorText != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(errorText!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                  ),
                 TextField(
                   controller: uidController,
                   decoration: const InputDecoration(
@@ -173,7 +179,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: selectedLocation,
+                  value: selectedLocation,
                   decoration: const InputDecoration(
                     labelText: 'Emplacement',
                     border: OutlineInputBorder(),
@@ -185,6 +191,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
+                  value: selectedUserId,
                   decoration: const InputDecoration(
                     labelText: 'Propriétaire *',
                     border: OutlineInputBorder(),
@@ -202,7 +209,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
             ElevatedButton(
               onPressed: () {
-                if (uidController.text.trim().length > 8 && nameController.text.trim().isNotEmpty && selectedUserId != null) {
+                if (uidController.text.trim().length <= 8) {
+                  setDialogState(() => errorText = 'L\'UID matériel doit faire plus de 8 caractères');
+                } else if (nameController.text.trim().isEmpty) {
+                  setDialogState(() => errorText = 'Le nom est requis');
+                } else if (selectedUserId == null) {
+                  setDialogState(() => errorText = 'Sélectionnez un propriétaire');
+                } else {
                   Navigator.pop(ctx, true);
                 }
               },

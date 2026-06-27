@@ -13,7 +13,7 @@ class CreateBoxForUser {
     required String uidHardware,
     required String name,
     String? location,
-    required String userId,
+    String? userId,
   }) async {
     final currentUser = await _authRepo.getCurrentUser();
     final user = currentUser.getOrElse(() => null);
@@ -31,7 +31,7 @@ class CreateBoxForUser {
         action: 'create_box',
         targetType: 'box',
         targetId: result.getOrElse(() => throw Exception()).id,
-        details: {'uid_hardware': uidHardware, 'name': name, 'owner_user_id': userId},
+        details: {'uid_hardware': uidHardware, 'name': name, if (userId != null) 'owner_user_id': userId},
       );
     }
     return result;

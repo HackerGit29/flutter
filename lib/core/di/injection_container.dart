@@ -25,6 +25,7 @@ import 'package:aricie/domain/repositories/license_repository.dart';
 import 'package:aricie/domain/repositories/admin_repository.dart';
 import 'package:aricie/domain/repositories/sync_repository.dart';
 import 'package:aricie/domain/repositories/energy_repository.dart';
+import 'package:aricie/services/mqtt_service.dart';
 
 final sl = GetIt.instance;
 
@@ -50,4 +51,5 @@ Future<void> initDependencies() async {
   sl.registerLazySingleton<AdminRepository>(() => AdminRepositoryImpl(sl()));
   sl.registerLazySingleton<SyncRepository>(() => SyncRepositoryImpl(sl()));
   sl.registerLazySingleton<EnergyRepository>(() => EnergyRepositoryImpl(sl()));
+  sl.registerLazySingleton<MqttService>(() => MqttService());
 }

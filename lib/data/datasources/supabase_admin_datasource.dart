@@ -89,17 +89,25 @@ class SupabaseAdminDataSource {
     return response;
   }
 
+  Future<List<Map<String, dynamic>>> getAvailableBoxes() async {
+    final response = await _client.from('boxes')
+      .select()
+      .filter('user_id', 'is', 'null')
+      .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(response);
+  }
+
   Future<Map<String, dynamic>> createBox({
     required String uidHardware,
     required String name,
     String? location,
-    required String userId,
+    String? userId,
   }) async {
     final response = await _client.from('boxes').insert({
       'uid_hardware': uidHardware,
       'name': name,
       if (location != null) 'location': location,
-      'user_id': userId,
+      if (userId != null) 'user_id': userId,
       'status': 'active',
     }).select().single();
     return response;

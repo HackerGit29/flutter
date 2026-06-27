@@ -1,5 +1,4 @@
 import 'package:aricie/core/di/injection_container.dart';
-import 'package:aricie/core/constants.dart';
 import 'package:aricie/domain/usecases/devices/get_user_appliances.dart';
 import 'package:aricie/domain/usecases/devices/add_device.dart';
 import 'package:aricie/domain/usecases/devices/remove_device.dart';
@@ -26,10 +25,7 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen>
-    with SingleTickerProviderStateMixin {
-  final MqttService _mqttService = MqttService();
-  late AnimationController _animationController;
+class _SettingsScreenState extends State<SettingsScreen> {
   List<Appliance> _appliances = [];
   bool _isLoading = true;
   bool _isExpanded = false;
@@ -62,21 +58,8 @@ class _SettingsScreenState extends State<SettingsScreen>
         setState(() {
           _appliances = appliances;
         });
-        
-        // Connecter MQTT seulement si des appareils existent
-        if (appliances.isNotEmpty) {
-          _initializeMQTT(appliances.first.boxUid!);
-        }
-        
         setState(() => _isLoading = false);
       },
-    );
-  }
-
-  void _initializeMQTT(String boxUid) {
-    _mqttService.initialize(
-      boxUid: boxUid,
-      mqttToken: AppConstants.flespiAppToken,
     );
   }
 
@@ -242,11 +225,6 @@ class _SettingsScreenState extends State<SettingsScreen>
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat();
-
     _loadAndInitializeMQTT();
 
     Future.delayed(const Duration(milliseconds: 100), () {
@@ -258,7 +236,6 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   @override
   void dispose() {
-    _animationController.dispose();
     super.dispose();
   }
 
@@ -270,7 +247,12 @@ class _SettingsScreenState extends State<SettingsScreen>
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: AnimatedPadding(
-          padding: EdgeInsets.all(_isExpanded ? AppSpacing.s4 : 0.0),
+          padding: EdgeInsets.fromLTRB(
+            _isExpanded ? AppSpacing.s4 : 0.0,
+            _isExpanded ? AppSpacing.s4 : 0.0,
+            _isExpanded ? AppSpacing.s4 : 0.0,
+            kBottomNavigationBarHeight + AppSpacing.s4,
+          ),
           duration: const Duration(milliseconds: 500),
           curve: Curves.easeOutQuint,
           child: Column(
@@ -617,78 +599,39 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  Widget _buildMqttStatusIndicator() {
-    // Pas d'appareils : on masque le bouton, pas de notification
-    if (_appliances.isEmpty) {
-      return AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(AppSpacing.s4),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          boxShadow: [AppShadows.sm],
-        ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 50, height: 50,
-              child: Lottie.asset('assets/animations/disconnected.json', fit: BoxFit.contain),
-            ),
-            const SizedBox(width: AppSpacing.s4),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('État du broker MQTT', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: AppSpacing.s1),
-                  Text(
-                    'Aucun appareil configuré',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Sinon : afficher l'etat reel du broker
+  // Read-only indicator: shows whether the app can reach the Flespi broker.
+// No button, no input — purely informational. Reflects the live
+// MqttService.connectionStateStream so the user sees "online" / "offline".
+Widget _buildMqttStatusIndicator() {
     return StreamBuilder<MqttConnectionState>(
-      stream: _mqttService.connectionStateStream,
+      stream: sl<MqttService>().connectionStateStream,
+      initialData: MqttConnectionState.disconnected,
       builder: (context, snapshot) {
-        final connectionState = snapshot.data ?? MqttConnectionState.disconnected;
-        Color statusColor;
-        String statusText;
-        String lottieAsset;
-
+        final connectionState =
+            snapshot.data ?? MqttConnectionState.disconnected;
+        final Color statusColor;
+        final String statusText;
+        final String lottieAsset;
         switch (connectionState) {
           case MqttConnectionState.connected:
             statusColor = AppColors.accentMint;
-            statusText = 'Connecté';
+            statusText = 'En ligne';
             lottieAsset = 'assets/animations/connected.json';
-            _animationController.stop();
             break;
           case MqttConnectionState.connecting:
             statusColor = AppColors.accentCoral;
-            statusText = 'Connexion en cours...';
+            statusText = 'Connexion en cours';
             lottieAsset = 'assets/animations/disconnected.json';
-            if (!_animationController.isAnimating) _animationController.repeat();
             break;
           case MqttConnectionState.disconnected:
             statusColor = AppColors.accentDot;
-            statusText = 'Déconnecté';
+            statusText = 'Hors ligne';
             lottieAsset = 'assets/animations/disconnected.json';
-            _animationController.stop();
             break;
           default:
             statusColor = AppColors.accentDot;
             statusText = 'Inconnu';
             lottieAsset = 'assets/animations/disconnected.json';
-            _animationController.stop();
         }
 
         return AnimatedContainer(
@@ -701,25 +644,31 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
           child: Row(
             children: [
-              SizedBox(width: 50, height: 50, child: Lottie.asset(lottieAsset, fit: BoxFit.contain)),
+              SizedBox(
+                width: 50,
+                height: 50,
+                child: Lottie.asset(lottieAsset, fit: BoxFit.contain),
+              ),
               const SizedBox(width: AppSpacing.s4),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('État du broker MQTT', style: Theme.of(context).textTheme.titleMedium),
+                    Text(
+                      'Connexion au broker',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
                     const SizedBox(height: AppSpacing.s1),
-                    Text(statusText,
+                    Text(
+                      statusText,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: statusColor, fontWeight: FontWeight.bold)),
+                            color: statusColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
                   ],
                 ),
               ),
-              if (connectionState == MqttConnectionState.disconnected && _appliances.isNotEmpty)
-                ElevatedButton(
-                  onPressed: () => _initializeMQTT(_appliances.first.boxUid!),
-                  child: const Text('Reconnecter'),
-                ),
             ],
           ),
         );

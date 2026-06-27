@@ -1,0 +1,27 @@
+Exception in thread paho-mqtt-client-aricie-box-ESP32-A1B2C3D4:
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\threading.py", line 1045, in _bootstrap_inner
+    self.run()
+  File "C:\Program Files\Python311\Lib\threading.py", line 982, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\paoss\AppData\Roaming\Python\Python311\site-packages\paho\mqtt\client.py", line 4523, in _thread_main
+    self.loop_forever(retry_first_connection=True)
+  File "C:\Users\paoss\AppData\Roaming\Python\Python311\site-packages\paho\mqtt\client.py", line 2297, in loop_forever
+    rc = self._loop(timeout)
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\paoss\AppData\Roaming\Python\Python311\site-packages\paho\mqtt\client.py", line 1686, in _loop
+    rc = self.loop_read()
+         ^^^^^^^^^^^^^^^^
+  File "C:\Users\paoss\AppData\Roaming\Python\Python311\site-packages\paho\mqtt\client.py", line 2100, in loop_read
+    rc = self._packet_read()
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\paoss\AppData\Roaming\Python\Python311\site-packages\paho\mqtt\client.py", line 3142, in _packet_read
+    rc = self._packet_handle()
+         ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\paoss\AppData\Roaming\Python\Python311\site-packages\paho\mqtt\client.py", line 3821, in _packet_handle
+    self._handle_disconnect()
+  File "C:\Users\paoss\AppData\Roaming\Python\Python311\site-packages\paho\mqtt\client.py", line 4034, in _handle_disconnect
+    self._do_on_disconnect(
+  File "C:\Users\paoss\AppData\Roaming\Python\Python311\site-packages\paho\mqtt\client.py", line 4383, in _do_on_disconnect
+    on_disconnect(
+TypeError: on_disconnect() takes 3 positional arguments but 5 were given
