@@ -303,39 +303,42 @@ class _SettingsScreenState extends State<SettingsScreen>
                     'Mes appareils',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  Hero(
-                    tag: 'add_device_button',
-                    child: ElevatedButton.icon(
-                      onPressed: _addDevice,
-                      icon: const Icon(Icons.add),
-                      label: const Text('Ajouter'),
+                  if (_appliances.isNotEmpty)
+                    Hero(
+                      tag: 'add_device_button',
+                      child: ElevatedButton.icon(
+                        onPressed: _addDevice,
+                        icon: const Icon(Icons.add),
+                        label: const Text('Ajouter'),
+                      ),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.s4),
               Expanded(
                 child: _isLoading
-                  ? Center(
-                      child: Lottie.asset(
-                        'assets/animations/loading.json',
-                        width: 600, height: 600,
-                      ),
+                  ? const Center(
+                      child: CircularProgressIndicator(),
                     )
                   : _appliances.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Lottie.asset(
-                              'assets/animations/empty_devices.json',
-                              width: 150, height: 150,
+                            Icon(Icons.devices_other_rounded, size: 64,
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
                             ),
-                            const SizedBox(height: AppSpacing.s1),
-                            Text('Aucun appareil trouvé',
+                            const SizedBox(height: AppSpacing.s4),
+                            Text('Aucun appareil connecté',
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                                 fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.s1),
+                            Text('Ajoutez un boîtier depuis le tableau de bord',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
                               ),
                             ),
                           ],
