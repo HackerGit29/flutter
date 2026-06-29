@@ -14,13 +14,13 @@ import 'package:aricie/domain/usecases/devices/get_user_appliances.dart';
 import 'package:aricie/domain/usecases/devices/get_energy_data.dart';
 import 'package:aricie/services/mqtt_service.dart';
 import 'package:aricie/services/update_service.dart';
+import 'package:aricie/services/realtime_power_service.dart';
 import 'package:aricie/models/box_telemetry.dart';
 import 'statistics/statistics_screen.dart';
 import 'devices/devices_screen.dart';
 import 'settings/settings_screen.dart';
 import 'update/update_screen.dart';
 import '../widgets/chatbot_floating_button.dart';
-import '../widgets/live_consumption_indicator.dart';
 import '../services/tips_realtime_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -71,7 +71,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
-        children: [_screens[_selectedIndex], const ChatbotFloatingButton()],
+        children: [
+          IndexedStack(
+            index: _selectedIndex,
+            children: _screens,
+          ),
+          const ChatbotFloatingButton(),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
@@ -122,6 +128,9 @@ class _DashboardTabState extends State<DashboardTab> {
   Map<String, double> _applianceEnergy = {};
   double _totalConsumption = 0.0;
 
+  final Map<String, RealtimePowerReading> _liveReadings = {};
+  StreamSubscription<RealtimePowerReading>? _powerSub;
+
   double _temperature = 0.0;
   double _humidity = 0.0;
 
@@ -169,6 +178,7 @@ class _DashboardTabState extends State<DashboardTab> {
     ]);
 
     await _initMqttService();
+    _initRealtimePower();
 
     if (mounted) setState(() => _isLoading = false);
   }
@@ -200,12 +210,11 @@ class _DashboardTabState extends State<DashboardTab> {
     final historyResult = await GetEnergyHistory(sl()).call(
       userId: user.id,
       timeFrame: 'Semaine',
-      limit: 7,
     );
     historyResult.fold((_) {}, (data) {
       final sorted = data..sort((a, b) => a.date.compareTo(b.date));
       _weeklySpots = List.generate(sorted.length, (i) {
-        return FlSpot(i.toDouble(), sorted[i].totalDay);
+        return FlSpot(i.toDouble(), sorted[i].kwh);
       });
     });
   }
@@ -270,9 +279,21 @@ class _DashboardTabState extends State<DashboardTab> {
     setState(() => _tipText = tips[idx]);
   }
 
+  void _initRealtimePower() {
+    final uid = _userId;
+    if (uid == null) return;
+    RealtimePowerService.instance.start(uid);
+    _powerSub?.cancel();
+    _powerSub = RealtimePowerService.instance.stream.listen((r) {
+      if (!mounted) return;
+      setState(() => _liveReadings[r.applianceId] = r);
+    });
+  }
+
   @override
   void dispose() {
     _telemetrySub?.cancel();
+    _powerSub?.cancel();
     _tipSub?.cancel();
     _autoClearTimer?.cancel();
     super.dispose();
@@ -350,8 +371,6 @@ class _DashboardTabState extends State<DashboardTab> {
                         ],
                       ),
                       const SizedBox(height: AppSpacing.s6),
-                      if (_userId != null) LiveConsumptionIndicator(userId: _userId!),
-                      const SizedBox(height: AppSpacing.s4),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.s4),
                         child: Row(
@@ -387,7 +406,8 @@ class _DashboardTabState extends State<DashboardTab> {
                         itemCount: _appliances.length,
                         itemBuilder: (context, index) {
                           final appliance = _appliances[index];
-                          final consumption = _applianceEnergy[appliance.id] ?? 0.0;
+                          final reading = _liveReadings[appliance.id];
+                          final consumption = reading?.powerKwh ?? _applianceEnergy[appliance.id] ?? 0.0;
                           return _buildDeviceCard(
                             appliance.name,
                             consumption.toStringAsFixed(1),

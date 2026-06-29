@@ -8,6 +8,7 @@ const supabase = createClient(
 
 async function aggregateDaily() {
   const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   const week = getWeekNumber(new Date());
   const month = new Date().getMonth() + 1;
   const year = new Date().getFullYear();
@@ -21,12 +22,34 @@ async function aggregateDaily() {
     return;
   }
 
+  let aggregated = 0;
+
   for (const r of readings) {
+    const cumulative = Number(r.power_kwh ?? 0);
+
+    // Read previous day's cumulative snapshot
+    const { data: prev } = await supabase
+      .from("energy_data")
+      .select("cumulative_kwh")
+      .eq("appliance_id", r.appliance_id)
+      .order("date", { ascending: false })
+      .limit(1);
+
+    const previousCumulative = prev?.[0]?.cumulative_kwh
+      ? Number(prev[0].cumulative_kwh)
+      : null;
+
+    // Compute delta: today's consumption = current cumulative - last snapshot
+    const delta = previousCumulative != null
+      ? Math.max(0, cumulative - previousCumulative)
+      : cumulative;
+
     const { error: upsertError } = await supabase.from("energy_data").upsert({
       appliance_id: r.appliance_id,
       user_id: r.user_id,
       date: today,
-      total_day: Number(r.power_kwh ?? 0),
+      kwh: delta,
+      cumulative_kwh: cumulative,
       week,
       month,
       year,
@@ -36,10 +59,12 @@ async function aggregateDaily() {
 
     if (upsertError) {
       console.error(`Upsert failed for ${r.appliance_id}:`, upsertError.message);
+    } else {
+      aggregated++;
     }
   }
 
-  console.log(`Aggregated ${readings.length} readings for ${today}`);
+  console.log(`Aggregated ${aggregated}/${readings.length} readings for ${today}`);
 }
 
 function getWeekNumber(date: Date): number {

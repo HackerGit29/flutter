@@ -234,26 +234,39 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
     final Map<String, List<EnergyData>> grouped = {};
     for (final e in _energyHistory) {
-      final dateKey = e.date.toIso8601String();
+      final dateKey = _selectedTimeFrame == 'Année'
+          ? '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}'
+          : e.date.toIso8601String();
       grouped.putIfAbsent(dateKey, () => []).add(e);
     }
 
-    final sortedDates = grouped.keys.toList()..sort();
+    final sortedKeys = grouped.keys.toList()..sort();
     final spots = <FlSpot>[];
     double maxY = 0;
 
-    for (int i = 0; i < sortedDates.length && i < 10; i++) {
-      final total = grouped[sortedDates[i]]!.fold<double>(
+    final maxPoints = sortedKeys.length;
+
+    for (int i = 0; i < maxPoints; i++) {
+      final total = grouped[sortedKeys[i]]!.fold<double>(
         0.0,
-        (sum, e) => sum + _timeFrameValue(e),
+        (sum, e) => sum + e.kwh,
       );
       spots.add(FlSpot(i.toDouble(), total));
       if (total > maxY) maxY = total;
     }
 
+    if (spots.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.s4),
+          child: const Center(child: Text('Aucune donnée disponible pour cette période')),
+        ),
+      );
+    }
+
     maxY = maxY * 1.1;
 
-    final displayDates = sortedDates.take(10).toList();
+    final displayKeys = sortedKeys.toList();
 
     return Card(
       elevation: 4,
@@ -293,14 +306,16 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                         reservedSize: 30,
                         interval: 1,
                         getTitlesWidget: (value, meta) {
-                          if (value.toInt() >= displayDates.length || value.toInt() < 0) {
+                          if (value.toInt() >= displayKeys.length || value.toInt() < 0) {
                             return const SizedBox();
                           }
-                          final dateStr = displayDates[value.toInt()];
-                          final parsed = DateTime.tryParse(dateStr);
-                          final label = parsed != null
-                              ? '${parsed.day}/${parsed.month}'
-                              : dateStr;
+                          final key = displayKeys[value.toInt()];
+                          final label = _selectedTimeFrame == 'Année'
+                              ? key.split('-').skip(1).join('/')
+                              : (() {
+                                  final parsed = DateTime.tryParse(key);
+                                  return parsed != null ? '${parsed.day}/${parsed.month}' : key;
+                                })();
                           return SideTitleWidget(
                             meta: meta,
                             space: 4,
@@ -334,7 +349,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     border: Border.all(color: AppColors.textPrimary, width: 1),
                   ),
                   minX: 0,
-                  maxX: displayDates.length - 1.0,
+                  maxX: displayKeys.length - 1.0,
                   minY: 0,
                   maxY: maxY,
                   lineBarsData: [
@@ -360,15 +375,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
-  double _timeFrameValue(EnergyData e) {
-    switch (_selectedTimeFrame) {
-      case 'Jour': return e.totalDay;
-      case 'Semaine': return e.totalWeek;
-      case 'Mois': return e.totalMonth;
-      case 'Année': return e.totalYear;
-      default: return e.totalDay;
-    }
-  }
+
 
   Widget _buildDeviceDetails() {
     if (_applianceEnergy.isEmpty) {

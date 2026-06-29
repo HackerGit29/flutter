@@ -35,6 +35,7 @@ export async function enqueueDeviceCommand(params: {
 
 /**
  * Récupère la consommation en temps réel pour un appareil ou général.
+ * Lit depuis realtime_power (valeur live cumulée).
  */
 export async function getRealtimeConsumption(params: {
   supabase: any;
@@ -42,11 +43,9 @@ export async function getRealtimeConsumption(params: {
   applianceId?: string;
 }) {
   let query = params.supabase
-    .from("energy_data")
-    .select("total_day, total_week, total_month, total_year, date, week, month, year")
-    .eq("user_id", params.requesterId)
-    .order("date", { ascending: false })
-    .limit(1);
+    .from("realtime_power")
+    .select("appliance_id, power_kwh, instant_power_w, updated_at, appliances!inner(name)")
+    .eq("user_id", params.requesterId);
 
   if (params.applianceId) {
     query = query.eq("appliance_id", params.applianceId);
@@ -56,7 +55,15 @@ export async function getRealtimeConsumption(params: {
 
   if (error) throw error;
 
-  return data?.[0] ?? null;
+  if (!data || data.length === 0) return null;
+
+  return data.map((row: any) => ({
+    appliance_id: row.appliance_id,
+    appliance_name: row.appliances?.name ?? "",
+    power_kwh: Number(row.power_kwh),
+    instant_power_w: row.instant_power_w !== null ? Number(row.instant_power_w) : null,
+    updated_at: row.updated_at,
+  }));
 }
 
 /**
@@ -116,7 +123,7 @@ export async function getEnergyHistory(params: {
 
   let query = params.supabase
     .from("energy_data")
-    .select("total_day, date")
+    .select("kwh, cumulative_kwh, date")
     .eq("user_id", params.requesterId)
     .gte("date", startDate.toISOString().split("T")[0])
     .order("date", { ascending: true });

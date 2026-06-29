@@ -28,13 +28,13 @@
 │                                                                   │
 │  1. Reçoit { messages, temperature, max_tokens }                  │
 │  2. Lit AZURE_OPENAI secrets via Deno.env.get()                   │
-│  3. POST /openai/deployments/Phi-4-mini-instruct/chat/completions│
+│  3. POST /openai/deployments/LLM/chat/completions│
 │  4. Retourne { success, content, raw }                            │
 └──────────────────────────┬───────────────────────────────────────┘
                            │ fetch() + api-key
                            ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│  Azure AI Foundry : Phi-4-mini-instruct (GlobalStandard)         │
+│  Azure AI Foundry : LLM (GlobalStandard)         │
 │  • Endpoint : paossimb-7935-resource.cognitiveservices.azure.com │
 │  • API version : 2024-06-01                                      │
 │  • Rate limit : 1 req/s, 400 tokens/min                         │
@@ -54,14 +54,15 @@
 │                                                               │
 │  1. AUTH : parse JWT → auth.uid (IGNORE body.user_id)        │
 │  2. RAG : pgvector WHERE owner_id = auth.uid                 │
-│  3. Contexte opérationnel : appliances scope user             │
-│  4. Phi-4-mini-instruct : tool calling                        │
+│  3. Contexte opérationnel : appliances + subscription scope   │
+│  4. Azure OpenAI GPT-4o : tool calling                        │
 │     • Le LLM ne manipule que des noms métier                  │
 │     • Il propose une intention, ne choisit jamais les IDs     │
 │  5. Policy Engine :                                           │
 │     • Resolve appliance_name → appliance_id → relay_index     │
 │     • Ownership vérifié en base (.eq("user_id", requesterId)) │
 │     • Rate limit : 10 commandes/minute par boîtier            │
+│     • Criticalité élevée → confirmation modale obligatoire    │
 │  6. INSERT INTO device_commands (safe queue)                  │
 │  7. Audit log → agent_audit_logs                              │
 │  8. SSE streaming : token / tool_pending / tool_result / done │
@@ -109,22 +110,29 @@
 - Le Worker MQTT consomme la file
 - Statut : `pending → sent → acknowledged/failed`
 
-### 5. SSE typé
+### 5. SSE typé (v1.4.1)
 | Event | Direction | Contenu |
 |---|---|---|
 | `connected` | Server → Client | `user_id` |
-| `token` | Server → Client | Texte en streaming |
-| `tool_pending` | Server → Client | Action en cours |
-| `tool_result` | Server → Client | Résultat succès/échec |
+| `token` | Server → Client | Texte en streaming (seul contenu visible dans l'UI) |
+| `tool_pending` | Server → Client | Action en cours (peut contenir `requires_confirmation: true` pour appareils critiques) — **masqué dans l'UI** |
+| `tool_result` | Server → Client | Résultat succès/échec — **masqué dans l'UI** |
 | `error` | Server → Client | Message d'erreur |
 | `done` | Server → Client | Fin du flux |
+
+L'utilisateur ne voit que les événements `token` (réponse du LLM) et `error`. Les événements `tool_pending` / `tool_result` sont traités en arrière-plan.
+
+### 6. Confirmation structurée (confirmed_tool_call)
+Pour les actions critiques (chauffe-eau, climatiseur, four, cuisinière), le backend demande une confirmation modale via `tool_pending` avec `requires_confirmation: true`. L'utilisateur confirme dans l'UI, et Flutter renvoie un `confirmed_tool_call` structuré (contournant le LLM) directement au backend pour exécution, sans risque de mauvaise interprétation par le modèle.
+
+Le `confirmed_tool_call` inclut désormais `confirmed: true` dans les arguments pour éviter la boucle infinie de confirmation. Après exécution, le LLM génère une réponse streamée pour confirmer l'action à l'utilisateur.
 
 ## Secrets (dashboard Supabase, jamais côté Flutter)
 
 ```
 AZURE_OPENAI_ENDPOINT             → https://paossimb-7935-resource.cognitiveservices.azure.com/
 AZURE_OPENAI_API_KEY              → <clé API Azure>
-AZURE_OPENAI_DEPLOYMENT           → Phi-4-mini-instruct
+AZURE_OPENAI_DEPLOYMENT           → LLM
 AZURE_OPENAI_API_VERSION          → 2024-06-01
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT → text-embedding-3-large-aricie
 AZURE_OPENAI_EMBEDDING_DIMENSIONS → 1536
@@ -217,23 +225,31 @@ Règles :
 ''';
 ```
 
-## Outils LLM (agent-orchestrator, Phi-4-mini-instruct tools)
+## Outils LLM (agent-orchestrator, LLM tools)
 
 ```json
 [
-  { "name": "turn_on_appliance",     "params": { "appliance_name": "string" } },
-  { "name": "turn_off_appliance",    "params": { "appliance_name": "string" } },
-  { "name": "get_realtime_consumption", "params": { "appliance_name": "string" } },
-  { "name": "get_device_status",     "params": { "appliance_name": "string" } },
-  { "name": "get_energy_history",    "params": { "appliance_name": "string", "period": "day|week|month|year" } }
+  { "name": "get_subscription_info",     "params": {} },
+  { "name": "get_my_appliances",         "params": {} },
+  { "name": "turn_on_appliance",         "params": { "appliance_name": "string", "confirmed": "boolean (optionnel)" } },
+  { "name": "turn_off_appliance",        "params": { "appliance_name": "string", "confirmed": "boolean (optionnel)" } },
+  { "name": "get_realtime_consumption",  "params": { "appliance_name": "string" } },
+  { "name": "get_device_status",         "params": { "appliance_name": "string" } },
+  { "name": "get_total_consumption",     "params": { "period": "string" } },
+  { "name": "get_live_consumption",      "params": { "appliance_name": "string" } },
+  { "name": "get_energy_history",       "params": { "appliance_name": "string", "period": "day|week|month|year" } },
+  { "name": "push_tip",                  "params": { "title": "string", "body": "string", "severity": "info|warning" } }
 ]
 ```
+
+### Fallback LLM (v1.4.1)
+Si Azure OpenAI est indisponible (HTTP 429, 500, 502, 503, 504), l'orchestrateur bascule automatiquement. Le fallback est activé via la variable d'environnement `LLM_FALLBACK_ENABLED=true`.
 
 ## Résumé des déploiements Azure
 
 | Modèle | Nom du déploiement | SKU | Status |
 |--------|-------------------|-----|--------|
-| `Phi-4-mini-instruct` | `Phi-4-mini-instruct` | GlobalStandard (1) | ✅ Déployé |
+| `LLM` | `LLM` | GlobalStandard (1) | ✅ Déployé |
 | `gpt-4o-transcribe` | `gpt-4o-transcribe-aricie` | GlobalStandard (1) | ✅ Déployé |
 | `gpt-4o-transcribe-diarize` | `gpt-4o-transcribe-diarize-aricie` | GlobalStandard (1) | ✅ Déployé |
 | `text-embedding-3-large` | `text-embedding-3-large-aricie` | Standard (1) | ✅ Déployé |
@@ -263,8 +279,8 @@ Flutter Voice Mode
 Edge Functions:
   • transcribe-audio : audio → gpt-4o-transcribe → texte
   • text-to-speech    : texte → Azure Neural TTS → audio MP3
-  • ai-chat           : messages → Phi-4-mini-instruct → réponse
-  • agent-orchestrator : message + tools → Phi-4-mini-instruct → SSE
+  • ai-chat           : messages → LLM → réponse
+  • agent-orchestrator : message + tools → LLM → SSE
 ```
 
 ## Testing requis
@@ -276,7 +292,7 @@ Edge Functions:
 5. Commande dupliquée → pas de double publication
 6. RAG User A → jamais document User B
 7. Voice → STT → agent → SSE → TTS
-8. Azure Phi-4-mini-instruct indisponible → erreur UI propre
+8. Azure LLM indisponible → erreur UI propre
 
 ## Évolution future
 

@@ -1,7 +1,9 @@
 import 'package:aricie/core/di/injection_container.dart';
 import 'package:aricie/domain/usecases/auth/login_user.dart';
+import 'package:aricie/providers/subscription_provider.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../home_screen.dart';
 import 'signup_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -61,6 +63,8 @@ class _LoginScreenState extends State<LoginScreen> {
             }
 
             if (mounted) {
+              await context.read<SubscriptionProvider>().loadForUser(user.id);
+              if (!mounted) return;
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (_) => const HomeScreen()),
               );

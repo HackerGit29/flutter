@@ -13,12 +13,11 @@ class EnergyRepositoryImpl implements EnergyRepository {
   Future<Either<Failure, List<EnergyData>>> getEnergyHistory({
     required String userId,
     String timeFrame = 'Jour',
-    int limit = 30,
   }) async {
     try {
       final data = await _dataSource.getEnergyHistory(
         userId: userId,
-        limit: limit,
+        timeFrame: timeFrame,
       );
       final entities = data.map((e) => EnergyData.fromJson(e)).toList();
       return Right(entities);
@@ -35,11 +34,12 @@ class EnergyRepositoryImpl implements EnergyRepository {
     try {
       final data = await _dataSource.getEnergyByAppliance(
         userId: userId,
+        timeFrame: timeFrame,
       );
       final result = <String, double>{};
       for (final row in data) {
         final applianceId = row['appliance_id'] as String;
-        final value = (row['total_day'] as num?)?.toDouble() ?? 0.0;
+        final value = (row['kwh'] as num?)?.toDouble() ?? 0.0;
         result[applianceId] = (result[applianceId] ?? 0.0) + value;
       }
       return Right(result);

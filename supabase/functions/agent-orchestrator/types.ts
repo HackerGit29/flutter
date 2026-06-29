@@ -3,6 +3,10 @@ export type ChatRequest = {
   session_id?: string;
   locale?: string;
   mode?: "text" | "voice";
+  confirmed_tool_call?: {
+    name: string;
+    args: Record<string, unknown>;
+  };
 };
 
 export type AuthUser = {

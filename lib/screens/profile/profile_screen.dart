@@ -2,8 +2,10 @@ import 'package:aricie/core/di/injection_container.dart';
 import 'package:aricie/domain/entities/user.dart';
 import 'package:aricie/domain/usecases/auth/get_current_user.dart';
 import 'package:aricie/domain/usecases/auth/logout_user.dart';
+import 'package:aricie/providers/subscription_provider.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../admin/admin_dashboard_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -140,6 +142,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           leading: const Icon(Icons.logout),
           title: const Text('Déconnexion'),
           onTap: () async {
+            if (!mounted) return;
+            context.read<SubscriptionProvider>().reset();
             final result = await LogoutUser(sl()).call();
             result.fold(
               (_) {},

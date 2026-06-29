@@ -518,6 +518,94 @@ async function handleToolCall(params: {
     };
   }
 
+  // --- Infos abonnement ---
+  if (name === "get_subscription_info") {
+    await writeSse(params.controller, "tool_pending", {
+      tool: name,
+      label: "Vérification de l'abonnement",
+    });
+
+    const { data: subscription } = await params.supabase
+      .from("subscriptions")
+      .select("type, is_active, end_date")
+      .eq("user_id", params.requesterId)
+      .single();
+
+    const info = {
+      type: subscription?.type ?? "free",
+      is_active: subscription?.is_active ?? false,
+      end_date: subscription?.end_date
+        ? new Date(subscription.end_date).toISOString()
+        : null,
+      is_vip: (subscription?.type ?? "free") === "vip",
+    };
+
+    await writeSse(params.controller, "tool_result", {
+      tool: name,
+      success: true,
+    });
+
+    return {
+      role: "tool" as const,
+      tool_call_id: params.toolCall.id,
+      content: JSON.stringify({ success: true, subscription: info }),
+    };
+  }
+
+  // --- Liste des appareils ---
+  if (name === "get_my_appliances") {
+    await writeSse(params.controller, "tool_pending", {
+      tool: name,
+      label: "Récupération de la liste des appareils",
+    });
+
+    const { data: appliancesData, error: appliancesError } = await params.supabase
+      .from("appliances")
+      .select("id, name, location, is_on, relay_index, box_id")
+      .eq("user_id", params.requesterId);
+
+    if (appliancesError) {
+      await writeSse(params.controller, "tool_result", {
+        tool: name,
+        success: false,
+        reason: "database_error",
+      });
+
+      return {
+        role: "tool" as const,
+        tool_call_id: params.toolCall.id,
+        content: JSON.stringify({
+          success: false,
+          reason: "Erreur base de données.",
+        }),
+      };
+    }
+
+    const appliances = (appliancesData ?? []).map((a: any) => ({
+      id: a.id,
+      name: a.name,
+      location: a.location,
+      is_on: a.is_on,
+      relay_index: a.relay_index,
+      box_id: a.box_id,
+    }));
+
+    await writeSse(params.controller, "tool_result", {
+      tool: name,
+      success: true,
+    });
+
+    return {
+      role: "tool" as const,
+      tool_call_id: params.toolCall.id,
+      content: JSON.stringify({
+        success: true,
+        appliances,
+        count: appliances.length,
+      }),
+    };
+  }
+
   // Tool inconnu
   return {
     role: "tool" as const,
@@ -558,9 +646,11 @@ Deno.serve(async (req) => {
     return jsonError("Corps JSON invalide.", 400);
   }
 
-  if (!body.message || typeof body.message !== "string") {
+  if ((!body.message || typeof body.message !== "string") && !body.confirmed_tool_call) {
     return jsonError("Le champ 'message' est requis.", 400);
   }
+
+  const isConfirmedAction = body.confirmed_tool_call != null;
 
   // 3. Création du client admin (service_role) pour les opérations internes
   const supabase = createAdminClient();
@@ -581,6 +671,51 @@ Deno.serve(async (req) => {
           supabase,
           authUser.id,
         );
+
+        // Si action confirmée, exécuter directement sans LLM
+        if (isConfirmedAction && body.confirmed_tool_call) {
+          const confirmedToolCall: ToolCall = {
+            id: "confirmed-" + crypto.randomUUID(),
+            type: "function",
+            function: {
+              name: body.confirmed_tool_call.name,
+              arguments: JSON.stringify(body.confirmed_tool_call.args),
+            },
+          };
+
+          const toolMessage = await handleToolCall({
+            controller,
+            supabase,
+            requesterId: authUser.id,
+            toolCall: confirmedToolCall,
+          });
+
+          // Générer une réponse finale depuis le LLM
+          const messages = [
+            { role: "system" as const, content: SYSTEM_PROMPT },
+            {
+              role: "system" as const,
+              content: "CONTEXTE OPÉRATIONNEL :\n" +
+                JSON.stringify(operationalContext),
+            },
+            {
+              role: "user" as const,
+              content: body.message ?? "Confirmation d'action",
+            },
+            toolMessage,
+          ];
+
+          await streamFinalAnswer({
+            messages,
+            onToken: async (token: string) => {
+              await writeSse(controller, "token", { content: token });
+            },
+          });
+
+          await writeSse(controller, "done", {});
+          controller.close();
+          return;
+        }
 
         // Tool gating par subscription.type (free = lecture seule, pas de cache)
         const allowedTools = filterToolsForSubscription(

@@ -4,7 +4,7 @@ This document defines the versioning strategy for the aricie project.
 
 ## Current Version
 
-**1.4.0+1** (as defined in `pubspec.yaml`)
+**1.4.1+1** (as defined in `pubspec.yaml`)
 
 ## Versioning Scheme
 
@@ -51,7 +51,7 @@ The `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/) forma
 
 | Version | Date | Description |
 |---------|------|-------------|
-| 1.4.0+1 | 2026-06-27 | MQTT singleton & connectivité, boîtiers admin nullables, simulateur ESP32, fix UI Settings |
+| 1.4.1+1 | 2026-06-29 | Fix RPC sum_total_consumption, fix boucle confirmation on/off, UX chatbot (masquage appels fonctions), Realtime energy_data + device_commands, DeepSeek fallback LLM |
 | 1.3.0+1 | 2026-06-26 | Admin provisioning, pipeline stats, refonte UI appareils, nettoyage secrets |
 | 1.2.0+1 | 2026-06-26 | CI/CD release pipeline |
 | 1.1.0+1 | 2026-06-25 | Agent RAG, subscription tiers, device_commands |

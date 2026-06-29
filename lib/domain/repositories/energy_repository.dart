@@ -6,7 +6,6 @@ abstract class EnergyRepository {
   Future<Either<Failure, List<EnergyData>>> getEnergyHistory({
     required String userId,
     String timeFrame = 'Jour',
-    int limit = 30,
   });
 
   Future<Either<Failure, Map<String, double>>> getEnergyByAppliance({

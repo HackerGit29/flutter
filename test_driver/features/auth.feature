@@ -1,16 +1,25 @@
 Feature: Authentication
   As a user
   I want to manage my account
-  So that I can access my energy data
+  So that I can access my energy data securely
 
-  Scenario: Successful Login
-    Given I am on the login screen
-    When I enter valid credentials
-    And I click the login button
+  Scenario: User registration
+    Given I am on the registration screen
+    When I enter a valid email and password
+    And I submit the form
     Then I should be redirected to the home screen
+    And a new user account should be created in Supabase
 
-  Scenario: User Registration
-    Given I am on the signup screen
-    When I enter a new email and password
-    And I click the register button
-    Then I should have a new account and be redirected to the home screen
+  Scenario: User login
+    Given I have an existing account
+    And I am on the login screen
+    When I enter my correct credentials
+    And I submit the form
+    Then I should be logged in
+    And my session should be stored securely
+
+  Scenario: User logout
+    Given I am currently logged in
+    When I click the logout button
+    Then I should be redirected to the login screen
+    And my session should be cleared

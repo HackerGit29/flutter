@@ -73,10 +73,7 @@ class MessageBubble extends StatelessWidget {
       linkColor = Theme.of(context).colorScheme.primary;
     }
 
-    // Strip emojis from bot messages
-    final displayText = message.isUser
-        ? message.text
-        : stripEmojis(message.text);
+    final displayText = message.text;
 
     return Align(
       alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -154,6 +151,7 @@ class MessageBubble extends StatelessWidget {
               else
                 MarkdownBody(
                   data: displayText,
+                  fitContent: true,
                   styleSheet: MarkdownStyleSheet(
                     p: TextStyle(color: textColor, fontSize: 16, height: 1.4),
                     strong: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 16),
@@ -242,16 +240,4 @@ class MessageBubble extends StatelessWidget {
   }
 }
 
-/// Supprime les emojis du texte (appliqué aux réponses IA)
-String stripEmojis(String text) {
-  return text.replaceAll(RegExp(
-    r'[\u{1F300}-\u{1F9FF}'
-    r'\u{1FA00}-\u{1FA6F}'
-    r'\u{1FA70}-\u{1FAFF}'
-    r'\u{2600}-\u{27BF}'
-    r'\u{FE00}-\u{FE0F}'
-    r'\u{200D}'
-    r']',
-    unicode: true,
-  ), '').trim();
-}
+

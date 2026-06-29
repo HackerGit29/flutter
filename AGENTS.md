@@ -123,16 +123,20 @@ Flutter Chat / Voice
   → AgentService (SSE)
     → POST /functions/v1/agent-orchestrator (JWT + message)
       → auth.ts : user_id extrait du JWT (ignoré du body)
-      → context opérationnel (appliances scope user)
+      → context opérationnel (appliances + subscription scope user)
       → RAG pgvector (owner_id = requester_id)
-      → Azure OpenAI GPT-4o tool calling (ou Phi-4-mini-instruct)
-      → Policy Engine (ownership + rate limit)
+      → Azure OpenAI GPT-4o tool calling (fallback LLM)
+      → Policy Engine (ownership + rate limit + criticalité haute → confirmation modale)
       → device_commands (file d'attente)
       → audit log
       → SSE streaming typé
     → Worker MQTT (webhook)
       → pending → MQTT publish → sent/failed
 ```
+
+**Actions critiques** : backend demande confirmation modale via `tool_pending { requires_confirmation: true }`. Flutter envoie `confirmed_tool_call` structuré (contourne le LLM) pour exécution directe, avec `confirmed: true` dans les arguments pour éviter la boucle infinie.
+
+**Tools** : `get_subscription_info`, `get_my_appliances`, `turn_on_appliance`, `turn_off_appliance`, `get_realtime_consumption`, `get_device_status`, `get_total_consumption`, `get_live_consumption`, `get_energy_history`, `push_tip`
 
 ### Principes de sécurité
 
@@ -177,7 +181,18 @@ All tables use RLS. Admin bypass via `private.is_admin()` (SECURITY DEFINER quer
 - **Worker souscrit télémétrie**: souscrit à aricie/v1/boxes/+/telemetry en plus des ACK ✅
 - **FLESPI_DEFAULT_BOX_UID**: compile-time override pour fallback MQTT sans appliances en BDD ✅
 - **Fix UI Settings**: padding bottom kBottomNavigationBarHeight pour éviter débordement navbar ✅
+- **Tools IA subscription + appliances**: `get_subscription_info`, `get_my_appliances` ajoutés au LLM ✅
+- **Confirmation structurée**: `confirmed_tool_call` contourne le LLM, envoi direct au backend ✅
+- **Bug fix labels toggles**: `_toolLabelToFrench` corrigé pour les vrais noms de tools (`turn_on_appliance`, etc.) ✅
+- **IndexedStack tabs**: remplacement `Stack` → `IndexedStack` dans home_screen pour préserver les souscriptions entre tabs ✅
+- **Bouton Ajouter admin-only**: vérification `isAdmin` dans settings_screen ✅
+- **Toggle optimiste**: feedback immédiat + loading spinner + revert sur échec dans devices_screen ✅
 - **GPT-4o**: En attente d'augmentation de quota
+- **Fix RPC sum_total_consumption**: TOO_MANY_ROWS avec >1 appareil — passage en sous-requêtes scalaires ✅
+- **Fix boucle confirmation**: `confirmed: true` manquant dans les args Flutter ✅
+- **UX Chatbot clean**: suppression de l'affichage des appels de fonctions intermédiaires ✅
+- **Realtime energy_data + device_commands**: activation publication Supabase Realtime ✅
+- **DeepSeek fallback LLM**: bascule automatique si Azure OpenAI est indisponible ✅
 
 ## Design system (2026)
 
@@ -309,16 +324,26 @@ Semantic Versioning 2.0.0. Canonical version in `pubspec.yaml`. See `VERSION.md`
 | `lib/domain/usecases/admin/create_appliances_for_box.dart` | Use-case admin création 3 appliances |
 | `lib/domain/usecases/admin/get_available_boxes.dart` | Use-case admin boîtiers disponibles |
 | `lib/screens/admin/admin_dashboard_screen.dart` | FAB + dialog création boîtier (onglet Boîtiers) |
-| `lib/screens/home_screen.dart` | Initialisation MQTT après chargement appliances, fallback `FLESPI_DEFAULT_BOX_UID` |
-| `lib/screens/settings/settings_screen.dart` | Statut MQTT via singleton, padding bottom navbar fixé |
+| `lib/screens/home_screen.dart` | Initialisation MQTT après chargement appliances, fallback `FLESPI_DEFAULT_BOX_UID`, IndexedStack tabs |
+| `lib/screens/settings/settings_screen.dart` | Statut MQTT via singleton, padding bottom navbar fixé, bouton Ajouter admin-only |
+| `lib/screens/devices/devices_screen.dart` | Toggle optimiste avec loading spinner + revert sur échec |
 | `lib/services/mqtt_service.dart` | Singleton via get_it, `force` paramètre, `sendDebugControlCommand` supprimé |
+| `lib/services/agent_service.dart` | SSE client, paramètre `confirmedToolCall` pour confirmation structurée |
+| `supabase/functions/agent-orchestrator/tools.ts` | 10 tools LLM dont `get_subscription_info`, `get_my_appliances` |
+| `supabase/functions/agent-orchestrator/index.ts` | Handle confirmed_tool_call, handlers pour subscription + appliances |
 | `lib/core/di/injection_container.dart` | `sl.registerLazySingleton<MqttService>` |
 | `lib/core/constants.dart` | `supabaseServiceRoleKey` et `flespiWorkerToken` supprimés, `flespiDefaultBoxUid` ajouté |
+| `lib/providers/subscription_provider.dart` | `reset()`, `loadForUser(String userId)` — pas de SharedPreferences |
+| `lib/domain/usecases/license/get_user_subscription.dart` | `callForUser(String userId)` pour requête scope |
+| `lib/data/repositories/license_repository_impl.dart` | `getUserSubscriptionForUser` implémenté |
 | `workers/test/box/box_esp32.py` | Simulateur ESP32 Python (télémétrie 5s, ACK, 3 relays) |
 | `workers/mqtt5-worker/index.js` | Souscrit télémétrie (`aricie/v1/boxes/+/telemetry`) |
 | `workers/test/box/README.md` | Instructions simulateur |
 | `supabase/migrations/20260627000006_boxes_user_id_nullable.sql` | ALTER boxes.user_id DROP NOT NULL |
 | `supabase/migrations/20260627000007_boxes_uid_hardware_check.sql` | CHECK length(uid_hardware) > 8 |
+| `supabase/migrations/20260628000001_energy_rollup.sql` | Energy_data : kwh + cumulative_kwh au lieu de total_day/week/month/year |
+| `supabase/migrations/20260629000001_fix_rpc_group_by.sql` | Fix TOO_MANY_ROWS dans sum_total_consumption |
+| `supabase/migrations/20260629000002_enable_realtime.sql` | Realtime broadcast sur energy_data + device_commands |
 
 ## Gotchas
 

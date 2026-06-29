@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.1+1] — 2026-06-29
+
+### Fixed
+- RPC `sum_total_consumption` : `GROUP BY` dans un `SELECT INTO` causait `TOO_MANY_ROWS` pour >1 appareil (blocage total aggrégations hebdo/mensuel/annuel)
+- Boucle infinie confirmation on/off : `confirmed: true` manquant dans les args Flutter → `handleToolCall` renvoyait toujours `requires_confirmation`
+- Absence de réponse LLM après confirmation d'action : le flux `isConfirmedAction` envoyait `done` sans générer de réponse streamée
+
+
+### Changed
+- **UX Chatbot** : les appels de fonctions (`tool_pending`, `tool_result`) ne sont plus affichés dans l'UI — l'utilisateur ne voit que la réponse finale du LLM
+- `confirmed` ajouté comme paramètre optionnel aux tools `turn_on_appliance` / `turn_off_appliance`
+- Realtime Supabase activé sur `energy_data` et `device_commands` pour lectures/écritures temps réel
+- SYSTEM_PROMPT renforcé : instructions explicites pour répondre aux questions abonnement/VIP depuis le contexte opérationnel
+
 ## [1.4.0+1] — 2026-06-27
 
 ### Added

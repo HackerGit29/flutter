@@ -63,29 +63,35 @@ Flutter Client
         → SSE response typée
 ```
 
-### Flux SSE
-| Event | Description |
-|---|---|
-| `connected` | Confirmation de connexion, contient `user_id` |
-| `token` | Token de réponse textuelle (streaming) |
-| `tool_pending` | Début d'exécution d'une action (allumage, extinction...) |
-| `tool_result` | Résultat de l'action (succès/échec) |
-| `error` | Erreur de traitement |
-| `done` | Fin du flux |
+### Flux SSE (v1.4.1)
+| Event | UI visible ? | Description |
+|---|---|---|
+| `connected` | Non | Confirmation de connexion, contient `user_id` |
+| `token` | **Oui** | Token de réponse textuelle (streaming) — seul contenu affiché dans le chat |
+| `tool_pending` | Non | Début d'exécution d'une action — masqué, traité en arrière-plan |
+| `tool_result` | Non | Résultat de l'action — masqué, utilisé uniquement pour la logique de confirmation modale |
+| `error` | **Oui** | Erreur de traitement |
+| `done` | Non | Fin du flux |
 
 ### Endpoint
 - **Edge Function**: `{supabaseUrl}/functions/v1/agent-orchestrator`
 - **Auth**: JWT Supabase dans `Authorization: Bearer <token>`
-- **Body**: `{ message, session_id, locale, mode }`
+- **Body**: `{ message, session_id, locale, mode, confirmed_tool_call? }`
+  - `confirmed_tool_call` (optionnel) : action confirmée par l'utilisateur en modale, exécutée directement sans LLM
 
 ### Tools exposés au LLM
 | Tool | Description | Paramètre |
 |---|---|---|
-| `turn_on_appliance` | Allumer un appareil | `appliance_name` (nom métier) |
-| `turn_off_appliance` | Éteindre un appareil | `appliance_name` (nom métier) |
+| `get_subscription_info` | Infos abonnement (type, fin, statut) | Aucun |
+| `get_my_appliances` | Liste tous les appareils avec détails | Aucun |
+| `turn_on_appliance` | Allumer un appareil | `appliance_name`, `confirmed?` (booléen optionnel) |
+| `turn_off_appliance` | Éteindre un appareil | `appliance_name`, `confirmed?` (booléen optionnel) |
 | `get_realtime_consumption` | Consommation temps réel | `appliance_name` (optionnel) |
 | `get_device_status` | État d'un appareil | `appliance_name` |
+| `get_total_consumption` | Consommation agrégée | `period` |
+| `get_live_consumption` | Consommation live instantanée | `appliance_name` (optionnel) |
 | `get_energy_history` | Historique de consommation | `appliance_name`, `period` |
+| `push_tip` | Envoyer un conseil éco en push | `title`, `body`, `severity` |
 
 ### Sécurité
 - `user_id` extrait du JWT Supabase, jamais du body client

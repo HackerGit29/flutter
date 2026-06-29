@@ -48,6 +48,14 @@ class MockLicenseRepository implements LicenseRepository {
   Future<Either<Failure, bool>> isFeatureAllowed(String featureName) async {
     return const Right<Failure, bool>(false);
   }
+
+  @override
+  Future<Either<Failure, Subscription>> getUserSubscriptionForUser(String userId) async {
+    return Right<Failure, Subscription>(Subscription(
+      id: 'sub-0', userId: userId, type: SubscriptionType.free,
+      startDate: DateTime.now(), isActive: true, autoRenew: false, createdAt: DateTime.now(),
+    ));
+  }
 }
 
 void main() {

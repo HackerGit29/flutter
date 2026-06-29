@@ -11,6 +11,26 @@ class SubscriptionProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isVip => _subscription?.isVip ?? false;
 
+  void reset() {
+    _subscription = null;
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<void> loadForUser(String userId) async {
+    _isLoading = true;
+    notifyListeners();
+
+    final result = await GetUserSubscription(sl()).callForUser(userId);
+    result.fold(
+      (_) => _subscription = null,
+      (sub) => _subscription = sub,
+    );
+
+    _isLoading = false;
+    notifyListeners();
+  }
+
   Future<void> load() async {
     _isLoading = true;
     notifyListeners();

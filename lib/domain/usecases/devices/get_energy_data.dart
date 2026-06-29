@@ -11,12 +11,10 @@ class GetEnergyHistory {
   Future<Either<Failure, List<EnergyData>>> call({
     required String userId,
     String timeFrame = 'Jour',
-    int limit = 30,
   }) {
     return repository.getEnergyHistory(
       userId: userId,
       timeFrame: timeFrame,
-      limit: limit,
     );
   }
 }

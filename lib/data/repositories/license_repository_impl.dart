@@ -16,14 +16,27 @@ class LicenseRepositoryImpl implements LicenseRepository {
     try {
       final userId = await _local.getCachedUserId();
       if (userId == null) return Left(SessionExpiredFailure());
-      final data = await _remote.getUserSubscription(userId);
-      if (data == null) return Left(NoActiveSubscriptionFailure());
-      return Right(Subscription.fromJson(data));
+      return _fetchSubscription(userId);
     } on SessionExpiredFailure {
       return Left(SessionExpiredFailure());
     } catch (e) {
       return Left(ServerFailure());
     }
+  }
+
+  @override
+  Future<Either<Failure, Subscription>> getUserSubscriptionForUser(String userId) async {
+    try {
+      return _fetchSubscription(userId);
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
+
+  Future<Either<Failure, Subscription>> _fetchSubscription(String userId) async {
+    final data = await _remote.getUserSubscription(userId);
+    if (data == null) return Left(NoActiveSubscriptionFailure());
+    return Right(Subscription.fromJson(data));
   }
 
   @override

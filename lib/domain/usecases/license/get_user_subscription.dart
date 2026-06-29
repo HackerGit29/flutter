@@ -10,4 +10,8 @@ class GetUserSubscription {
   Future<Either<Failure, Subscription>> call() {
     return _repository.getUserSubscription();
   }
+
+  Future<Either<Failure, Subscription>> callForUser(String userId) {
+    return _repository.getUserSubscriptionForUser(userId);
+  }
 }

@@ -4,6 +4,7 @@ import 'package:dartz/dartz.dart';
 
 abstract class LicenseRepository {
   Future<Either<Failure, Subscription>> getUserSubscription();
+  Future<Either<Failure, Subscription>> getUserSubscriptionForUser(String userId);
   Future<Either<Failure, Subscription>> upgradeToVip(String licenseKey);
   Future<Either<Failure, Subscription>> cancelSubscription();
   Future<Either<Failure, bool>> checkLicenseValidity();

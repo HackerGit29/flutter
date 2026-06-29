@@ -3,13 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/chat_message.dart';
 import '../../widgets/chat/typing_indicator.dart';
 import '../../widgets/chat/message_bubble.dart';
 import '../../widgets/chat/chat_input.dart';
 import '../../widgets/confirmation_dialog.dart';
-import '../../widgets/live_consumption_indicator.dart';
 import '../../services/agent_service.dart';
 import '../../services/voice_service.dart';
 import 'package:uuid/uuid.dart';
@@ -125,7 +123,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
     }
   }
 
-  void _streamResponse(String userMessage) {
+  void _streamResponse(String userMessage, {Map<String, dynamic>? confirmedToolCall}) {
     _streamSubscription?.cancel();
 
     setState(() {
@@ -149,6 +147,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
       message: userMessage,
       sessionId: _sessionId,
       mode: _isVoiceMode ? 'voice' : 'text',
+      confirmedToolCall: confirmedToolCall,
     );
 
     String fullText = '';
@@ -170,17 +169,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
             break;
 
           case 'tool_pending':
-            final label = event.data['label'] as String?;
-            final tool = event.data['tool'] as String?;
-            currentActionType = tool;
-            if (label != null) {
-              fullText = '$label...\n';
-              _updateLastBotMessage(
-                text: fullText,
-                isStreaming: true,
-                actionType: tool,
-              );
-            }
+            currentActionType = event.data['tool'] as String?;
             break;
 
           case 'tool_result':
@@ -197,65 +186,12 @@ class _ChatbotScreenState extends State<ChatbotScreen>
               };
               _updateLastBotMessage(
                 text:
-                    'Action sensible : $actionLabel $applianceName.'
-                        'Veuillez confirmer.',
+                    'Action sensible : $actionLabel $applianceName. Veuillez confirmer.',
                 isStreaming: false,
                 actionType: currentActionType,
               );
               break;
             }
-
-            // Gérer les résultats d'outils de manière défensive
-            if ((event.data as Map).containsKey('success')) {
-              // C'est un résultat d'action standard (succès/échec)
-              final success = event.data['success'] as bool? ?? false;
-              final toolLabel =
-                  currentActionType != null
-                      ? _toolLabelToFrench(currentActionType!)
-                      : '';
-              if (success) {
-                fullText +=
-                    _isVoiceMode ? '$toolLabel effectué.\n' : '✓ Terminé.\n';
-              } else {
-                final reason = event.data['reason'] as String?;
-                final msg = switch (reason) {
-                  'appliance_not_found_or_ambiguous' =>
-                    _isVoiceMode
-                        ? 'Appareil introuvable.'
-                        : 'Appareil introuvable.',
-                  'rate_limited' =>
-                    _isVoiceMode
-                        ? 'Trop de commandes, veuillez patienter.'
-                        : 'Trop de commandes.',
-                  'not_owned' =>
-                    _isVoiceMode
-                        ? 'Action non autorisée sur cet appareil.'
-                        : 'Action non autorisée.',
-                  _ =>
-                    _isVoiceMode
-                        ? 'Action non disponible.'
-                        : 'Action non disponible.',
-                };
-                fullText += '$msg\n';
-              }
-            } else {
-              // C'est probablement un résultat de requête de données (ex: consommation)
-              // L'agent va formuler la réponse, nous confirmons juste la récupération
-              // pour éviter le crash.
-              final toolLabel =
-                  currentActionType != null
-                      ? _toolLabelToFrench(currentActionType!)
-                      : 'Commande';
-              fullText +=
-                  _isVoiceMode
-                      ? '$toolLabel récupéré.\n'
-                      : 'Données récupérées.\n';
-            }
-            _updateLastBotMessage(
-              text: fullText,
-              isStreaming: true,
-              actionType: currentActionType,
-            );
             break;
 
           case 'error':
@@ -482,10 +418,6 @@ class _ChatbotScreenState extends State<ChatbotScreen>
       ),
       body: Column(
         children: [
-          if (Supabase.instance.client.auth.currentUser != null)
-            LiveConsumptionIndicator(
-              userId: Supabase.instance.client.auth.currentUser!.id,
-            ),
           Expanded(
             child:
                 _messages.isEmpty
@@ -674,23 +606,13 @@ class _ChatbotScreenState extends State<ChatbotScreen>
 
     if (!mounted || !confirmed) return;
 
-    // Renvoie un message user qui re-déclenche le tool_call avec confirmed: true.
-    // Le LLM rappelle turn_*_appliance et inclut confirmé dans ses arguments.
-    _addMessage('Oui, confirme ${action == "on" ? "allumer" : "éteindre"} $applianceName', true);
-  }
-
-  String _toolLabelToFrench(String tool) {
-    return switch (tool) {
-      'turn_on' => 'Allumage',
-      'turn_off' => 'Extinction',
-      'set_temperature' => 'Réglage',
-      'set_mode' => 'Changement de mode',
-      'set_speed' => 'Réglage de vitesse',
-      'lock' => 'Verrouillage',
-      'unlock' => 'Déverrouillage',
-      'get_energy_consumption' => 'Lecture consommation',
-      _ => 'Commande',
-    };
+    _streamResponse(
+      'CONFIRMATION_ACTION',
+      confirmedToolCall: {
+        'name': 'turn_${action}_appliance',
+        'args': {'appliance_name': applianceName, 'confirmed': true},
+      },
+    );
   }
 
   bool _isSameDay(DateTime date1, DateTime date2) {

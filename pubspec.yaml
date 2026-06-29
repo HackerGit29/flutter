@@ -1,7 +1,7 @@
 name: aricie
 description: "A new Flutter project."
 publish_to: "none"
-version: 1.4.0+1
+version: 1.4.1+1
 
 environment:
   sdk: ^3.7.0
@@ -52,9 +52,12 @@ dev_dependencies:
     sdk: flutter
   flutter_driver:
     sdk: flutter
+  integration_test:
+    sdk: flutter
   flutter_gherkin: ^2.0.0
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
+  mocktail: ^1.0.5
 
 # Separate configuration for flutter_launcher_icons
 flutter_launcher_icons:

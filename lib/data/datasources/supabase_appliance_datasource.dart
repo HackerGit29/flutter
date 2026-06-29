@@ -59,9 +59,10 @@ class SupabaseApplianceDataSource {
       'requested_by': 'user_toggle',
     });
 
-    final response = await _client.from('appliances')
-      .update({'is_on': isOn}).eq('id', applianceId).select().single();
-    return response;
+    // ponytail: no optimistic is_on update — device telemetry is source of truth
+    appliance['box_uid'] = boxUid;
+    appliance.remove('boxes');
+    return appliance;
   }
 
   Future<List<Map<String, dynamic>>> createAppliancesForBox(String boxId, String userId) async {

@@ -1,10 +1,28 @@
-Feature: License and VIP
+Feature: License and Subscription
   As a user
-  I want to upgrade my account to VIP
+  I want to manage my subscription and product keys
   So that I can access premium features
 
-  Scenario: VIP Upgrade
-    Given I have a "free" subscription
-    When I upgrade to VIP using a valid license key
-    Then my subscription type should become "vip"
-    And I should have access to extended historical data
+  Scenario: Redeeming a product key
+    Given I have a valid product key
+    When I enter the key in the license screen
+    Then my account should be upgraded to the corresponding plan
+    And the product key should be marked as used
+
+  Scenario: Checking license validity
+    Given I have an active subscription
+    When I access a premium feature
+    Then the system should allow access
+    And the license check should return 'valid'
+
+  Scenario: Upgrading to VIP plan
+    Given I am on the subscription plan
+    When I choose to upgrade to VIP
+    Then my subscription status should change to 'vip'
+    And I should have access to all advanced AI features
+
+  Scenario: Cancelling subscription
+    Given I have a recurring subscription
+    When I cancel my subscription
+    Then my account should keep access until the end of the billing period
+    And the subscription should be marked for non-renewal

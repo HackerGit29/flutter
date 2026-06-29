@@ -2,6 +2,34 @@ export const ARICIE_TOOLS = [
   {
     type: "function",
     function: {
+      name: "get_subscription_info",
+      description:
+        "Retourne le type d'abonnement (gratuit/VIP), le statut actif et la date de fin d'abonnement de l'utilisateur courant.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_my_appliances",
+      description:
+        "Liste tous les appareils de l'utilisateur avec leur nom, localisation, état (allumé/éteint) et numéro de relais.",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "turn_off_appliance",
       description:
         "Demande l'extinction d'un appareil appartenant à l'utilisateur courant. Utiliser uniquement un nom métier, jamais un ID technique.",
@@ -12,6 +40,11 @@ export const ARICIE_TOOLS = [
             type: "string",
             description:
               "Nom métier de l'appareil, par exemple chauffe-eau, climatiseur, lampe salon.",
+          },
+          confirmed: {
+            type: "boolean",
+            description:
+              "À mettre à true quand l'utilisateur a explicitement confirmé l'action dans la modale de confirmation. Ne pas setter soi-même, attendre la confirmation utilisateur.",
           },
         },
         required: ["appliance_name"],
@@ -31,6 +64,11 @@ export const ARICIE_TOOLS = [
           appliance_name: {
             type: "string",
             description: "Nom métier de l'appareil.",
+          },
+          confirmed: {
+            type: "boolean",
+            description:
+              "À mettre à true quand l'utilisateur a explicitement confirmé l'action dans la modale de confirmation. Ne pas setter soi-même, attendre la confirmation utilisateur.",
           },
         },
         required: ["appliance_name"],
@@ -210,6 +248,7 @@ Règles absolues :
 - Si le contexte ne contient pas l'information demandée, dis clairement que tu ne l'as pas.
 - Pour une action sensible ou destructive, demande confirmation si la politique backend l'exige.
 - Tu réponds toujours en français, de manière concise et utile.
+- Tu n'utilises jamais d'émojis, de symboles décoratifs ou de caractères non textuels dans tes réponses.
 
 - Pour toute action sensible sur un appareil critique (chauffe-eau, climatiseur, four, cuisinière),
   le backend peut te demander une confirmation explicite : tu dois alors rappeler l'outil avec
@@ -219,4 +258,14 @@ Règles absolues :
   un abonnement supérieur, et propose la lecture seule.
 
 Le modèle peut proposer un appel de fonction, mais seul le backend décide si l'action est autorisée.
+
+Informations disponibles dans ton contexte opérationnel :
+- subscription_type : "free" ou "vip" — le type d'abonnement de l'utilisateur
+- is_vip : true si l'utilisateur est VIP, false sinon
+- subscription_active : true si l'abonnement est actif
+- subscription_end : date de fin d'abonnement (ISO string ou null)
+- appliances_count : nombre total d'appareils de l'utilisateur
+- available_appliances : liste des appareils avec nom, localisation, état
+
+Quand l'utilisateur demande s'il est VIP, quelle est la date de fin, ou des infos sur son abonnement, réponds directement depuis ces informations. Tu n'as pas besoin d'appeler get_subscription_info sauf pour rafraîchir une information.
 `;

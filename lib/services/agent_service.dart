@@ -33,6 +33,7 @@ class AgentService {
     required String message,
     required String sessionId,
     String mode = 'text',
+    Map<String, dynamic>? confirmedToolCall,
   }) async* {
     debugPrint('[AgentService] streamMessage start: "$message"');
     final token = await getAccessToken();
@@ -85,6 +86,7 @@ class AgentService {
           'session_id': sessionId,
           'locale': 'fr-CM',
           'mode': mode,
+          if (confirmedToolCall != null) 'confirmed_tool_call': confirmedToolCall,
         });
 
         response = await request.send().timeout(const Duration(seconds: 30));

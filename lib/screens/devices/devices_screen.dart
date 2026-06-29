@@ -21,6 +21,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
   List<Appliance> _appliances = [];
   bool _isLoading = true;
 
+  final Set<String> _togglingIds = {};
+
   String _selectedCategory = 'Tous';
 
   StreamSubscription<Map<int, RelayState>>? _relayStateSub;
@@ -83,19 +85,25 @@ class _DevicesScreenState extends State<DevicesScreen> {
   }
 
   Future<void> _toggleAppliance(Appliance appliance, bool newState) async {
+    final id = appliance.id;
     setState(() {
-      final idx = _appliances.indexWhere((a) => a.id == appliance.id);
-      if (idx >= 0) {
-        _appliances[idx] = appliance.copyWith(isOn: newState);
-      }
+      _togglingIds.add(id);
+      _appliances = _appliances.map((a) => a.id == id ? a.copyWith(isOn: newState) : a).toList();
     });
-    final result = await ToggleDevice(sl()).call(appliance.id, newState);
+
+    final result = await ToggleDevice(sl()).call(id, newState);
+
+    if (!mounted) return;
+
     result.fold(
       (failure) {
         debugPrint('Toggle error: ${failure.message}');
-        _loadAppliances();
+        setState(() {
+          _appliances = _appliances.map((a) => a.id == id ? a.copyWith(isOn: !newState) : a).toList();
+          _togglingIds.remove(id);
+        });
       },
-      (_) {},
+      (_) => setState(() => _togglingIds.remove(id)),
     );
   }
 
@@ -257,11 +265,16 @@ class _DevicesScreenState extends State<DevicesScreen> {
                       size: 24,
                     ),
                   ),
-                  Switch(
-                    value: isActive,
-                    onChanged: (value) => _toggleAppliance(appliance, value),
-                    activeThumbColor: Theme.of(context).colorScheme.primary,
-                  ),
+                  _togglingIds.contains(appliance.id)
+                    ? const SizedBox(
+                        width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Switch(
+                        value: isActive,
+                        onChanged: (value) => _toggleAppliance(appliance, value),
+                        activeThumbColor: Theme.of(context).colorScheme.primary,
+                      ),
                 ],
               ),
             ),
@@ -356,7 +369,8 @@ class _ApplianceDetailContent extends StatelessWidget {
       stream: sl<MqttService>().relayStatesStream,
       builder: (context, snapshot) {
         final relayState = snapshot.data?[appliance.relayIndex];
-        final isActive = appliance.isOn;
+        // ponytail: relay stream is source of truth, fallback to stored is_on
+        final isActive = relayState?.isOn ?? appliance.isOn;
         final powerW = relayState?.powerW;
         final isLive = relayState != null;
 

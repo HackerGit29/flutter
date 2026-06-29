@@ -1,4 +1,5 @@
 import 'package:aricie/core/di/injection_container.dart';
+import 'package:aricie/domain/usecases/auth/get_current_user.dart';
 import 'package:aricie/domain/usecases/devices/get_user_appliances.dart';
 import 'package:aricie/domain/usecases/devices/add_device.dart';
 import 'package:aricie/domain/usecases/devices/remove_device.dart';
@@ -29,6 +30,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   List<Appliance> _appliances = [];
   bool _isLoading = true;
   bool _isExpanded = false;
+  bool _isAdmin = false;
 
   Future<void> _loadAppliances() async {
     setState(() => _isLoading = true);
@@ -226,12 +228,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _loadAndInitializeMQTT();
+    _loadUserRole();
 
     Future.delayed(const Duration(milliseconds: 100), () {
       setState(() {
         _isExpanded = true;
       });
     });
+  }
+
+  Future<void> _loadUserRole() async {
+    final result = await GetCurrentUser(sl()).call();
+    if (!mounted) return;
+    result.fold(
+      (_) {},
+      (user) {
+        if (user != null && mounted) setState(() => _isAdmin = user.isAdmin);
+      },
+    );
   }
 
   @override
@@ -275,7 +289,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     'Mes appareils',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
-                  if (_appliances.isNotEmpty)
+                  if (_isAdmin && _appliances.isNotEmpty)
                     Hero(
                       tag: 'add_device_button',
                       child: ElevatedButton.icon(
