@@ -46,6 +46,12 @@ class MockAuthRepository extends AuthRepository {
   Future<Either<Failure, String>> refreshToken() async {
     return const Right<Failure, String>('new-token');
   }
+  @override
+  Future<Either<Failure, void>> resetPassword(String email) async => const Right<Failure, void>(null);
+  @override
+  Future<Either<Failure, void>> confirmPasswordReset(String email, String token, String newPassword) async => const Right<Failure, void>(null);
+  @override
+  Future<Either<Failure, void>> changePassword(String currentPassword, String newPassword) async => const Right<Failure, void>(null);
 }
 
 class MockApplianceRepository extends ApplianceRepository {
