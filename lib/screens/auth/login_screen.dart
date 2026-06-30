@@ -1,5 +1,6 @@
 import 'package:aricie/core/di/injection_container.dart';
 import 'package:aricie/domain/usecases/auth/login_user.dart';
+import 'package:aricie/domain/usecases/auth/reset_password.dart';
 import 'package:aricie/providers/subscription_provider.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -85,6 +86,115 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     }
+  }
+
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController = TextEditingController(
+      text: _emailController.text.trim(),
+    );
+    final dialogFormKey = GlobalKey<FormState>();
+    bool isSending = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Mot de passe oublié'),
+              content: Form(
+                key: dialogFormKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Entrez votre adresse email. Nous vous enverrons un lien '
+                      'pour réinitialiser votre mot de passe.',
+                    ),
+                    const SizedBox(height: AppSpacing.s4),
+                    TextFormField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        hintText: 'Entrez votre adresse email',
+                        prefixIcon: Icon(Icons.email_outlined),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Veuillez entrer votre email';
+                        }
+                        final emailRegExp = RegExp(
+                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                        );
+                        if (!emailRegExp.hasMatch(value.trim())) {
+                          return 'Veuillez entrer un email valide';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSending
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Annuler'),
+                ),
+                ElevatedButton(
+                  onPressed: isSending
+                      ? null
+                      : () async {
+                          if (!dialogFormKey.currentState!.validate()) return;
+                          setDialogState(() => isSending = true);
+
+                          final resetPassword = ResetPassword(sl());
+                          final result = await resetPassword.call(
+                            emailController.text.trim(),
+                          );
+
+                          if (!dialogContext.mounted) return;
+                          Navigator.of(dialogContext).pop();
+
+                          // Message neutre dans tous les cas (anti-énumération
+                          // d'emails) : on ne révèle pas si le compte existe.
+                          result.fold(
+                            (failure) => _showResetSnackBar(),
+                            (_) => _showResetSnackBar(),
+                          );
+                        },
+                  child: isSending
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Envoyer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    emailController.dispose();
+  }
+
+  void _showResetSnackBar() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Si un compte existe avec cet email, un lien de réinitialisation '
+          'vient de vous être envoyé.',
+        ),
+      ),
+    );
   }
 
   void _navigateToSignup() {
@@ -240,9 +350,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {
-                        // TODO: Implémenter la récupération de mot de passe
-                      },
+                      onPressed: _isLoading ? null : _showForgotPasswordDialog,
                             style: TextButton.styleFrom(
                               foregroundColor: Theme.of(context).colorScheme.primary,
                         padding: EdgeInsets.zero,
