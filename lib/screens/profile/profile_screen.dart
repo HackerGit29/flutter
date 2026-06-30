@@ -3,11 +3,13 @@ import 'package:aricie/domain/entities/user.dart';
 import 'package:aricie/domain/usecases/auth/get_current_user.dart';
 import 'package:aricie/domain/usecases/auth/logout_user.dart';
 import 'package:aricie/providers/subscription_provider.dart';
+import 'package:aricie/services/profile_preferences.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../admin/admin_dashboard_screen.dart';
 import 'change_password_screen.dart';
+import 'edit_profile_screen.dart';
 import 'notification_preferences_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -19,13 +21,23 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   User? _user;
+  String? _displayName;
   bool _isLoading = true;
   String? _error;
+
+  final _profilePrefs = ProfilePreferences();
 
   @override
   void initState() {
     super.initState();
     _loadUser();
+    _loadDisplayName();
+  }
+
+  Future<void> _loadDisplayName() async {
+    final name = await _profilePrefs.getDisplayName();
+    if (!mounted) return;
+    setState(() => _displayName = name);
   }
 
   Future<void> _loadUser() async {
@@ -105,21 +117,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
         CircleAvatar(
           radius: 50,
           child: Text(
-            _user?.email.substring(0, 1).toUpperCase() ?? 'U',
+            (_displayName?.isNotEmpty == true
+                    ? _displayName!
+                    : _user?.email ?? 'U')
+                .substring(0, 1)
+                .toUpperCase(),
             style: Theme.of(context).textTheme.headlineLarge,
           ),
         ),
         SizedBox(height: AppSpacing.s6),
         Text(
-          _user?.email ?? 'Utilisateur',
+          _displayName?.isNotEmpty == true
+              ? _displayName!
+              : _user?.email ?? 'Utilisateur',
           style: Theme.of(context).textTheme.titleLarge,
           textAlign: TextAlign.center,
         ),
+        if (_displayName?.isNotEmpty == true) ...[
+          SizedBox(height: AppSpacing.s1),
+          Text(
+            _user?.email ?? '',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+            textAlign: TextAlign.center,
+          ),
+        ],
         SizedBox(height: AppSpacing.s8),
         ListTile(
           leading: const Icon(Icons.person_outline),
           title: const Text('Modifier le profil'),
-          onTap: () {},
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final email = _user?.email;
+            if (email == null) return;
+            final changed = await Navigator.push<bool>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => EditProfileScreen(email: email),
+              ),
+            );
+            if (changed == true) {
+              _loadDisplayName();
+            }
+          },
         ),
         Divider(color: Theme.of(context).colorScheme.outlineVariant),
         ListTile(
