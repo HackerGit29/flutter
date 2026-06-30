@@ -41,6 +41,21 @@ class SupabaseAuthDataSource {
 
   Future<void> signOut() => _client.auth.signOut();
 
+  Future<void> resetPassword(String email) =>
+      _client.auth.resetPasswordForEmail(email);
+
+  Future<void> verifyRecoveryOtp(String email, String token) async {
+    await _client.auth.verifyOTP(
+      type: OtpType.recovery,
+      email: email,
+      token: token,
+    );
+  }
+
+  Future<void> updatePassword(String newPassword) async {
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
+
   Future<Map<String, dynamic>?> getCurrentUser() async {
     final user = _client.auth.currentUser;
     if (user == null) return null;
