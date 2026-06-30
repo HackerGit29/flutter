@@ -3,7 +3,7 @@
 UI components, state management, and screens.
 
 ## Screens
-- **Auth**: `LoginScreen`, `SignupScreen`.
+- **Auth**: `LoginScreen`, `SignupScreen`, `ResetPasswordScreen` (saisie code OTP + nouveau mot de passe après envoi par email depuis `LoginScreen`).
 - **Core**: `SplashScreen`, `OnboardingScreen`, `HomeScreen` (tabs: Dashboard, Stats, Devices, Settings).
 - **Dashboard** (`DashboardTab` intégré dans `HomeScreen`) :
   - Température/humidité temps réel depuis `BoxTelemetry` (stream MQTT unique)
