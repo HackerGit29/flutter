@@ -1,6 +1,7 @@
 import 'package:aricie/core/di/injection_container.dart';
 import 'package:aricie/domain/usecases/auth/login_user.dart';
 import 'package:aricie/domain/usecases/auth/reset_password.dart';
+import 'reset_password_screen.dart';
 import 'package:aricie/providers/subscription_provider.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -152,20 +153,25 @@ class _LoginScreenState extends State<LoginScreen> {
                           if (!dialogFormKey.currentState!.validate()) return;
                           setDialogState(() => isSending = true);
 
+                          final email = emailController.text.trim();
                           final resetPassword = ResetPassword(sl());
-                          final result = await resetPassword.call(
-                            emailController.text.trim(),
-                          );
+                          // On déclenche l'envoi du code ; le résultat n'est pas
+                          // révélé (anti-énumération d'emails). On enchaîne dans
+                          // tous les cas vers l'écran de saisie du code.
+                          await resetPassword.call(email);
 
                           if (!dialogContext.mounted) return;
                           Navigator.of(dialogContext).pop();
 
-                          // Message neutre dans tous les cas (anti-énumération
-                          // d'emails) : on ne révèle pas si le compte existe.
-                          result.fold(
-                            (failure) => _showResetSnackBar(),
-                            (_) => _showResetSnackBar(),
-                          );
+                          _showResetSnackBar();
+                          if (mounted) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    ResetPasswordScreen(email: email),
+                              ),
+                            );
+                          }
                         },
                   child: isSending
                       ? const SizedBox(
@@ -190,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Si un compte existe avec cet email, un lien de réinitialisation '
+          'Si un compte existe avec cet email, un code de réinitialisation '
           'vient de vous être envoyé.',
         ),
       ),
