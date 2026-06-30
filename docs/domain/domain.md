@@ -13,7 +13,7 @@ Defines the business logic, entities, and repository interfaces.
 - `AdminAction`: Audit log for administrative changes with typed actions and targets.
 
 ## Repositories (Interfaces)
-- `AuthRepository`: User authentication and session.
+- `AuthRepository`: User authentication, session, password reset (OTP recovery).
 - `BoxRepository`: CRUD, pairing, and status for boxes.
 - `ApplianceRepository`: CRUD and state management for appliances.
 - `EnergyRepository`: Aggregated energy consumption queries.
@@ -22,7 +22,7 @@ Defines the business logic, entities, and repository interfaces.
 - `AdminRepository`: System-wide administrative operations.
 
 ## Use Cases
-- **Auth**: Login, Register, Logout, GetCurrentUser.
+- **Auth**: Login, Register, Logout, GetCurrentUser, ResetPassword (envoi code OTP par email), ConfirmPasswordReset (validation code OTP + nouveau mot de passe).
 - **Boxes**: GetUserBoxes (lecture seule — l'utilisateur n'ajoute plus de boîtier).
 - **Appliances**: GetUserAppliances, ToggleAppliance (écrit dans `device_commands` + optimiste `appliances.update`), RenameAppliance.
 - **Energy**: GetEnergyHistory, GetEnergyByAppliance.
