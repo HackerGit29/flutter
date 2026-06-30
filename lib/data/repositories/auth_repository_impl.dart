@@ -48,6 +48,35 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, void>> resetPassword(String email) async {
+    try {
+      await _remote.resetPassword(email);
+      return const Right(null);
+    } catch (e) {
+      return Left(AuthFailure('Envoi du lien de réinitialisation échoué: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> confirmPasswordReset(
+    String email,
+    String token,
+    String newPassword,
+  ) async {
+    try {
+      await _remote.verifyRecoveryOtp(email, token);
+    } catch (e) {
+      return Left(const AuthFailure('Code invalide ou expiré'));
+    }
+    try {
+      await _remote.updatePassword(newPassword);
+      return const Right(null);
+    } catch (e) {
+      return Left(AuthFailure('Mise à jour du mot de passe échouée: $e'));
+    }
+  }
+
+  @override
   Future<Either<Failure, User?>> getCurrentUser() async {
     try {
       final cachedId = await _local.getCachedUserId();
