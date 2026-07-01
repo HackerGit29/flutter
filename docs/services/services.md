@@ -156,6 +156,17 @@ device_commands (pending)
 ## NotificationService
 Handles local and push notifications for system alerts and reminders.
 
+## NotificationPreferences
+Service pur (SharedPreferences) qui persiste les préférences de notification de l'utilisateur.
+- Clé `notif_daily_reminder_enabled` (défaut `true`), `dailyReminderId = 1`.
+- `NotificationPreferencesScreen` bascule le rappel quotidien → planifie/annule via `NotificationService` (désactivé sur web).
+- `main.dart` respecte la préférence au démarrage (plus de planification en dur).
+
+## ProfileService
+Gestion du **nom d'affichage** de l'utilisateur, stocké dans les métadonnées du compte Supabase Auth (`user_metadata.display_name`).
+- `getDisplayName()` / `setDisplayName(name)` via `auth.updateUser(UserAttributes(data: ...))`.
+- Synchronisé au compte (donc à tous les appareils), **sans colonne BDD ni migration**. L'email reste l'identifiant de connexion (non modifiable dans l'app).
+
 ## MQTT Worker — Build & Deploy
 
 ### Infrastructure
