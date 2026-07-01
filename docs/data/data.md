@@ -3,7 +3,7 @@
 Implements the domain repositories and manages data sources.
 
 ## Datasources
-- `SupabaseAuthDatasource`: Wraps Supabase Auth API. Uses `maybeSingle()` for profile loading (avoids overwriting role on transient errors). Profile creation via `insert().select().single()` to ensure `created_at` is returned. Password reset flow: `resetPassword()` envoie un code OTP par email, `verifyRecoveryOtp()` valide le code, `updatePassword()` met à jour le mot de passe après validation.
+- `SupabaseAuthDatasource`: Wraps Supabase Auth API. Uses `maybeSingle()` for profile loading (avoids overwriting role on transient errors). Profile creation via `insert().select().single()` to ensure `created_at` is returned. Gestion du mot de passe : `resetPassword` (`resetPasswordForEmail`, envoi OTP), `verifyRecoveryOtp` (`verifyOTP` type `recovery`), `updatePassword` (`updateUser`), et `verifyCurrentPassword` (ré-authentification via `signInWithPassword` avant un changement). Le nom d'affichage est porté par `user_metadata.display_name` (pas de colonne BDD).
 - `SupabaseBoxDatasource`: Manages box records in PostgreSQL (table `boxes`).
 - `SupabaseApplianceDatasource`: Manages appliance relay records (table `appliances`). Joins `boxes` to populate `box_uid` on `getUserAppliances`. `toggleAppliance()` writes a `device_commands` row (`pending`, `user_toggle`) before the optimistic `appliances.update`.
 - `SupabaseEnergyDatasource`: Queries aggregated energy consumption (table `energy_data`).

@@ -13,7 +13,7 @@ Defines the business logic, entities, and repository interfaces.
 - `AdminAction`: Audit log for administrative changes with typed actions and targets.
 
 ## Repositories (Interfaces)
-- `AuthRepository`: User authentication, session, password reset (OTP recovery).
+- `AuthRepository`: User authentication and session (login/register/logout/current user, plus `resetPassword`, `confirmPasswordReset`, `changePassword`).
 - `BoxRepository`: CRUD, pairing, and status for boxes.
 - `ApplianceRepository`: CRUD and state management for appliances.
 - `EnergyRepository`: Aggregated energy consumption queries.
@@ -22,7 +22,10 @@ Defines the business logic, entities, and repository interfaces.
 - `AdminRepository`: System-wide administrative operations.
 
 ## Use Cases
-- **Auth**: Login, Register, Logout, GetCurrentUser, ResetPassword (envoi code OTP par email), ConfirmPasswordReset (validation code OTP + nouveau mot de passe).
+- **Auth**: Login, Register, Logout, GetCurrentUser, ResetPassword, ConfirmPasswordReset, ChangePassword.
+  - `ResetPassword(email)` : déclenche l'envoi d'un code OTP de récupération par email.
+  - `ConfirmPasswordReset(email, token, newPassword)` : vérifie le code OTP puis définit le nouveau mot de passe (flux « mot de passe oublié »). Le deep link viendra en complément après la livraison.
+  - `ChangePassword(currentPassword, newPassword)` : utilisateur connecté ; ré-authentifie via le mot de passe actuel avant de le changer (mot de passe actuel faux → `InvalidCredentialsFailure`).
 - **Boxes**: GetUserBoxes (lecture seule — l'utilisateur n'ajoute plus de boîtier).
 - **Appliances**: GetUserAppliances, ToggleAppliance (écrit dans `device_commands` + optimiste `appliances.update`), RenameAppliance.
 - **Energy**: GetEnergyHistory, GetEnergyByAppliance.
