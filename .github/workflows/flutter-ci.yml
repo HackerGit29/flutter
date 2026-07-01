@@ -40,12 +40,22 @@ jobs:
         with:
           channel: 'stable'
       - run: flutter pub get
+      - name: Lire la version du pubspec (source unique de vérité)
+        id: ver
+        run: |
+          PV=$(grep '^version:' pubspec.yaml | awk '{print $2}')   # ex: 1.5.0+2
+          echo "name=${PV%%+*}"  >> "$GITHUB_OUTPUT"               # 1.5.0
+          echo "build=${PV##*+}" >> "$GITHUB_OUTPUT"               # 2
+      - name: Vérifier que le tag correspond au pubspec
+        run: |
+          test "v${{ steps.ver.outputs.name }}" = "$GITHUB_REF_NAME" \
+            || { echo "::error::Tag $GITHUB_REF_NAME != pubspec v${{ steps.ver.outputs.name }} — bumpez le pubspec avant de tagger."; exit 1; }
       - run: flutter build apk --release --obfuscate --split-debug-info=build/obfuscation/
       - name: Generate version.json
         run: |
           echo '{
-            "version": "'${GITHUB_REF_NAME#v}'",
-            "buildNumber": '$GITHUB_RUN_NUMBER',
+            "version": "${{ steps.ver.outputs.name }}",
+            "buildNumber": ${{ steps.ver.outputs.build }},
             "apkUrl": "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/app-release.apk",
             "releaseNotes": "Consultez les notes de version sur GitHub.",
             "forceUpdate": false,
