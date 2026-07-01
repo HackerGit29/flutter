@@ -83,11 +83,14 @@ Deno.serve(async (req: Request) => {
   const remoteVersionStr = remoteTag.replace(/^v/, "");
   const remoteVer = parseSemver(remoteVersionStr);
 
-  // buildNumber : lire version.json publié par le CI, fallback sur release.id
+  // buildNumber : lire version.json publié par le CI. Fallback = 0 (et NON
+  // release.id) : un version.json absent/malformé ne doit pas déclencher une
+  // fausse mise à jour pour tous les clients. release.id est un grand entier
+  // GitHub qui ferait toujours croire à une build plus récente.
   const versionJsonAsset = release.assets?.find(
     (a: { name: string }) => a.name === "version.json",
   );
-  let remoteBuild: number = release.id;
+  let remoteBuild: number = 0;
   if (versionJsonAsset?.browser_download_url) {
     try {
       const vjRes = await fetch(versionJsonAsset.browser_download_url, { headers: ghHeaders });
