@@ -9,6 +9,7 @@ import 'providers/theme_provider.dart';
 import 'providers/subscription_provider.dart';
 import 'theme/app_theme.dart';
 import 'services/notification_service.dart';
+import 'services/notification_preferences.dart';
 import 'services/update_service.dart';
 import 'services/tips_realtime_service.dart';
 import 'core/constants.dart';
@@ -53,12 +54,16 @@ void main() async {
 
   TipsRealtimeService.instance.start();
 
-  await notificationService.showPeriodicNotification(
-    id: 1,
-    title: 'Rappel quotidien',
-    body: 'N\'oubliez pas de vérifier votre consommation d\'énergie',
-    repeatInterval: RepeatInterval.daily,
-  );
+  // Le rappel quotidien n'est (re)planifié que si l'utilisateur l'a laissé
+  // activé dans ses préférences de notification (activé par défaut).
+  if (await NotificationPreferences().isDailyReminderEnabled()) {
+    await notificationService.showPeriodicNotification(
+      id: NotificationPreferences.dailyReminderId,
+      title: 'Rappel quotidien',
+      body: 'N\'oubliez pas de vérifier votre consommation d\'énergie',
+      repeatInterval: RepeatInterval.daily,
+    );
+  }
 
   await initDependencies();
   await UpdateService.init();
