@@ -12,6 +12,10 @@ abstract class AuthRepository {
     String token,
     String newPassword,
   );
+  Future<Either<Failure, void>> changePassword(
+    String currentPassword,
+    String newPassword,
+  );
   Future<Either<Failure, User?>> getCurrentUser();
   Future<Either<Failure, String>> refreshToken();
 }

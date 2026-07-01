@@ -56,6 +56,16 @@ class SupabaseAuthDataSource {
     await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 
+  /// Revérifie le mot de passe actuel de l'utilisateur connecté en le
+  /// réauthentifiant. Lève une exception si le mot de passe est incorrect.
+  Future<void> verifyCurrentPassword(String currentPassword) async {
+    final email = _client.auth.currentUser?.email;
+    if (email == null) {
+      throw Exception('Aucune session active');
+    }
+    await _client.auth.signInWithPassword(email: email, password: currentPassword);
+  }
+
   Future<Map<String, dynamic>?> getCurrentUser() async {
     final user = _client.auth.currentUser;
     if (user == null) return null;
