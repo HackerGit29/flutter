@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:aricie/core/di/injection_container.dart';
+import 'package:aricie/core/utils/energy_analysis.dart';
 import 'package:aricie/domain/entities/energy_data.dart';
 import 'package:aricie/domain/entities/appliance.dart';
 import 'package:aricie/domain/usecases/auth/get_current_user.dart';
@@ -25,6 +26,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   final List<String> _timeFrames = ['Jour', 'Semaine', 'Mois', 'Année'];
 
   List<EnergyData> _energyHistory = [];
+  List<DailyConsumption> _dailySeries = [];
+  PeakInfo? _peak;
   Map<String, double> _applianceEnergy = {};
   List<Appliance> _appliances = [];
   double _totalConsumption = 0.0;
@@ -64,7 +67,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
     result.fold(
       (_) {},
-      (data) => _energyHistory = data,
+      (data) {
+        _energyHistory = data;
+        _dailySeries = aggregateByDay(data);
+        _peak = detectPeak(_dailySeries);
+      },
     );
   }
 
@@ -125,6 +132,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     const SizedBox(height: AppSpacing.s6),
                     _buildConsumptionChart(),
                     const SizedBox(height: AppSpacing.s6),
+                    _buildPeakCard(),
                     _buildDeviceDetails(),
                   ],
                 ),
@@ -243,6 +251,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final sortedKeys = grouped.keys.toList()..sort();
     final spots = <FlSpot>[];
     double maxY = 0;
+    int peakIndex = 0;
+    double peakValue = -1;
 
     final maxPoints = sortedKeys.length;
 
@@ -253,6 +263,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       );
       spots.add(FlSpot(i.toDouble(), total));
       if (total > maxY) maxY = total;
+      if (total > peakValue) {
+        peakValue = total;
+        peakIndex = i;
+      }
     }
 
     if (spots.isEmpty) {
@@ -359,7 +373,22 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       color: Theme.of(context).colorScheme.primary,
                       barWidth: 3,
                       isStrokeCapRound: true,
-                      dotData: FlDotData(show: true),
+                      dotData: FlDotData(
+                        show: true,
+                        // Met en évidence le jour de pic (point le plus haut).
+                        getDotPainter: (spot, percent, bar, index) {
+                          final isPeak =
+                              maxPoints > 1 && index == peakIndex;
+                          return FlDotCirclePainter(
+                            radius: isPeak ? 6 : 3,
+                            color: isPeak
+                                ? AppColors.accentCoral
+                                : Theme.of(context).colorScheme.primary,
+                            strokeWidth: isPeak ? 2 : 0,
+                            strokeColor: Colors.white,
+                          );
+                        },
+                      ),
                       belowBarData: BarAreaData(
                         show: true,
                         color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
@@ -376,6 +405,91 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }
 
 
+
+  static const List<String> _frenchMonths = [
+    'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+    'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
+  ];
+
+  String _formatDay(DateTime d) =>
+      '${d.day} ${_frenchMonths[d.month - 1]} ${d.year}';
+
+  /// Carte « pic de consommation » : met en évidence le jour le plus élevé de
+  /// la période pour aider le gestionnaire à détecter les pics.
+  Widget _buildPeakCard() {
+    final peak = _peak;
+    // Un pic n'a de sens que sur une série d'au moins deux jours.
+    if (peak == null || _dailySeries.length < 2) {
+      return const SizedBox.shrink();
+    }
+
+    final scheme = Theme.of(context).colorScheme;
+    final aboveAvg = peak.percentAboveAverage;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.s6),
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.s4),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.s3),
+                decoration: BoxDecoration(
+                  color: AppColors.accentCoral.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: const Icon(
+                  Icons.trending_up,
+                  color: AppColors.accentCoral,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s4),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Jour de pic',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: AppSpacing.s1),
+                    Text(
+                      _formatDay(peak.peak.day),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.s1),
+                    Text(
+                      aboveAvg > 0
+                          ? '${aboveAvg.toStringAsFixed(0)} % au-dessus de la moyenne '
+                              '(${peak.average.toStringAsFixed(1)} kWh/j)'
+                          : 'Consommation régulière sur la période',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '${peak.peak.kwh.toStringAsFixed(1)} kWh',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.accentCoral,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildDeviceDetails() {
     if (_applianceEnergy.isEmpty) {
