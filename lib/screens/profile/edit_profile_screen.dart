@@ -1,12 +1,12 @@
-import 'package:aricie/services/profile_preferences.dart';
+import 'package:aricie/services/profile_service.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 
 /// Édition du profil utilisateur.
 ///
 /// - Email : lecture seule (identifiant de connexion, non modifiable ici).
-/// - Nom d'affichage : éditable. Persisté localement pour l'instant (voir
-///   [ProfilePreferences]) en attendant la colonne BDD.
+/// - Nom d'affichage : éditable, stocké dans les métadonnées du compte Supabase
+///   Auth via [ProfileService] (synchronisé au compte, pas de colonne BDD).
 ///
 /// Renvoie `true` via `Navigator.pop` si le profil a été modifié, afin que
 /// l'écran appelant puisse se rafraîchir.
@@ -22,7 +22,7 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _profilePrefs = ProfilePreferences();
+  final _profileService = ProfileService();
 
   bool _loading = true;
   bool _saving = false;
@@ -40,7 +40,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _load() async {
-    final name = await _profilePrefs.getDisplayName();
+    final name = await _profileService.getDisplayName();
     if (!mounted) return;
     setState(() {
       _nameController.text = name ?? '';
@@ -52,7 +52,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
-    await _profilePrefs.setDisplayName(_nameController.text);
+    await _profileService.setDisplayName(_nameController.text);
 
     if (!mounted) return;
     setState(() => _saving = false);
@@ -116,9 +116,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                         const SizedBox(height: AppSpacing.s3),
                         Text(
-                          'Le nom d\'affichage est enregistré sur cet appareil '
-                          'pour le moment ; il sera synchronisé à votre compte '
-                          'prochainement.',
+                          'Le nom d\'affichage est enregistré sur votre compte '
+                          'et synchronisé sur tous vos appareils. Votre email '
+                          'de connexion ne peut pas être modifié ici.',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: Theme.of(context)
                                     .colorScheme

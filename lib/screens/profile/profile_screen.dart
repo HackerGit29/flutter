@@ -3,7 +3,7 @@ import 'package:aricie/domain/entities/user.dart';
 import 'package:aricie/domain/usecases/auth/get_current_user.dart';
 import 'package:aricie/domain/usecases/auth/logout_user.dart';
 import 'package:aricie/providers/subscription_provider.dart';
-import 'package:aricie/services/profile_preferences.dart';
+import 'package:aricie/services/profile_service.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -25,7 +25,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   String? _error;
 
-  final _profilePrefs = ProfilePreferences();
+  final _profileService = ProfileService();
 
   @override
   void initState() {
@@ -35,7 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadDisplayName() async {
-    final name = await _profilePrefs.getDisplayName();
+    final name = await _profileService.getDisplayName();
     if (!mounted) return;
     setState(() => _displayName = name);
   }
