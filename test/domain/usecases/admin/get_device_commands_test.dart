@@ -94,6 +94,8 @@ class MockDevCmdAuthRepo implements AuthRepository {
   Future<Either<Failure, void>> resetPassword(String email) async => const Right<Failure, void>(null);
   @override
   Future<Either<Failure, void>> confirmPasswordReset(String email, String token, String newPassword) async => const Right<Failure, void>(null);
+  @override
+  Future<Either<Failure, void>> changePassword(String currentPassword, String newPassword) async => const Right<Failure, void>(null);
 }
 
 void main() {

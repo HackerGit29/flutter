@@ -7,6 +7,7 @@ import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../admin/admin_dashboard_screen.dart';
+import 'change_password_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -118,6 +119,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           leading: const Icon(Icons.person_outline),
           title: const Text('Modifier le profil'),
           onTap: () {},
+        ),
+        Divider(color: Theme.of(context).colorScheme.outlineVariant),
+        ListTile(
+          leading: const Icon(Icons.lock_outline),
+          title: const Text('Changer le mot de passe'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+          ),
         ),
         Divider(color: Theme.of(context).colorScheme.outlineVariant),
         ListTile(
