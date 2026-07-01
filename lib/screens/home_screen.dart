@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:aricie/core/constants.dart';
 import 'package:aricie/core/di/injection_container.dart';
@@ -22,6 +21,7 @@ import 'settings/settings_screen.dart';
 import 'update/update_screen.dart';
 import '../widgets/chatbot_floating_button.dart';
 import '../services/tips_realtime_service.dart';
+import '../widgets/daily_energy_tip_banner.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -138,25 +138,12 @@ class _DashboardTabState extends State<DashboardTab> {
   StreamSubscription<BoxTelemetry>? _telemetrySub;
   List<FlSpot> _weeklySpots = [];
 
-  String? _tipText;
-  StreamSubscription<EnergyTipEvent>? _tipSub;
-  Timer? _autoClearTimer;
-
   @override
   void initState() {
     super.initState();
     _mqttService = sl<MqttService>();
+    // Le conseil du jour + les pushes live sont gérés par DailyEnergyTipBanner.
     TipsRealtimeService.instance.start();
-    _loadDailyTip();
-    _tipSub = TipsRealtimeService.instance.stream.listen((e) {
-      if (!mounted) return;
-      setState(() => _tipText = e.body);
-      _autoClearTimer?.cancel();
-      _autoClearTimer = Timer(const Duration(hours: 24), () {
-        if (!mounted) return;
-        _loadDailyTip();
-      });
-    });
     _loadData();
   }
 
@@ -244,41 +231,6 @@ class _DashboardTabState extends State<DashboardTab> {
     });
   }
 
-  Future<void> _loadDailyTip() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) {
-      _useFallback();
-      return;
-    }
-    final res = await Supabase.instance.client
-        .from('daily_energy_tip')
-        .select('body')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-    if (!mounted) return;
-    if (res != null) {
-      setState(() => _tipText = res['body'] as String);
-    } else {
-      _useFallback();
-    }
-  }
-
-  void _useFallback() {
-    const tips = [
-      'Réduisez votre consommation en éteignant les appareils en veille',
-      'Réglez votre chauffe-eau à 55°C : l\'équilibre idéal entre confort et économies',
-      'Dégivrez votre frigo régulièrement pour éviter 30% de surconsommation',
-      'Lavez à 30°C : 3× moins d\'énergie qu\'à 60°C',
-      'Débranchez les chargeurs inutilisés, ils consomment même à vide',
-      'Préférez le séchage à l\'air libre plutôt que le sèche-linge',
-      'Remplacez vos ampoules par des LED : 85% d\'économie',
-    ];
-    final day = DateTime.now().day;
-    final idx = (day - 1) % tips.length;
-    setState(() => _tipText = tips[idx]);
-  }
-
   void _initRealtimePower() {
     final uid = _userId;
     if (uid == null) return;
@@ -294,8 +246,6 @@ class _DashboardTabState extends State<DashboardTab> {
   void dispose() {
     _telemetrySub?.cancel();
     _powerSub?.cancel();
-    _tipSub?.cancel();
-    _autoClearTimer?.cancel();
     super.dispose();
   }
 
@@ -454,13 +404,7 @@ class _DashboardTabState extends State<DashboardTab> {
                               ),
                             ),
                             const SizedBox(height: AppSpacing.s4),
-                            if (_tipText != null)
-                              _buildTipCard(
-                                _tipText!,
-                                Icons.lightbulb_outline,
-                                AppColors.accentGold.withValues(alpha: 0.3),
-                                AppColors.accentGold,
-                              ),
+                            const DailyEnergyTipBanner(),
                           ],
                         ),
                       ),
@@ -472,36 +416,6 @@ class _DashboardTabState extends State<DashboardTab> {
                 ),
               ),
             ),
-    );
-  }
-
-  Widget _buildTipCard(String tip, IconData icon, Color backgroundColor, Color iconColor) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.s4),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        boxShadow: [AppShadows.sm],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.s3),
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: Icon(icon, color: iconColor),
-          ),
-          const SizedBox(width: AppSpacing.s4),
-          Expanded(
-            child: Text(
-              tip,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
