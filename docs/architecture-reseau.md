@@ -91,14 +91,14 @@ sequenceDiagram
   participant DB as Supabase (device_commands)
   participant W as Worker MQTT5
   participant Brk as Broker Flespi
-  participant Box as Boîtier ESP32
+  participant ESP as Boîtier ESP32
 
   U->>App: Bascule un appareil (ON/OFF)
   App->>DB: INSERT device_commands (status = pending)
   W->>DB: Claim atomique (status = processing)
   W->>Brk: PUBLISH .../relays/{i}/cmd (QoS 1)
-  Brk->>Box: Commande
-  Box-->>Brk: PUBLISH .../relays/{i}/ack
+  Brk->>ESP: Commande
+  ESP-->>Brk: PUBLISH .../relays/{i}/ack
   Brk-->>W: ACK
   W->>DB: UPDATE status = acknowledged
   DB-->>App: Realtime (nouvel état de l'appareil)
@@ -109,13 +109,13 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-  participant Box as Boîtier ESP32
+  participant ESP as Boîtier ESP32
   participant Brk as Broker Flespi
   participant W as Worker MQTT5
   participant DB as Supabase
   participant App as App Flutter
 
-  Box->>Brk: PUBLISH .../telemetry (consommation + capteurs)
+  ESP->>Brk: PUBLISH .../telemetry (consommation + capteurs)
   Brk-->>App: Télémétrie (abonnement direct)
   Brk-->>W: Télémétrie (abonnement)
   W->>DB: UPSERT realtime_power + sync statut appliances
