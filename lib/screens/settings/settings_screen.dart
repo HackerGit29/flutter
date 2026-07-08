@@ -7,9 +7,14 @@ import 'package:aricie/domain/usecases/devices/rename_appliance.dart';
 import 'package:aricie/domain/entities/appliance.dart';
 import 'package:aricie/domain/usecases/license/redeem_product_key.dart';
 
+import 'dart:io' show Platform;
+
 import 'package:aricie/screens/update/update_screen.dart';
 import 'package:aricie/services/update_service.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mqtt5_client/mqtt5_client.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
@@ -31,6 +36,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isLoading = true;
   bool _isExpanded = false;
   bool _isAdmin = false;
+
+  // URL du Google Form de collecte des retours utilisateurs (séance de démo).
+  // Le formulaire accepte plusieurs réponses (pas de connexion Google requise)
+  // car un même appareil/profil est partagé entre plusieurs testeurs.
+  static const String _feedbackFormUrl =
+      'https://docs.google.com/forms/d/e/1FAIpQLScrLheoHHWJMnSyPWituMwEv8JOzURaxYXRtdenPH-TxA4u5A/viewform';
 
   Future<void> _loadAppliances() async {
     setState(() => _isLoading = true);
@@ -274,77 +285,96 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               const CommonHeader(title: 'Paramètres'),
               const SizedBox(height: AppSpacing.s4),
-              _buildThemeSelector(themeProvider),
-              const SizedBox(height: AppSpacing.s4),
-              _buildPremiumCard(),
-              const SizedBox(height: AppSpacing.s6),
-              _buildMqttStatusIndicator(),
-              const SizedBox(height: AppSpacing.s4),
-              _buildUpdateChecker(),
-              const SizedBox(height: AppSpacing.s6),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Mes appareils',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  if (_isAdmin && _appliances.isNotEmpty)
-                    Hero(
-                      tag: 'add_device_button',
-                      child: ElevatedButton.icon(
-                        onPressed: _addDevice,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Ajouter'),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.s4),
+              // En-tête fixe ; tout le reste défile. La partie fixe était
+              // devenue trop haute (ajout du bouton « Donner un avis »), on
+              // l'enveloppe donc dans un SingleChildScrollView.
               Expanded(
-                child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(),
-                    )
-                  : _appliances.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.devices_other_rounded, size: 64,
-                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
-                            ),
-                            const SizedBox(height: AppSpacing.s4),
-                            Text('Aucun appareil connecté',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                                fontWeight: FontWeight.bold,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildThemeSelector(themeProvider),
+                      const SizedBox(height: AppSpacing.s4),
+                      _buildPremiumCard(),
+                      const SizedBox(height: AppSpacing.s6),
+                      _buildMqttStatusIndicator(),
+                      const SizedBox(height: AppSpacing.s4),
+                      _buildUpdateChecker(),
+                      const SizedBox(height: AppSpacing.s4),
+                      _buildFeedbackTile(),
+                      const SizedBox(height: AppSpacing.s6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Mes appareils',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          if (_isAdmin && _appliances.isNotEmpty)
+                            Hero(
+                              tag: 'add_device_button',
+                              child: ElevatedButton.icon(
+                                onPressed: _addDevice,
+                                icon: const Icon(Icons.add),
+                                label: const Text('Ajouter'),
                               ),
                             ),
-                            const SizedBox(height: AppSpacing.s1),
-                            Text('Ajoutez un boîtier depuis le tableau de bord',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : AnimatedList(
-                        initialItemCount: _appliances.length,
-                        itemBuilder: (context, index, animation) {
-                          final appliance = _appliances[index];
-                          return SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(1, 0), end: Offset.zero,
-                            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutQuint)),
-                            child: FadeTransition(
-                              opacity: animation,
-                              child: _buildApplianceCard(appliance),
-                            ),
-                          );
-                        },
+                        ],
                       ),
+                      const SizedBox(height: AppSpacing.s4),
+                      if (_isLoading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: AppSpacing.s6),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (_appliances.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: AppSpacing.s6),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.devices_other_rounded, size: 64,
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3),
+                                ),
+                                const SizedBox(height: AppSpacing.s4),
+                                Text('Aucun appareil connecté',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: AppSpacing.s1),
+                                Text('Ajoutez un boîtier depuis le tableau de bord',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        AnimatedList(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          initialItemCount: _appliances.length,
+                          itemBuilder: (context, index, animation) {
+                            final appliance = _appliances[index];
+                            return SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(1, 0), end: Offset.zero,
+                              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutQuint)),
+                              child: FadeTransition(
+                                opacity: animation,
+                                child: _buildApplianceCard(appliance),
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -550,6 +580,111 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: AppSpacing.s1),
                   Text(
                     'Vérifier les mises à jour de l\'application',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface
+                          .withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurface
+                    .withValues(alpha: 0.3)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Ouvre le questionnaire de retours (Google Form) lors des séances de démo.
+  // L'app est distribuée en APK Android (cf. UpdateService), on ouvre donc le
+  // lien via un intent ACTION_VIEW, comme le fait l'updater. En cas d'échec ou
+  // sur une plateforme non-Android, on affiche un dialogue permettant de copier
+  // le lien manuellement.
+  Future<void> _openFeedbackForm() async {
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        final intent = AndroidIntent(
+          action: 'android.intent.action.VIEW',
+          data: _feedbackFormUrl,
+        );
+        await intent.launch();
+        return;
+      } catch (_) {
+        // On retombe sur le dialogue « copier le lien » ci-dessous.
+      }
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Donner un avis'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Ouvrez ce lien pour remplir le questionnaire :'),
+            const SizedBox(height: AppSpacing.s3),
+            SelectableText(
+              _feedbackFormUrl,
+              style: TextStyle(color: Theme.of(ctx).colorScheme.primary),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(const ClipboardData(text: _feedbackFormUrl));
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Lien copié')),
+              );
+            },
+            child: const Text('Copier le lien'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Fermer'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeedbackTile() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.all(AppSpacing.s4),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: [AppShadows.sm],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        onTap: _openFeedbackForm,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.s2),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.rate_review_outlined,
+                  color: Theme.of(context).colorScheme.primary, size: 24),
+            ),
+            const SizedBox(width: AppSpacing.s4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Donner un avis',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: AppSpacing.s1),
+                  Text(
+                    'Partagez votre retour sur l\'application',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurface
                           .withValues(alpha: 0.6),
