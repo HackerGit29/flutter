@@ -94,7 +94,7 @@ flutter run
 - Dashboard : température, humidité, consommation temps réel (MQTT), **conso live par appareil**, conseils économie
 - Statistiques : historique, tendances, **conso live en haut de page**
 - Appareils : lecture seule, toggle via `device_commands` (admin crée les boîtiers depuis le dashboard admin)
-- Paramètres : thème, état MQTT, liste appareils
+- Paramètres : thème, état MQTT, liste appareils, bouton « Donner un avis » (formulaire de retours utilisateurs)
 - Chatbot : agent‑orchestrator (Azure OpenAI GPT‑4o / Phi‑4‑mini‑instruct) avec streaming SSE
 - Administration : gestion utilisateurs, boîtiers, licences, **création de boîtiers + 3 appareils** (admin only)
 
