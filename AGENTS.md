@@ -295,8 +295,8 @@ Logs de démarrage OK :
 
 - `test/domain/entities/user_test.dart` — User entity unit tests (passing)
 - `test/widget_test.dart` — placeholder, needs rewrite
-- BDD scenarios: `test_driver/features/*.feature` (Gherkin)
-- Step definitions: `test_driver/steps/*.dart`
+- BDD scenarios: `test/*.feature` (Gherkin) compiled to widget tests by `bdd_widget_test`
+- Custom steps: `test/step/*.dart` — regenerate with `dart run build_runner build --delete-conflicting-outputs`, run with `flutter test`
 
 ## Branch naming
 
