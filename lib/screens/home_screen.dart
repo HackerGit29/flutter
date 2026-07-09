@@ -127,6 +127,8 @@ class _DashboardTabState extends State<DashboardTab> {
   List<Appliance> _appliances = [];
   Map<String, double> _applianceEnergy = {};
   double _totalConsumption = 0.0;
+  // Variation de la conso du jour vs la veille (en %). null si indéterminable.
+  double? _dailyTrendPercent;
 
   final Map<String, RealtimePowerReading> _liveReadings = {};
   StreamSubscription<RealtimePowerReading>? _powerSub;
@@ -203,6 +205,20 @@ class _DashboardTabState extends State<DashboardTab> {
       _weeklySpots = List.generate(sorted.length, (i) {
         return FlSpot(i.toDouble(), sorted[i].kwh);
       });
+
+      // Tendance jour vs veille : conso du jour (_totalConsumption) comparée
+      // au dernier jour antérieur à aujourd'hui présent dans l'historique.
+      final now = DateTime.now();
+      bool isToday(DateTime d) =>
+          d.year == now.year && d.month == now.month && d.day == now.day;
+      final previousDays = sorted.where((p) => !isToday(p.date)).toList();
+      if (previousDays.isNotEmpty && previousDays.last.kwh > 0) {
+        final yesterdayKwh = previousDays.last.kwh;
+        _dailyTrendPercent =
+            (_totalConsumption - yesterdayKwh) / yesterdayKwh * 100;
+      } else {
+        _dailyTrendPercent = null;
+      }
     });
   }
 
@@ -251,6 +267,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
   @override
   Widget build(BuildContext context) {
+    final (dailyChange, dailyChangeColor, dailyChangeIcon) = _dailyTrend();
     return SafeArea(
       child: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -312,9 +329,9 @@ class _DashboardTabState extends State<DashboardTab> {
                           _buildConsumptionCard(
                             'Consommation Journalière',
                             _totalConsumption.toStringAsFixed(1),
-                            '+5%',
-                            AppColors.accentDot,
-                            Icons.arrow_upward,
+                            dailyChange,
+                            dailyChangeColor,
+                            dailyChangeIcon,
                             AppColors.accentCoral.withValues(alpha: 0.3),
                             AppColors.accentCoral,
                           ),
@@ -474,6 +491,20 @@ class _DashboardTabState extends State<DashboardTab> {
         ],
       ),
     );
+  }
+
+  // Traduit _dailyTrendPercent en (texte, couleur, icône) pour la pastille de
+  // tendance. Hausse = corail (défavorable), baisse = menthe (favorable),
+  // neutre / indéterminé = gris avec une flèche plate.
+  (String, Color, IconData) _dailyTrend() {
+    final trend = _dailyTrendPercent;
+    if (trend == null) {
+      return ('—', AppColors.accentDot, Icons.trending_flat);
+    }
+    final pct = trend.round();
+    if (pct > 0) return ('+$pct%', AppColors.accentCoral, Icons.arrow_upward);
+    if (pct < 0) return ('$pct%', AppColors.accentMint, Icons.arrow_downward);
+    return ('0%', AppColors.accentDot, Icons.trending_flat);
   }
 
   Widget _buildConsumptionCard(
