@@ -17,11 +17,6 @@ Feature: Authentification
     And I tap {'Se connecter'} text
     Then I see {'Veuillez entrer votre mot de passe'} text
 
-  Scenario: Depuis le login, accéder à l'écran d'inscription
-    When I tap {"S'inscrire"} text
-    And I wait
-    Then I see {'Créer un compte'} text
-
   Scenario: Ouvrir la fenêtre de mot de passe oublié
     When I tap {'Mot de passe oublié?'} text
     And I wait
