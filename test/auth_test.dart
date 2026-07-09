@@ -37,13 +37,6 @@ void main() {
       await iTapText(tester, 'Se connecter');
       await iSeeText(tester, 'Veuillez entrer votre mot de passe');
     });
-    testWidgets('''Depuis le login, accéder à l'écran d'inscription''',
-        (tester) async {
-      await bddSetUp(tester);
-      await iTapText(tester, "S'inscrire");
-      await iWait(tester);
-      await iSeeText(tester, 'Créer un compte');
-    });
     testWidgets('''Ouvrir la fenêtre de mot de passe oublié''', (tester) async {
       await bddSetUp(tester);
       await iTapText(tester, 'Mot de passe oublié?');

@@ -132,7 +132,7 @@ Follow the same convention as commits:
 - **Unit tests**: Required for all use-cases and entities
 - **Widget tests**: Required for all screens
 - **Test framework**: `flutter_test` + mocktail
-- **BDD scenarios**: Written in Gherkin `.feature` files under `test/` and compiled to widget tests by `bdd_widget_test`. Custom steps live in `test/step/`. Regenerate with `dart run build_runner build --delete-conflicting-outputs`.
+- **BDD scenarios**: Written in Gherkin `.feature` files under `test/` and compiled to widget tests by `bdd_widget_test`. Custom steps live in `test/step/`. Regenerate with `dart run build_runner build`.
 - **Run tests**: `flutter test`
 
 Tests must be added in the same PR as the feature or fix they validate.

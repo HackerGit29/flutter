@@ -585,6 +585,7 @@ class _ChatbotScreenState extends State<ChatbotScreen>
             editingText: _editingIndex != null
                 ? _messages[_editingIndex!].text
                 : null,
+            enabled: !_isTyping,
           ),
         ],
       ),

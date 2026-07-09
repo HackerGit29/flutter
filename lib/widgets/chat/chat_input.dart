@@ -8,12 +8,14 @@ class ChatInput extends StatefulWidget {
   final Function(String) onSendMessage;
   final bool isVoiceMode;
   final String? editingText;
+  final bool enabled;
 
   const ChatInput({
     super.key,
     required this.onSendMessage,
     this.isVoiceMode = false,
     this.editingText,
+    this.enabled = true,
   });
 
   @override
@@ -67,6 +69,7 @@ class _ChatInputState extends State<ChatInput>
   }
 
   void _handleSend() {
+    if (!widget.enabled) return;
     final text = _textController.text.trim();
     if (text.isNotEmpty) {
       widget.onSendMessage(text);
@@ -75,7 +78,7 @@ class _ChatInputState extends State<ChatInput>
   }
 
   void _onMicPress() async {
-    if (_micState != MicState.idle) return;
+    if (!widget.enabled || _micState != MicState.idle) return;
 
     setState(() => _micState = MicState.recording);
     _pulseController.repeat(reverse: true);
@@ -119,6 +122,7 @@ class _ChatInputState extends State<ChatInput>
     final isIdle = _micState == MicState.idle;
     final isRecording = _micState == MicState.recording;
     final isProcessing = _micState == MicState.processing;
+    final canSendNow = _canSend && widget.enabled;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -137,7 +141,7 @@ class _ChatInputState extends State<ChatInput>
           children: [
             // Microphone button — hold to talk
             GestureDetector(
-              onTapDown: isIdle ? (_) => _onMicPress() : null,
+              onTapDown: isIdle && widget.enabled ? (_) => _onMicPress() : null,
               onTapUp: isRecording ? (_) => _onMicRelease() : null,
               onTapCancel: isRecording ? _onMicRelease : null,
               child: AnimatedContainer(
@@ -214,13 +218,15 @@ class _ChatInputState extends State<ChatInput>
                 ),
                 child: TextField(
                   controller: _textController,
-                  readOnly: isRecording || isProcessing,
+                  readOnly: isRecording || isProcessing || !widget.enabled,
                   decoration: InputDecoration(
                     hintText: isRecording
                         ? 'Parlez...'
                         : isProcessing
                             ? 'Transcription...'
-                            : 'Écrivez votre message...',
+                            : !widget.enabled
+                                ? 'Aricie réfléchit...'
+                                : 'Écrivez votre message...',
                     hintStyle: TextStyle(
                       color: Theme.of(context)
                           .colorScheme
@@ -235,7 +241,7 @@ class _ChatInputState extends State<ChatInput>
                   maxLines: 5,
                   minLines: 1,
                   textCapitalization: TextCapitalization.sentences,
-                  onSubmitted: _canSend ? (_) => _handleSend() : null,
+                  onSubmitted: canSendNow ? (_) => _handleSend() : null,
                 ),
               ),
             ),
@@ -244,20 +250,20 @@ class _ChatInputState extends State<ChatInput>
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               decoration: BoxDecoration(
-                color: _canSend
+                color: canSendNow
                     ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).colorScheme.surfaceContainerHighest,
                 shape: BoxShape.circle,
               ),
               child: IconButton(
                 icon: const Icon(Icons.send_rounded),
-                color: _canSend
+                color: canSendNow
                     ? Theme.of(context).colorScheme.onPrimary
                     : Theme.of(context)
                         .colorScheme
                         .onSurfaceVariant
                         .withValues(alpha: 0.4),
-                onPressed: _canSend ? _handleSend : null,
+                onPressed: canSendNow ? _handleSend : null,
               ),
             ).animate(target: _canSend ? 1 : 0).scale(
                   begin: const Offset(0.8, 0.8),
