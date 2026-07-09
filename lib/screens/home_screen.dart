@@ -129,6 +129,10 @@ class _DashboardTabState extends State<DashboardTab> {
   double _totalConsumption = 0.0;
   // Variation de la conso du jour vs la veille (en %). null si indéterminable.
   double? _dailyTrendPercent;
+  // Conso de la veille (kWh) mémorisée pour recalculer la tendance en direct.
+  double? _yesterdayKwh;
+  // Index du point « aujourd'hui » dans _weeklySpots (null si absent de l'historique).
+  int? _todaySpotIndex;
 
   final Map<String, RealtimePowerReading> _liveReadings = {};
   StreamSubscription<RealtimePowerReading>? _powerSub;
@@ -206,19 +210,25 @@ class _DashboardTabState extends State<DashboardTab> {
         return FlSpot(i.toDouble(), sorted[i].kwh);
       });
 
-      // Tendance jour vs veille : conso du jour (_totalConsumption) comparée
-      // au dernier jour antérieur à aujourd'hui présent dans l'historique.
       final now = DateTime.now();
       bool isToday(DateTime d) =>
           d.year == now.year && d.month == now.month && d.day == now.day;
+
+      // Point « aujourd'hui » du graphe : suivra le total en direct (cf.
+      // _recomputeLiveAggregates), pour que la courbe évolue avec la conso.
+      final todayIdx = sorted.indexWhere((p) => isToday(p.date));
+      _todaySpotIndex = todayIdx >= 0 ? todayIdx : null;
+
+      // Conso de la veille (dernier jour antérieur à aujourd'hui) mémorisée
+      // pour recalculer la tendance à chaque nouvelle valeur temps réel.
       final previousDays = sorted.where((p) => !isToday(p.date)).toList();
-      if (previousDays.isNotEmpty && previousDays.last.kwh > 0) {
-        final yesterdayKwh = previousDays.last.kwh;
-        _dailyTrendPercent =
-            (_totalConsumption - yesterdayKwh) / yesterdayKwh * 100;
-      } else {
-        _dailyTrendPercent = null;
-      }
+      _yesterdayKwh = (previousDays.isNotEmpty && previousDays.last.kwh > 0)
+          ? previousDays.last.kwh
+          : null;
+
+      final y = _yesterdayKwh;
+      _dailyTrendPercent =
+          (y != null) ? (_totalConsumption - y) / y * 100 : null;
     });
   }
 
@@ -254,8 +264,33 @@ class _DashboardTabState extends State<DashboardTab> {
     _powerSub?.cancel();
     _powerSub = RealtimePowerService.instance.stream.listen((r) {
       if (!mounted) return;
-      setState(() => _liveReadings[r.applianceId] = r);
+      setState(() {
+        _liveReadings[r.applianceId] = r;
+        _recomputeLiveAggregates();
+      });
     });
+  }
+
+  // Recalcule les agrégats affichés (total journalier, tendance vs veille et
+  // point « aujourd'hui » du graphe) à partir des lectures temps réel, avec
+  // repli sur les valeurs de la base pour les appareils pas encore vus en live.
+  // Même logique que les cartes par appareil, pour rester cohérent.
+  void _recomputeLiveAggregates() {
+    double total = 0.0;
+    for (final a in _appliances) {
+      final live = _liveReadings[a.id]?.powerKwh;
+      total += live ?? (_applianceEnergy[a.id] ?? 0.0);
+    }
+    _totalConsumption = total;
+
+    final y = _yesterdayKwh;
+    _dailyTrendPercent =
+        (y != null && y > 0) ? (_totalConsumption - y) / y * 100 : null;
+
+    final idx = _todaySpotIndex;
+    if (idx != null && idx >= 0 && idx < _weeklySpots.length) {
+      _weeklySpots[idx] = FlSpot(idx.toDouble(), _totalConsumption);
+    }
   }
 
   @override
