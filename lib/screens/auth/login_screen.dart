@@ -7,7 +7,6 @@ import 'package:aricie/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../home_screen.dart';
-import 'signup_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -200,13 +199,6 @@ class _LoginScreenState extends State<LoginScreen> {
           'vient de vous être envoyé.',
         ),
       ),
-    );
-  }
-
-  void _navigateToSignup() {
-    // Naviguer vers la page d'inscription
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const SignupScreen()),
     );
   }
 
@@ -405,29 +397,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ],
                           ),
-                  ),
-                  
-                  const SizedBox(height: AppSpacing.s4),
-                  
-                  // Don't have an account
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Vous n\'avez pas de compte?',
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _navigateToSignup,
-                    style: TextButton.styleFrom(
-                          foregroundColor: Theme.of(context).colorScheme.primary,
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        child: const Text('S\'inscrire'),
-                      ),
-                    ],
                   ),
                   
                   const SizedBox(height: AppSpacing.s10),
