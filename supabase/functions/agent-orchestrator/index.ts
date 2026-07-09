@@ -43,7 +43,7 @@ async function buildOperationalContext(supabase: any, requesterId: string) {
     // Boxes (needed for box count and uid information)
     const { data: boxesData, error: boxesError } = await supabase
       .from("boxes")
-      .select("id, uid_hardware, is_active, is_blocked, location")
+      .select("id, uid_hardware, status, location")
       .eq("user_id", requesterId);
 
     if (boxesError) throw boxesError;
@@ -70,8 +70,8 @@ async function buildOperationalContext(supabase: any, requesterId: string) {
       boxes: boxes.map((b: any) => ({
         id: b.id,
         uid: b.uid_hardware,
-        is_active: b.is_active,
-        is_blocked: b.is_blocked,
+        is_active: b.status === "active",
+        is_blocked: b.status === "blocked",
         location: b.location,
       })),
       boxes_count: boxesCount,
