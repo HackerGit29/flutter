@@ -1,6 +1,8 @@
 # Topologie et architecture réseau — Aricie
 
-> Diagrammes au format **Mermaid** : lisibles tels quels sur GitHub, ou dans
+> La **topologie réseau** (section 2) est un diagramme **draw.io**
+> (`diagrams/01-topologie-reseau.drawio`). Les **diagrammes de flux** (sections
+> 4 à 6) sont au format **Mermaid** : lisibles tels quels sur GitHub, ou dans
 > VS Code avec l'extension « Markdown Preview Mermaid Support ».
 
 ## 1. Vue d'ensemble
@@ -18,6 +20,41 @@ composée de cinq acteurs réseau :
 | **Azure OpenAI / Speech** | Agent IA (GPT-4o / Phi-4), transcription et synthèse vocale | Cloud Azure |
 
 ## 2. Schéma de topologie réseau
+
+> Diagramme source (éditable) :
+> [`diagrams/01-topologie-reseau.drawio`](diagrams/01-topologie-reseau.drawio)
+> — l'ouvrir sur [diagrams.net](https://app.diagrams.net), puis
+> `Fichier ▸ Exporter ▸ PNG` vers `diagrams/01-topologie-reseau.png`.
+
+![Topologie réseau Aricie](diagrams/01-topologie-reseau.png)
+
+La topologie représente l'**infrastructure réseau** (équipements et liens), et
+non les modules logiciels. Elle distingue quatre **segments** :
+
+1. **LAN domestique de l'utilisateur** (`192.168.1.0/24`) : seul le **boîtier
+   ESP32** y est ancré, raccordé en **Wi-Fi** à la **box Internet / routeur**
+   qui assure la sortie **WAN** vers Internet.
+2. **Postes clients** (smartphone / tablette / PC exécutant l'application
+   Flutter) : **mobiles**, ils accèdent au système **depuis n'importe quel
+   réseau** (Wi-Fi domestique, autre Wi-Fi, 4G/5G). L'app ne joint jamais le
+   boîtier en direct : elles se rejoignent **via le cloud**, donc le **pilotage
+   à distance (ON/OFF) fonctionne où que soit l'utilisateur**, sans ouverture
+   de port sur la box (connexions **sortantes** de part et d'autre).
+3. **Internet** : média de transport chiffré entre le site utilisateur, les
+   postes clients et les plateformes cloud.
+4. **Clouds fournisseurs**, chacun un segment distinct : **Flespi** (broker
+   MQTT), **Supabase** (serveur applicatif + base PostgreSQL/pgvector) et
+   **Microsoft Azure** *francecentral* (worker MQTT5, Azure OpenAI, Azure
+   Speech).
+
+Chaque **lien** porte le **protocole et le port** réellement utilisés ; les
+liens en pointillés sont les échanges **cloud-à-cloud** (backbone), les liens
+pleins partent du site utilisateur.
+
+### 2.1 Vue logique complémentaire (architecture applicative)
+
+> Cette vue n'est **pas** la topologie réseau : elle montre, à titre
+> complémentaire, quelles briques **logicielles** dialoguent entre elles.
 
 ```mermaid
 flowchart LR
