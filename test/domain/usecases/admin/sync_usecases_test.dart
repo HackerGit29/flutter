@@ -34,6 +34,21 @@ void main() {
       expect(result.isLeft(), true);
       result.fold((f) => expect(f, isA<AdminPermissionFailure>()), (_) {});
     });
+
+    test('exécute forceSync avec succès pour un admin', () async {
+      final uc = ForceSync(MockAdminRepo(), MockAuthRepo());
+      final result = await uc.call(kBox.id);
+      expect(result.isRight(), true);
+    });
+
+    test('retourne Failure si l\'opération forceSync échoue', () async {
+      final uc = ForceSync(
+        MockAdminRepo(operationFails: true),
+        MockAuthRepo(),
+      );
+      final result = await uc.call(kBox.id);
+      expect(result.isLeft(), true);
+    });
   });
 
   // ─── ResetDevice ──────────────────────────────────────────────────────────
@@ -71,6 +86,21 @@ void main() {
       expect(result.isLeft(), true);
       result.fold((f) => expect(f, isA<AdminPermissionFailure>()), (_) {});
     });
+
+    test('assigne un boîtier avec succès pour un admin', () async {
+      final uc = AssignDevice(MockAdminRepo(), MockAuthRepo());
+      final result = await uc.call(kBox.id, kRegularUser.id);
+      expect(result.isRight(), true);
+    });
+
+    test('retourne Failure si assignBox échoue', () async {
+      final uc = AssignDevice(
+        MockAdminRepo(operationFails: true),
+        MockAuthRepo(),
+      );
+      final result = await uc.call(kBox.id, kRegularUser.id);
+      expect(result.isLeft(), true);
+    });
   });
 
   // ─── OverrideOwnership ────────────────────────────────────────────────────
@@ -81,6 +111,28 @@ void main() {
       final result = await uc.call(kBox.id, kVipUser.id, 'reassignment');
       expect(result.isLeft(), true);
       result.fold((f) => expect(f, isA<AdminPermissionFailure>()), (_) {});
+    });
+
+    test('force la propriété avec succès pour un admin avec raison', () async {
+      final uc = OverrideOwnership(MockAdminRepo(), MockAuthRepo());
+      final result = await uc.call(kBox.id, kVipUser.id, 'reassignment');
+      expect(result.isRight(), true);
+    });
+
+    test('retourne AdminPermissionFailure si la raison est vide', () async {
+      final uc = OverrideOwnership(MockAdminRepo(), MockAuthRepo());
+      final result = await uc.call(kBox.id, kVipUser.id, '   ');
+      expect(result.isLeft(), true);
+      result.fold((f) => expect(f, isA<AdminPermissionFailure>()), (_) {});
+    });
+
+    test('retourne Failure si overrideOwnership échoue', () async {
+      final uc = OverrideOwnership(
+        MockAdminRepo(operationFails: true),
+        MockAuthRepo(),
+      );
+      final result = await uc.call(kBox.id, kVipUser.id, 'reassignment');
+      expect(result.isLeft(), true);
     });
   });
 }

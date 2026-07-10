@@ -190,13 +190,39 @@ class MockAdminRepo implements AdminRepository {
 
   @override
   Future<Either<Failure, Box>> assignBox(
-          String boxId, String newUserId) async =>
-      Left(const ServerFailure('mock'));
+          String boxId, String newUserId) async {
+    if (operationFails) return Left(const ServerFailure('assign failed'));
+    return Right(Box(
+      id: kBox.id,
+      uidHardware: kBox.uidHardware,
+      name: kBox.name,
+      location: kBox.location,
+      userId: newUserId,
+      status: kBox.status,
+      publicKey: kBox.publicKey,
+      lastSync: kBox.lastSync,
+      firmwareVersion: kBox.firmwareVersion,
+      createdAt: kBox.createdAt,
+    ));
+  }
 
   @override
   Future<Either<Failure, Box>> overrideOwnership(
-          String boxId, String newUserId) async =>
-      Left(const ServerFailure('mock'));
+          String boxId, String newUserId) async {
+    if (operationFails) return Left(const ServerFailure('override failed'));
+    return Right(Box(
+      id: kBox.id,
+      uidHardware: kBox.uidHardware,
+      name: kBox.name,
+      location: kBox.location,
+      userId: newUserId,
+      status: kBox.status,
+      publicKey: kBox.publicKey,
+      lastSync: kBox.lastSync,
+      firmwareVersion: kBox.firmwareVersion,
+      createdAt: kBox.createdAt,
+    ));
+  }
 
   @override
   Future<Either<Failure, Box>> resetBox(String boxId) async {
@@ -205,8 +231,16 @@ class MockAdminRepo implements AdminRepository {
   }
 
   @override
-  Future<Either<Failure, SyncLog>> forceSync(String boxId) async =>
-      Left(const ServerFailure('mock'));
+  Future<Either<Failure, SyncLog>> forceSync(String boxId) async {
+    if (operationFails) return Left(const ServerFailure('sync failed'));
+    return Right(SyncLog(
+      id: 'sync-1',
+      boxId: boxId,
+      userId: 'user-1',
+      status: SyncStatus.success,
+      timestamp: DateTime.now(),
+    ));
+  }
 
   @override
   Future<Either<Failure, List<Subscription>>> getAllSubscriptions() async =>
