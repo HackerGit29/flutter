@@ -1,0 +1,115 @@
+<mxfile host="app.diagrams.net" agent="Aricie" version="24.7.17">
+  <diagram id="topologie-reseau-aricie" name="Topologie reseau">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="920" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===== Titre ===== -->
+        <mxCell id="title" value="Topologie r&#233;seau &#8212; Aricie (suivi et pilotage de la consommation d&#8217;&#233;nergie)" style="text;html=1;align=center;verticalAlign=middle;fontStyle=1;fontSize=18;" vertex="1" parent="1">
+          <mxGeometry x="40" y="15" width="1420" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Postes clients (mobiles / hors LAN) ===== -->
+        <mxCell id="client" value="Postes clients&#10;smartphone / tablette / PC&#10;&#8212; Application Flutter" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;shape=mxgraph.networks.pc;" vertex="1" parent="1">
+          <mxGeometry x="70" y="90" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="client-note" value="Depuis n&#8217;importe quel r&#233;seau&#10;(Wi-Fi domestique, autre Wi-Fi, 4G/5G)" style="text;html=1;align=center;verticalAlign=middle;fontSize=10;fontStyle=2;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="40" y="215" width="230" height="34" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ZONE : Site utilisateur / LAN domestique (box + ESP32 uniquement) ===== -->
+        <mxCell id="zone-lan" value="Site utilisateur &#8212; LAN domestique&#10;(sous-r&#233;seau 192.168.1.0/24)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;opacity=70;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="430" width="360" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="router" value="Box Internet /&#10;Routeur Wi-Fi" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.networks.router;" vertex="1" parent="1">
+          <mxGeometry x="155" y="490" width="90" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="esp32" value="Bo&#238;tier ESP32&#10;relais + capteurs&#10;(courant, DHT22)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="140" y="670" width="130" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Internet (media de transport) ===== -->
+        <mxCell id="internet" value="Internet" style="sketch=0;html=1;whiteSpace=wrap;fontSize=14;fontStyle=1;shape=mxgraph.networks.cloud;" vertex="1" parent="1">
+          <mxGeometry x="540" y="370" width="200" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ZONE : Cloud Flespi ===== -->
+        <mxCell id="zone-flespi" value="Cloud Flespi" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;opacity=70;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="880" y="60" width="580" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="broker" value="mqtt.flespi.io&#10;Broker MQTT 5.0&#10;(port 8883 TLS)" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.networks.server;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="95" width="110" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ZONE : Supabase (BaaS) ===== -->
+        <mxCell id="zone-supabase" value="Supabase &#8212; BaaS (cloud manag&#233;)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;opacity=70;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="880" y="290" width="580" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="supabase" value="Serveur Supabase&#10;Auth (JWT) &#183; Realtime&#10;Edge Functions" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.networks.server;" vertex="1" parent="1">
+          <mxGeometry x="960" y="350" width="110" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pgsql" value="PostgreSQL&#10;+ pgvector" style="shape=cylinder3;whiteSpace=wrap;html=1;fontSize=11;boundedLbl=1;backgroundOutline=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="345" width="110" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ZONE : Microsoft Azure ===== -->
+        <mxCell id="zone-azure" value="Microsoft Azure &#8212; francecentral" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;opacity=70;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="880" y="600" width="580" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="worker" value="Worker MQTT5&#10;Container App&#10;(Node.js)" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.networks.server;" vertex="1" parent="1">
+          <mxGeometry x="940" y="675" width="110" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="aoai" value="Azure OpenAI&#10;GPT-4o / Phi-4" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.networks.server;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="680" width="110" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="speech" value="Azure Speech&#10;STT / TTS" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.networks.server;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="680" width="110" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Legende ===== -->
+        <mxCell id="legende" value="L&#233;gende&#10;&#8226; Liens annot&#233;s : protocole + port. Tout le trafic est chiffr&#233; (TLS).&#10;&#8226; Traits pleins = acc&#232;s depuis le site utilisateur ; pointill&#233;s = &#233;changes cloud-&#224;-cloud (backbone).&#10;&#8226; Contr&#244;le possible depuis n&#8217;importe o&#249; : app et bo&#238;tier se rejoignent via le cloud &#8212; aucun port ouvert sur la box.&#10;&#8226; Topics MQTT : aricie/v1/boxes/{uid}/telemetry | relays/{i}/cmd | relays/{i}/ack&#10;&#8226; Commande app &#8594; file device_commands &#8594; Worker &#8594; broker (jamais en direct)." style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=11;fillColor=#f5f5f5;strokeColor=#999999;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="440" y="560" width="420" height="175" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Liens LAN (physiques) ===== -->
+        <mxCell id="e-esp-router" value="Wi-Fi 2,4 GHz" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;" edge="1" parent="1" source="esp32" target="router">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-router-net" value="WAN &#8212; FAI (fibre / 4G)&#10;uplink du bo&#238;tier" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;" edge="1" parent="1" source="router" target="internet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Acces client -> Internet (mobile, hors LAN) ===== -->
+        <mxCell id="e-client-net" value="Acc&#232;s depuis n&#8217;importe quel r&#233;seau&#10;(Wi-Fi / 4G/5G)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;fontColor=#6c8ebf;" edge="1" parent="1" source="client" target="internet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Liens Internet -> zones cloud ===== -->
+        <mxCell id="e-net-broker" value="MQTTS 8883 (TLS)&#10;sub t&#233;l&#233;m&#233;trie (app) &#183; pub/sub (ESP32)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;fontColor=#b85450;" edge="1" parent="1" source="internet" target="broker">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-net-supabase" value="HTTPS 443 (REST/Auth) &#183; WSS 443 (Realtime) &#183; SSE 443 (IA)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;fontColor=#82b366;" edge="1" parent="1" source="internet" target="supabase">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Liens cloud-a-cloud (backbone) ===== -->
+        <mxCell id="e-worker-broker" value="MQTTS 8883&#10;pub cmd / sub ack+t&#233;l&#233;m&#233;trie" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;dashed=1;fontSize=11;" edge="1" parent="1" source="worker" target="broker">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-worker-supabase" value="HTTPS 443&#10;(service role)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;dashed=1;fontSize=11;" edge="1" parent="1" source="worker" target="supabase">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-supabase-aoai" value="HTTPS 443&#10;(Edge Functions)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;dashed=1;fontSize=11;" edge="1" parent="1" source="supabase" target="aoai">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-supabase-speech" value="HTTPS 443&#10;(Edge Functions)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;dashed=1;fontSize=11;" edge="1" parent="1" source="supabase" target="speech">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-supabase-db" value="SQL interne" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;" edge="1" parent="1" source="supabase" target="pgsql">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
