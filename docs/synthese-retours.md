@@ -1,92 +1,98 @@
 # Synthèse des retours utilisateurs — Aricie
 
-> Document à compléter **après la séance de démonstration**. Il exploite les
-> réponses du questionnaire (voir `questionnaire-retours.md`) collectées via le
-> Google Form. Les valeurs entre crochets `[…]` et le bloc « Exemple » sont à
-> remplacer par les données réelles.
+> Synthèse établie à partir des réponses au questionnaire (voir
+> `questionnaire-retours.md`) collectées via le Google Form pendant la séance de
+> démonstration.
 
 ## 1. Méthode de collecte
 
 - **Contexte** : séance de démonstration où les participants testent eux-mêmes
-  l'application sur les appareils du groupe (profil de démo partagé).
+  l'application sur les appareils du groupe (profil de démonstration partagé).
 - **Outil** : questionnaire Google Forms, accessible via le bouton
   « Donner un avis » (Réglages) et par QR code.
-- **Période** : `[date(s) de la séance]`
-- **Participants** : `[nombre]` répondants — profils : `[clients potentiels,
-  enseignants-experts, étudiants, …]`
+- **Période** : 9 juillet 2026.
+- **Participants** : **12 répondants**, tous de profil *étudiant*. Concernant
+  l'usage préalable d'une application de suivi de consommation : 9 n'en avaient
+  jamais utilisé, 1 occasionnellement, 2 régulièrement.
 - **Nature des retours** : quantitatifs (échelles, notes) et qualitatifs
   (questions ouvertes).
 
 ## 2. Indicateurs quantitatifs
 
-| Indicateur | Source (question) | Valeur | Formule / calcul |
-|-----------|-------------------|--------|------------------|
-| Note globale moyenne (/5) | B1 | `[…]` | `=MOYENNE(B:B)` |
-| Ergonomie & clarté (/5) | C1–C4 | `[…]` | moyenne des 4 affirmations |
-| Performance perçue (/5) | E1–E3 | `[…]` | moyenne des 3 affirmations |
-| Confiance / sécurité (/5) | F1–F2 | `[…]` | moyenne des 2 affirmations |
-| Fonctionnalité la plus testée | D1 | `[…]` | % de répondants l'ayant cochée |
-| Fonctionnalité la plus appréciée | D3 | `[…]` | mode (choix majoritaire) |
-| **NPS** (−100 à +100) | H1 | `[…]` | `% promoteurs (9–10) − % détracteurs (0–6)` |
+| Indicateur | Source (question) | Valeur | Calcul |
+|-----------|-------------------|--------|--------|
+| Note globale moyenne (/5) | B1 | **4,42** | moyenne des 12 notes |
+| Ergonomie & clarté (/5) | C1–C4 | **3,90** | moyenne des 4 affirmations |
+| Performance perçue (/5) | E1–E3 | **3,44** | moyenne des 3 affirmations |
+| Confiance / sécurité (/5) | F1–F2 | **3,67** | moyenne des 2 affirmations |
+| Fonctionnalité la plus testée | D1 | **Suivi de consommation en temps réel (100 %)** | % de répondants l'ayant cochée |
+| Fonctionnalité la plus appréciée | D3 | **Suivi de consommation en temps réel (6/12)** | choix majoritaire |
+| **NPS** (−100 à +100) | H1 | **+42** | % promoteurs (9–10) − % détracteurs (0–6) |
+
+**Détail par affirmation :**
+
+- Ergonomie (C) : visuel moderne 3,75 · navigation intuitive 4,08 · écrans
+  clairs 3,92 · actions sans aide 3,83.
+- Performance (E) : réactivité 3,50 · affichage des données 3,17 · absence de
+  ralentissement 3,67.
+- Confiance (F) : protection des données 3,67 · connexion/déconnexion 3,67.
+
+**Fonctionnalités testées (D1)** : Suivi temps réel 100 % · Assistant IA 92 % ·
+Contrôle des appareils 83 % · Notifications 75 % · Statistiques et historique
+67 % · Conseils d'économie 58 %.
+
+**Recommandation (H1, base NPS)** : 7 promoteurs (58 %), 3 passifs (25 %),
+2 détracteurs (17 %) → **NPS = +42**.
 
 ## 3. Synthèse qualitative
 
-Regrouper les réponses ouvertes (G1/G2/G3) par **thème**, en comptant les
-récurrences (un point cité plusieurs fois est prioritaire).
+Les premières impressions (B2, en un mot) sont très majoritairement positives et
+tournées vers l'innovation : « impressionnant », « innovante », « bien pensé »,
+« original », « intuitive »…
 
 ### Points positifs (G1)
-- `[thème 1 — nombre de mentions]`
-- `[thème 2 — …]`
+- **Suivi de la consommation en temps réel** — ~5 mentions (« traquer les gros
+  consommateurs », « surveillance en temps réel », « le suivi des données »).
+- **Assistant IA / chatbot** — 2 mentions (« assisté par l'IA pour des
+  conseils », « le chatbot IA, on ne s'y attend pas »).
+- **Qualité de conception** — 1 mention explicite (« respecte les 10
+  heuristiques de Jakob Nielsen »).
 
 ### Problèmes rencontrés (G2)
-- `[problème 1 — nombre de mentions — gravité]`
-- `[problème 2 — …]`
+- **Lenteur / latence d'affichage** — 2 mentions (« lente », « léger moment de
+  latence pour les statistiques ») — gravité faible à moyenne.
+- Aucun bug bloquant signalé : la majorité des répondants indiquent « aucun » /
+  « RAS » / « rien constaté ».
 
 ### Suggestions d'amélioration (G3)
-- `[suggestion 1 — nombre de mentions]`
-- `[suggestion 2 — …]`
+- **Lisibilité en thème sombre** — 1 mention, concrète (« le thème sombre rend
+  certains textes illisibles, il faudrait revoir cela »).
+- **Chatbot** — 1 mention (à préciser).
+- Peu de demandes par ailleurs : plusieurs « RAS » / « déjà au top ».
 
 ## 4. Priorisation des améliorations
 
-Croiser **fréquence** (nombre de mentions) et **impact** (gêne / valeur ajoutée)
-pour décider quoi corriger dans la version révisée.
-
 | Amélioration | Fréquence | Impact | Décision | Justification |
 |--------------|-----------|--------|----------|---------------|
-| `[…]` | `[élevée/moyenne/faible]` | `[élevé/moyen/faible]` | `[retenue / reportée / écartée]` | `[…]` |
+| Réduire la latence d'affichage (surtout statistiques/graphiques) | moyenne | élevé | **Retenue** | C'est l'indicateur le plus bas (E2 = 3,17) et le seul problème récurrent. Recoupe la correction déjà apportée à l'actualisation temps réel de l'accueil. |
+| Améliorer la lisibilité des textes en thème sombre | faible | moyen | **Retenue** | Problème d'accessibilité concret, correctif simple et à forte valeur perçue. |
+| Retour sur le chatbot | faible | à évaluer | **Reportée** | Mention isolée et ambiguë : à clarifier avant tout arbitrage. |
 
 ## 5. Conclusion
 
-`[Synthèse en quelques lignes : niveau de satisfaction global, forces
-principales, axes d'amélioration prioritaires retenus et intégrés à la version
-suivante.]`
+Le niveau de satisfaction est **élevé** : note globale de **4,42/5** et **NPS de
++42**, avec des premières impressions largement enthousiastes. Les deux forces
+qui ressortent nettement sont le **suivi de consommation en temps réel** (testé
+par tous, fonctionnalité préférée) et l'**assistant IA** (testé par 92 % des
+répondants, souvent cité comme un élément différenciant inattendu).
 
----
+L'axe d'amélioration prioritaire est la **performance perçue à l'affichage**
+(dimension la moins bien notée, seul problème réellement récurrent) ; il est
+retenu pour la version suivante, en cohérence avec l'optimisation déjà engagée
+sur l'actualisation temps réel de l'écran d'accueil. La **lisibilité en thème
+sombre** est également retenue comme correctif rapide.
 
-## Exemple illustratif (à remplacer par les données réelles)
-
-> ⚠️ Données fictives, uniquement pour montrer le format attendu.
-
-**Participants** : 8 répondants (5 étudiants, 2 enseignants-experts, 1 partenaire).
-
-| Indicateur | Valeur (exemple) |
-|-----------|------------------|
-| Note globale moyenne | 4,1 / 5 |
-| Ergonomie & clarté | 4,3 / 5 |
-| Performance perçue | 3,6 / 5 |
-| Confiance / sécurité | 3,9 / 5 |
-| Fonctionnalité la plus testée | Suivi de consommation en temps réel (88 %) |
-| Fonctionnalité la plus appréciée | Assistant IA |
-| NPS | +38 |
-
-**Points positifs** : interface moderne et claire (6), suivi temps réel
-convaincant (5), assistant IA apprécié (4).
-
-**Problèmes rencontrés** : léger délai d'affichage des graphiques (3),
-vocabulaire technique par endroits (2).
-
-**Suggestions** : mode hors-ligne (3), export des données de consommation (2).
-
-**Priorisation** : correction du délai d'affichage → *retenue* (fréquence
-moyenne, impact élevé sur la perception de performance) ; export des données →
-*reportée* (valeur réelle mais hors périmètre de la V2).
+**Limite de l'étude** : l'échantillon (12 répondants) est homogène — uniquement
+des étudiants. Les retours reflètent donc surtout la perception de ce public ;
+un panel élargi (clients potentiels, enseignants-experts, partenaires)
+consoliderait ces conclusions.
