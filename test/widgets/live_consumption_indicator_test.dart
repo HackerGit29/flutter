@@ -1,4 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aricie/services/realtime_power_service.dart';
 import 'package:aricie/widgets/live_consumption_indicator.dart';
 
@@ -19,6 +22,14 @@ RealtimePowerReading _reading({
 }
 
 void main() {
+  setUpAll(() async {
+    SharedPreferences.setMockInitialValues({});
+    await Supabase.initialize(
+      url: 'https://placeholder.supabase.co',
+      anonKey: 'placeholder-anon-key',
+    );
+  });
+
   group('isReadingLive', () {
     final now = DateTime(2026, 1, 1, 12, 0, 0);
 
@@ -108,5 +119,41 @@ void main() {
       expect(formatWatts(120.7), '121 W');
       expect(formatWatts(0), '0 W');
     });
+  });
+
+  group('LiveConsumptionIndicator Widget', () {
+    Widget buildTestableWidget(Widget child) {
+      return MaterialApp(
+        home: Scaffold(
+          body: child,
+        ),
+      );
+    }
+
+    testWidgets('renders initial waiting message when no data is received', (WidgetTester tester) async {
+      // pumpWidget dans runAsync : le socket/timer de retry créé par
+      // RealtimePowerService.start() est un vrai Timer, pas un FakeTimer,
+      // donc il n'est pas suivi par le vérificateur !timersPending.
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          buildTestableWidget(
+            const LiveConsumptionIndicator(userId: 'user-123'),
+          ),
+        );
+      });
+      await tester.pump();
+
+      expect(find.text('Conso temps réel'), findsOneWidget);
+      expect(find.text('En attente de télémétrie...'), findsOneWidget);
+      expect(find.text('hors ligne'), findsOneWidget);
+
+      // Dispose le widget dans le même type de zone réelle, pour laisser
+      // la tentative de connexion échouer/se nettoyer proprement.
+      await tester.runAsync(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+      });
+    });
+
   });
 }
