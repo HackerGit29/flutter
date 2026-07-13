@@ -1,3 +1,4 @@
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aricie/core/errors/failures.dart';
 import 'package:aricie/domain/entities/energy_data.dart';
