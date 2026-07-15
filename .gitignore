@@ -51,3 +51,14 @@ supabase/.temp/
 .agents/
 
 .vscode/
+
+# Fichiers générés / artefacts (ne pas versionner)
+/version.json
+/coverage/
+/ios/Podfile
+/macos/Podfile
+
+# Livrables non-code (gardés en local, hors dépôt)
+/livrables/
+/marketing/
+/Questionnaire de retour utilisateur - Aricie.pdf
