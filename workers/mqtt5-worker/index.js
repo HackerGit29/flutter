@@ -285,7 +285,7 @@ async function claimPendingCommand() {
     .eq("id", pending.id)
     .eq("status", "pending")
     .select(
-      "id, box_uid, relay_index, action, appliance_name, created_at",
+      "id, box_uid, relay_index, action, appliance_name, requested_by, created_at",
     )
     .maybeSingle();
 
@@ -302,12 +302,14 @@ function publishCommand(command) {
     const topic =
       `aricie/v1/boxes/${command.box_uid}/relays/${command.relay_index}/cmd`;
 
+    const source = command.requested_by ?? "unknown";
+
     const payload = JSON.stringify({
       command_id: command.id,
       action: command.action,
       relay_index: command.relay_index,
       appliance_name: command.appliance_name,
-      source: "ai_agent",
+      source,
       issued_at: new Date().toISOString(),
     });
 
@@ -324,7 +326,7 @@ function publishCommand(command) {
           contentType: "application/json",
           userProperties: {
             command_id: command.id,
-            source: "ai_agent",
+            source,
             protocol: "mqtt5",
           },
         },
