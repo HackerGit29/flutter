@@ -15,7 +15,10 @@
       "class_name": "Mqtt5Container",
       "image": "./Dockerfile",
       "max_instances": 1,
-      "instance_type": "lite"
+      // "lite" (256 MiB) est trop juste pour Node 22 + mqtt + supabase-js au
+      // chargement : le container crashait au démarrage (instance inactive,
+      // fetch → "Failed to start container"). "basic" (1 GiB) le fait tenir.
+      "instance_type": "basic"
     }
   ],
 
