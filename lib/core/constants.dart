@@ -22,6 +22,12 @@ class AppConstants {
     'MQTT_TCP_PORT',
     defaultValue: flespiTcpPort,
   );
+  // Port WebSocket TLS : EMQX Serverless n'expose que 8084 (WSS, chemin /mqtt)
+  // et 8883 (MQTT/TLS) — pas de port en clair.
+  static const int mqttWssPort = int.fromEnvironment(
+    'MQTT_WSS_PORT',
+    defaultValue: 8084,
+  );
   static const String mqttUsername = String.fromEnvironment(
     'MQTT_USERNAME',
     defaultValue: flespiAppToken,

@@ -11,8 +11,10 @@ import 'mqtt/mqtt_client_factory.dart'
     if (dart.library.js_interop) 'mqtt/mqtt_client_factory_web.dart';
 
 class MqttService {
-  static const int _tcpTlsPort = 8883;
-  static const int _wssPort = 443;
+  // Ports lus depuis la config de build : EMQX Serverless = 8883 (MQTT/TLS)
+  // et 8084 (WSS, chemin /mqtt). Flespi utilisait 443 pour le WSS.
+  static final int _tcpTlsPort = int.tryParse(AppConstants.mqttTcpPort) ?? 8883;
+  static const int _wssPort = AppConstants.mqttWssPort;
   late Mqtt5ClientInterface _client;
 
   late StreamController<MqttConnectionState> _connectionStateController;
