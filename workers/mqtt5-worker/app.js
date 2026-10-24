@@ -88,7 +88,10 @@ async function evaluateLiveTip(userId, applianceId) {
   }
 }
 
-const mqttUrl = `mqtts://${mqttHost}:${mqttPort}`;
+// MQTT_TLS=false → broker de test en clair (EMQX local en container).
+// En production on reste en TLS : les brokers managés l'exigent.
+const mqttScheme = process.env.MQTT_TLS === "false" ? "mqtt" : "mqtts";
+const mqttUrl = `${mqttScheme}://${mqttHost}:${mqttPort}`;
 
 console.log(
   `[MQTT5] Connecting to ${mqttUrl} (user=${mqttToken ? "set" : "missing"}, flespi=${isFlespi})`,
