@@ -35,6 +35,10 @@ export class Mqtt5Container extends Container {
       FLESPI_MQTT_TCP_PORT: env.FLESPI_MQTT_TCP_PORT ?? "8883",
       TIPS_GENERATOR_URL: env.TIPS_GENERATOR_URL ?? "",
     };
+    const presence = Object.entries(this.envVars)
+      .map(([k, v]) => `${k}=${typeof v}`)
+      .join(" ");
+    console.log(`[CF] DO constructor envVars: ${presence}`);
   }
 
   onStart() {
@@ -52,13 +56,62 @@ export class Mqtt5Container extends Container {
 
 export default {
   async fetch(request, env) {
-    const container = env.MQTT5_CONTAINER.getByName("mqtt5-worker");
+    const url = new URL(request.url);
+    const container = env.MQTT5_CONTAINER.getByName("mqtt5-worker-v2");
 
-    // Diagnostic : état perçu par le DO avant proxy.
+    // Diagnostic Worker : longueurs (jamais valeurs) des variables vues par le
+    // runtime du Worker — permet de distinguer "secret absent du Worker" de
+    // "secret présent mais jamais relayé au container".
+    if (url.pathname === "/_diag") {
+      const lens = {};
+      for (const k of [
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "FLESPI_MQTT_WORKER_TOKEN",
+        "FLESPI_MQTT_HOST",
+      ]) {
+        lens[k] = typeof env[k] === "string" ? env[k].length : String(env[k]);
+      }
+      return Response.json({ env_len: lens, env_keys: Object.keys(env).sort() });
+    }
+
+    // Route d'administration : force l'arrêt du container pour qu'au prochain
+    // wake il reparte avec la config envVars courante (le start n'applique
+    // env que quand il part de stopped).
+    if (url.pathname === "/_stop") {
+      await container.stop();
+      await container.destroy();
+      console.log("[CF] container stop+destroy demandé");
+      return new Response("stopped", { status: 200 });
+    }
+
+    // Route d'administration : restart en passant envVars explicitement en
+    // startOptions (contourne this.envVars éventuellement périmé d'un DO
+    // instancié avant le posage des secrets).
+    if (url.pathname === "/_restart") {
+      await container.stop();
+      await container.destroy();
+      const envVars = {
+        SUPABASE_URL: env.SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
+        FLESPI_MQTT_WORKER_TOKEN: env.FLESPI_MQTT_WORKER_TOKEN,
+        FLESPI_MQTT_HOST: env.FLESPI_MQTT_HOST ?? "mqtt.flespi.io",
+        FLESPI_MQTT_TCP_PORT: env.FLESPI_MQTT_TCP_PORT ?? "8883",
+        TIPS_GENERATOR_URL: env.TIPS_GENERATOR_URL ?? "",
+      };
+      await container.start({ envVars });
+      console.log("[CF] restart avec envVars explicites:", Object.keys(envVars).join(","));
+      return new Response("restarted", { status: 200 });
+    }
+
+    // Diagnostic : état perçu par le DO avant proxy + présence (jamais la
+    // valeur) des variables relayées au container.
     try {
       const running = container.container?.running;
-      const doState = await container.state?.getState?.();
-      console.log(`[CF] wake: native_running=${running} do_state=${JSON.stringify(doState)}`);
+      const presence = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "FLESPI_MQTT_WORKER_TOKEN"]
+        .map((k) => `${k}=${typeof env[k]}`)
+        .join(" ");
+      console.log(`[CF] wake: native_running=${running} env: ${presence}`);
     } catch (e) {
       console.log("[CF] wake: diag unavailable:", e?.message ?? e);
     }

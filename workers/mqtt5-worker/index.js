@@ -29,7 +29,28 @@ const REQUIRED_ENV = [
 ];
 
 // Exposé pour que /health reflète l'état MQTT de app.js une fois chargé.
-const appState = { mqttConnected: false, loaded: false, loadMs: null };
+// NB : ce global doit être posé AVANT l'import de app.js — app.js capture
+// `globalThis.__mqtt5App` au chargement du module (sinon bootstrap=undefined
+// et mqtt_connected ne remonte jamais dans /health).
+const appState = {
+  mqttConnected: false,
+  loaded: false,
+  loadMs: null,
+  mqttState: "init",
+  mqttLastError: null,
+};
+
+globalThis.__mqtt5App = {
+  setMqttConnected: (v) => {
+    appState.mqttConnected = v;
+    appState.mqttState = v ? "connected" : "disconnected";
+  },
+  setMqttState: (s, err) => {
+    appState.mqttState = s;
+    if (err) appState.mqttLastError = String(err).slice(0, 300);
+  },
+  setStats: (s) => Object.assign(stats, s),
+};
 
 const healthPort = Number(process.env.PORT ?? 8080);
 
@@ -46,12 +67,41 @@ const healthServer = http.createServer((req, res) => {
         app_loaded: appState.loaded,
         app_load_ms: appState.loadMs,
         mqtt_connected: appState.mqttConnected,
+        mqtt_state: appState.mqttState,
+        mqtt_last_error: appState.mqttLastError,
         uptime_s: Math.round((Date.now() - startedAt) / 1000),
         missing_env: missing,
+        // Noms (jamais valeurs) des variables visibles par le process —
+        // sert à vérifier que startConfig.env de la plateforme est appliqué.
+        env_keys: Object.keys(process.env).sort(),
         fatal_errors: fatalErrors,
         stats,
       }),
     );
+  } else if (req.url === "/diag/supabase") {
+    // Vérifie que le container joint bien Supabase (REST + service role) :
+    // sans ça le polling device_commands échoue silencieusement.
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "env manquant" }));
+      return;
+    }
+    const t0 = Date.now();
+    fetch(`${url}/rest/v1/device_commands?select=id&limit=1`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+      .then(async (r) => ({
+        http_status: r.status,
+        body: (await r.text()).slice(0, 200),
+        ms: Date.now() - t0,
+      }))
+      .catch((e) => ({ error: e?.message ?? String(e), ms: Date.now() - t0 }))
+      .then((result) => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      });
   } else {
     res.writeHead(404, { "Content-Type": "text/plain" });
     res.end("not found");
@@ -78,16 +128,7 @@ process.on("unhandledRejection", (reason) => {
 // --- Chargement de l'app --------------------------------------------------
 const t0 = Date.now();
 try {
-  const app = await import("./app.js");
-
-  // app.js expose son état via globalThis (bricolage minimal, sans refonte).
-  globalThis.__mqtt5App = {
-    setMqttConnected: (v) => {
-      appState.mqttConnected = v;
-    },
-    setStats: (s) => Object.assign(stats, s),
-  };
-
+  await import("./app.js");
   appState.loaded = true;
   appState.loadMs = Date.now() - t0;
   console.log(`[BOOT] app.js chargée en ${appState.loadMs}ms`);

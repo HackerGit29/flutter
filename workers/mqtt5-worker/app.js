@@ -81,6 +81,9 @@ async function evaluateLiveTip(userId, applianceId) {
 
 const mqttUrl = `mqtts://${mqttHost}:${mqttPort}`;
 
+console.log(`[MQTT5] Connecting to ${mqttUrl} (token=${mqttToken ? "set" : "missing"})`);
+bootstrap?.setMqttState?.("connecting");
+
 const client = mqttToken ? mqtt.connect(mqttUrl, {
   protocolVersion: 5,
   username: mqttToken,
@@ -110,7 +113,8 @@ const client = mqttToken ? mqtt.connect(mqttUrl, {
 if (client) {
 client.on("connect", (packet) => {
   console.log(`[MQTT5] Connected to ${mqttUrl}`);
-  bootstrap?.setMqttConnected(true);
+  bootstrap?.setMqttConnected?.(true);
+  bootstrap?.setMqttState?.("connected");
 
   client.subscribe(
     "aricie/v1/boxes/+/relays/+/ack",
@@ -139,13 +143,20 @@ client.on("connect", (packet) => {
 
 client.on("reconnect", () => {
   console.log("[MQTT5] Reconnecting...");
+  bootstrap?.setMqttState?.("reconnecting");
 });
 
 client.on("error", (err) => {
   console.error("[MQTT5] Error:", err);
+  // Remonté dans /health : sans ça un échec de connexion sortante (DNS/TLS
+  // bloqué côté container) est indistinguable d'un worker simplement inactif.
+  bootstrap?.setMqttState?.("error", err?.message ?? err);
 });
 
-client.on("close", () => bootstrap?.setMqttConnected(false));
+client.on("close", () => {
+  bootstrap?.setMqttConnected?.(false);
+  bootstrap?.setMqttState?.("closed");
+});
 }
 
 async function upsertRealtimePower({ applianceId, userId, boxId, payload }) {
