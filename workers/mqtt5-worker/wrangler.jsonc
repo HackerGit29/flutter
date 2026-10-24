@@ -41,10 +41,10 @@
   // Variables non secrètes relayées au container via envVars (worker.js).
   // Les secrets (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MQTT_USERNAME,
   // MQTT_PASSWORD) se posent avec `wrangler secret put <NAME>`.
-  // MQTT_HOST reste sur Flespi tant que le cluster EMQX Serverless n'est pas
-  // créé : basculer ici, aucun rebuild d'image nécessaire.
+  // EMQX Cloud Serverless (plan Dev, région Europe). Serverless n'expose que
+  // 8883 (MQTT over TLS) et 8084 (WSS) — pas de port en clair.
   "vars": {
-    "MQTT_HOST": "mqtt.flespi.io",
+    "MQTT_HOST": "r1aa3902.ala.eu-central-1.emqxsl.com",
     "MQTT_PORT": "8883",
     "TIPS_GENERATOR_URL": ""
   },
