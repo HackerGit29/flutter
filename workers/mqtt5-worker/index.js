@@ -6,10 +6,52 @@ import { createClient } from "@supabase/supabase-js";
 const WORKER_ID = `mqtt5-worker-${process.pid}`;
 const startedAt = Date.now();
 const stats = { telemetryMessages: 0, acksProcessed: 0, commandsSent: 0 };
+const fatalErrors = [];
+
+// --- HTTP de santé : démarré EN PREMIER ---------------------------------
+// Cloudflare Containers bloque les requêtes tant que defaultPort n'écoute pas,
+// et un throw en top-level tue le process (instance "just exited"). On monte
+// donc le serveur avant toute init réseau pour rester observable même cassé.
+const healthPort = Number(process.env.PORT ?? 8080);
+const REQUIRED_ENV = [
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "FLESPI_MQTT_WORKER_TOKEN",
+];
+
+const healthServer = http.createServer((req, res) => {
+  if (req.url === "/health" || req.url === "/") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        status: fatalErrors.length ? "degraded" : "ok",
+        worker_id: WORKER_ID,
+        mqtt_connected: client ? client.connected : false,
+        uptime_s: Math.round((Date.now() - startedAt) / 1000),
+        missing_env: REQUIRED_ENV.filter((k) => !process.env[k]),
+        fatal_errors: fatalErrors,
+        stats,
+      }),
+    );
+  } else {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("not found");
+  }
+});
+
+healthServer.listen(healthPort, () => {
+  console.log(`[HTTP] Health server listening on :${healthPort}`);
+});
+
+// --- Init Supabase (non fatal : le health reste dispo) -------------------
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  fatalErrors.push("SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY manquants");
+  console.error("[FATAL] SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY absent");
+}
 
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  process.env.SUPABASE_URL ?? "http://invalid.supabase.local",
+  process.env.SUPABASE_SERVICE_ROLE_KEY ?? "invalid",
 );
 
 const mqttHost = process.env.FLESPI_MQTT_HOST ?? "mqtt.flespi.io";
@@ -17,7 +59,10 @@ const mqttPort = Number(process.env.FLESPI_MQTT_TCP_PORT ?? 8883);
 const mqttToken = process.env.FLESPI_MQTT_WORKER_TOKEN;
 
 if (!mqttToken) {
-  throw new Error("FLESPI_MQTT_WORKER_TOKEN is required");
+  // Non fatal : sans token, pas de MQTT, mais le container reste vivant et
+  // /health expose missing_env pour diagnostiquer côté Cloudflare.
+  fatalErrors.push("FLESPI_MQTT_WORKER_TOKEN manquant");
+  console.error("[FATAL] FLESPI_MQTT_WORKER_TOKEN absent — MQTT désactivé");
 }
 
 const TIPS_GENERATOR_URL = process.env.TIPS_GENERATOR_URL;
@@ -63,7 +108,7 @@ async function evaluateLiveTip(userId, applianceId) {
 
 const mqttUrl = `mqtts://${mqttHost}:${mqttPort}`;
 
-const client = mqtt.connect(mqttUrl, {
+const client = mqttToken ? mqtt.connect(mqttUrl, {
   protocolVersion: 5,
   username: mqttToken,
   // ponytail: Flespi tokens must be sent as both username and password.
@@ -87,8 +132,9 @@ const client = mqtt.connect(mqttUrl, {
       app: "aricie-mqtt5-worker",
     },
   },
-});
+}) : null;
 
+if (client) {
 client.on("connect", (packet) => {
   console.log(`[MQTT5] Connected to ${mqttUrl}`);
 
@@ -124,6 +170,7 @@ client.on("reconnect", () => {
 client.on("error", (err) => {
   console.error("[MQTT5] Error:", err);
 });
+}
 
 async function upsertRealtimePower({ applianceId, userId, boxId, payload }) {
   if (payload.kwh_total === undefined) return;
@@ -147,7 +194,7 @@ async function upsertRealtimePower({ applianceId, userId, boxId, payload }) {
   }
 }
 
-client.on("message", async (topic, payload, packet) => {
+client?.on("message", async (topic, payload, packet) => {
   try {
     const message = JSON.parse(payload.toString());
 
@@ -343,7 +390,7 @@ function publishCommand(command) {
 }
 
 async function processOneCommand() {
-  if (!client.connected) return;
+  if (!client || !client.connected) return;
 
   const command = await claimPendingCommand();
   if (!command) return;
@@ -400,33 +447,5 @@ async function markTimeoutCommands() {
 
 setInterval(processOneCommand, 1000);
 setInterval(markTimeoutCommands, 10_000);
-
-// --- HTTP de santé ---------------------------------------------------------
-// Cloudflare Containers exige un listener sur le port déclaré (defaultPort)
-// avant de router du trafic vers l'instance. Expose aussi les compteurs
-// pour les tests e2e.
-const healthPort = Number(process.env.PORT ?? 8080);
-
-const healthServer = http.createServer((req, res) => {
-  if (req.url === "/health" || req.url === "/") {
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(
-      JSON.stringify({
-        status: "ok",
-        worker_id: WORKER_ID,
-        mqtt_connected: client.connected,
-        uptime_s: Math.round((Date.now() - startedAt) / 1000),
-        stats,
-      }),
-    );
-  } else {
-    res.writeHead(404, { "Content-Type": "text/plain" });
-    res.end("not found");
-  }
-});
-
-healthServer.listen(healthPort, () => {
-  console.log(`[HTTP] Health server listening on :${healthPort}`);
-});
 
 console.log(`[WORKER] ${WORKER_ID} started in MQTT 5 mode`);
