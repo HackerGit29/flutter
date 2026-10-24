@@ -1,8 +1,11 @@
 import "dotenv/config";
+import http from "node:http";
 import mqtt from "mqtt";
 import { createClient } from "@supabase/supabase-js";
 
 const WORKER_ID = `mqtt5-worker-${process.pid}`;
+const startedAt = Date.now();
+const stats = { telemetryMessages: 0, acksProcessed: 0, commandsSent: 0 };
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -159,6 +162,7 @@ client.on("message", async (topic, payload, packet) => {
       if (appliancesError) {
         console.error("[TELEMETRY] appliances lookup error:", appliancesError);
       } else if (Array.isArray(appliances)) {
+        stats.telemetryMessages += 1;
         // payload peut contenir power_w par relais (relay_index -> watts)
         const relayPowers = message.relay_power_w ?? {};
         for (const appliance of appliances) {
@@ -232,6 +236,7 @@ client.on("message", async (topic, payload, packet) => {
       return;
     }
 
+    stats.acksProcessed += 1;
     console.log(`[ACK] Command ${message.command_id} ${message.success ? 'acknowledged' : 'failed'}`);
 
     // If acknowledged and we have an appliance_id, update appliance.is_on to reflect the action
@@ -361,6 +366,7 @@ async function processOneCommand() {
       return;
     }
 
+    stats.commandsSent += 1;
     console.log(`[CMD] Sent ${command.id} to ${result.topic}`);
   } catch (err) {
     console.error(`[CMD] Publish failed for ${command.id}:`, err);
@@ -394,5 +400,33 @@ async function markTimeoutCommands() {
 
 setInterval(processOneCommand, 1000);
 setInterval(markTimeoutCommands, 10_000);
+
+// --- HTTP de santé ---------------------------------------------------------
+// Cloudflare Containers exige un listener sur le port déclaré (defaultPort)
+// avant de router du trafic vers l'instance. Expose aussi les compteurs
+// pour les tests e2e.
+const healthPort = Number(process.env.PORT ?? 8080);
+
+const healthServer = http.createServer((req, res) => {
+  if (req.url === "/health" || req.url === "/") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        status: "ok",
+        worker_id: WORKER_ID,
+        mqtt_connected: client.connected,
+        uptime_s: Math.round((Date.now() - startedAt) / 1000),
+        stats,
+      }),
+    );
+  } else {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("not found");
+  }
+});
+
+healthServer.listen(healthPort, () => {
+  console.log(`[HTTP] Health server listening on :${healthPort}`);
+});
 
 console.log(`[WORKER] ${WORKER_ID} started in MQTT 5 mode`);
