@@ -8,6 +8,11 @@
 //   - AUCUN cron keep-alive : le worker local WSL/cloudflared assure la
 //     continuité quand le container Cloudflare dort (les deux sont actifs/actifs,
 //     le claim atomique device_commands évite tout double traitement)
+//
+// Diagnostic "The container is not running, consider calling start()" :
+// ce message vient du binding natif getTcpPort().fetch (pas du SDK). On logue
+// l'état DO + running natif avant proxy, et on force un start() + 2e essai si
+// le proxy échoue (état possiblement périmé, cf. cloudflare/workerd#4362).
 
 import { Container } from "@cloudflare/containers";
 
@@ -32,23 +37,59 @@ export class Mqtt5Container extends Container {
     };
   }
 
-  override onStart() {
+  onStart() {
     console.log("[CF] mqtt5-container started");
   }
 
-  override onStop() {
+  onStop() {
     console.log("[CF] mqtt5-container stopped (scale-to-zero)");
   }
 
-  override onError(error) {
+  onError(error) {
     console.error("[CF] mqtt5-container error:", error);
   }
 }
 
 export default {
   async fetch(request, env) {
-    // Wake-on-request : toute requête réveille le container s'il dort.
     const container = env.MQTT5_CONTAINER.getByName("mqtt5-worker");
-    return container.fetch(request);
+
+    // Diagnostic : état perçu par le DO avant proxy.
+    try {
+      const running = container.container?.running;
+      const doState = await container.state?.getState?.();
+      console.log(`[CF] wake: native_running=${running} do_state=${JSON.stringify(doState)}`);
+    } catch (e) {
+      console.log("[CF] wake: diag unavailable:", e?.message ?? e);
+    }
+
+    // container.fetch → containerFetch() du SDK : startAndWaitForPorts si
+    // nécessaire puis proxy TCP vers defaultPort. Un échec de démarrage arrive
+    // en Response 500 (pas en throw) : on détecte ce corps pour réessayer avec
+    // un start() explicite, contournant l'état interne périmé du DO.
+    let res;
+    try {
+      res = await container.fetch(request);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[CF] proxy throw, retry avec start() explicite:", msg);
+      res = null;
+    }
+
+    if (res && res.status === 500) {
+      const body = await res.clone().text().catch(() => "");
+      if (body.includes("Failed to start container")) {
+        console.error("[CF] start refusé, retry start() + fetch:", body.slice(0, 300));
+        try {
+          await container.start();
+          res = await container.fetch(request);
+        } catch (err2) {
+          const msg2 = err2 instanceof Error ? err2.message : String(err2);
+          console.error("[CF] retry échec:", msg2);
+          return new Response(`Failed to start container: ${msg2}`, { status: 500 });
+        }
+      }
+    }
+    return res;
   },
 };
