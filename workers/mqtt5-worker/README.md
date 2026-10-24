@@ -41,16 +41,20 @@ et `env_keys` (noms seulement, jamais les valeurs).
 |----------|-------------|---------|--------|
 | `SUPABASE_URL` | Supabase project URL | — | `wrangler secret` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (bypass RLS) | — | `wrangler secret` |
-| `MQTT_HOST` | Broker MQTT 5 (EMQX Cloud Serverless) | `mqtt.flespi.io` (legacy) | `vars` (wrangler.jsonc) |
-| `MQTT_PORT` | Port TCP TLS | `8883` | `vars` (wrangler.jsonc) |
+| `MQTT_HOST` | Broker MQTT 5 (EMQX Cloud Serverless) | `r1aa3902.ala.eu-central-1.emqxsl.com` | `vars` (wrangler.jsonc) |
+| `MQTT_PORT` | Port TCP TLS (le plan Serverless n'expose pas 1883) | `8883` | `vars` (wrangler.jsonc) |
 | `MQTT_USERNAME` | Utilisateur broker (droit publish `.../relays/+/cmd`, subscribe `.../ack` + `.../telemetry`) | — | `wrangler secret` |
 | `MQTT_PASSWORD` | Mot de passe broker | = `MQTT_USERNAME` | `wrangler secret` |
+
+Côté Flutter (web), le client se connecte en **WSS 8084** avec le chemin `/mqtt` :
+`--dart-define=MQTT_WSS_PORT=8084` (défaut). En natif c'est `MQTT_TCP_PORT=8883`.
 
 ### Legacy Flespi
 
 Les anciens noms restent lus en repli (`FLESPI_MQTT_HOST`, `FLESPI_MQTT_TCP_PORT`,
 `FLESPI_MQTT_WORKER_TOKEN`) : le token sert alors de username **et** de password,
-et la propriété `freeze_timeout` est envoyée uniquement à ce broker.
+et la propriété `freeze_timeout` est envoyée uniquement à ce broker. L'ancien
+broker est abandonné (tokens révoqués, cf. issue #37).
 
 ## Build & Deploy
 
@@ -64,6 +68,7 @@ et la propriété `freeze_timeout` est envoyée uniquement à ce broker.
 | Instance type | `basic` (1 GiB — `lite` crashait au chargement de Node + mqtt + supabase-js) |
 | `sleepAfter` | `10m` — au-delà, le relais local WSL prend la main |
 | DO | `Mqtt5Container` (`MQTT5_CONTAINER`), storage sqlite |
+| Broker | EMQX Cloud Serverless — déploiement `dev`, région Europe, `r1aa3902.ala.eu-central-1.emqxsl.com` (8883 MQTT/TLS, 8084 WSS `/mqtt`) |
 
 > Les services Azure (Container Apps, ACR, build-vm) ont été **supprimés** :
 > l'abonnement a pris fin. Le build Docker passe par Docker local (WSL Debian),
@@ -115,6 +120,10 @@ curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/_stop
 curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/_restart  # stop + start avec envVars explicites
 curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/_diag     # longueurs des secrets vus par le Worker
 ```
+
+Bascule de broker (testée le 2026-10-24) : `MQTT_HOST` / `MQTT_PORT` dans `vars`,
+`MQTT_USERNAME` / `MQTT_PASSWORD` en secrets, `wrangler deploy`, `/_stop`, puis
+`/health` doit passer de `connecting` à `connected` en ~10 s.
 
 ## Vérification
 
