@@ -1,0 +1,50 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "aricie-mqtt5-worker",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+
+  // Container : l'image est buildée depuis le Dockerfile de ce dossier.
+  // max_instances = 1 car le claim des device_commands est déjà atomique et
+  // un seul client MQTT par boîtier suffit (redondance gérée par le failover
+  // local WSL/cloudflared, pas par des instances Cloudflare multiples).
+  // AUCUN triggers.crons : pas de keep-alive payant sur Cloudflare, le
+  // container dort après sleepAfter (10m) et le relais local assure la suite.
+  "containers": [
+    {
+      "class_name": "Mqtt5Container",
+      "image": "./Dockerfile",
+      "max_instances": 1,
+      "instance_type": "lite"
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MQTT5_CONTAINER",
+        "class_name": "Mqtt5Container"
+      }
+    ]
+  },
+
+  "exports": {
+    "Mqtt5Container": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+
+  // Variables non secrètes relayées au container via envVars dans worker.js.
+  // Les secrets (SUPABASE_SERVICE_ROLE_KEY, FLESPI_MQTT_WORKER_TOKEN,
+  // SUPABASE_URL) se posent avec `wrangler secret put <NAME>`.
+  "vars": {
+    "FLESPI_MQTT_HOST": "mqtt.flespi.io",
+    "FLESPI_MQTT_TCP_PORT": "8883",
+    "TIPS_GENERATOR_URL": ""
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}
