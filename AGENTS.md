@@ -208,12 +208,20 @@ dart run flutter_launcher_icons        # Regenerate app icons
 flutter build apk --obfuscate --split-debug-info=build/obfuscation/  # Release build
 ```
 
-## MQTT — Architecture des tokens
+## MQTT — Architecture des credentials
 
-| Composant | Token Flespi | Permissions | Usage |
-|-----------|-------------|-------------|-------|
-| Worker (`mqtt5-worker`) | `FLESPI_MQTT_WORKER_TOKEN` | PUBLISH cmd, SUBSCRIBE ack | Envoi commandes aux boitiers |
-| App Flutter | `FLESPI_MQTT_APP_TOKEN` | SUBSCRIBE telemetry/status | Recuperer donnees capteurs en temps reel |
+Broker cible : **EMQX Cloud Serverless** (MQTT 5, TLS 8883). Les noms `FLESPI_*`
+restent lus en repli (cf. `AGENTS.md` → issue #37) mais aucun nouveau token Flespi
+n'est accepté (tous révoqués).
+
+| Composant | Variables | Permissions | Usage |
+|-----------|-----------|-------------|-------|
+| Worker (`mqtt5-worker`) | `MQTT_USERNAME` / `MQTT_PASSWORD` | PUBLISH `.../relays/+/cmd`, SUBSCRIBE `.../ack` + `.../telemetry` | Envoi commandes aux boitiers |
+| App Flutter | `MQTT_USERNAME` / `MQTT_PASSWORD` (`--dart-define`) | SUBSCRIBE telemetry/status | Recuperer donnees capteurs en temps reel |
+| Simulateur / ESP32 | `MQTT_HOST` / `MQTT_PORT` / `MQTT_USERNAME` / `MQTT_PASSWORD` | PUBLISH telemetry/status/ack | Tests e2e |
+
+Legacy Flespi : un seul token sert de username **et** de password
+(`FLESPI_MQTT_WORKER_TOKEN` / `FLESPI_MQTT_APP_TOKEN`).
 
 ### Flux de commandes
 
@@ -233,6 +241,7 @@ Flutter → Edge Function (agent-orchestrator) → device_commands (BDD)
 - `force: true` dans `initialize()` ne recrée PAS `_connectionStateController` — les `StreamBuilder` déjà montés gardent leur abonnement
 - En cas de connexion échouée, `_scheduleReconnect()` tente une reconnexion après 5s
 - Si pas d'appareils et pas de `FLESPI_DEFAULT_BOX_UID` : connexion MQTT skipée, pas de notification
+- Credentials : `AppConstants.mqttHost` / `mqttTcpPort` / `mqttUsername` / `mqttPassword` (dart-define `MQTT_HOST`, `MQTT_TCP_PORT`, `MQTT_USERNAME`, `MQTT_PASSWORD`), avec repli automatique sur les constantes Flespi
 
 ## MQTT5 Worker — Build & Deploy
 

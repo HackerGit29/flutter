@@ -41,9 +41,16 @@ et `env_keys` (noms seulement, jamais les valeurs).
 |----------|-------------|---------|--------|
 | `SUPABASE_URL` | Supabase project URL | — | `wrangler secret` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (bypass RLS) | — | `wrangler secret` |
-| `FLESPI_MQTT_WORKER_TOKEN` | Token Flespi pour auth MQTT | — | `wrangler secret` |
-| `FLESPI_MQTT_HOST` | Broker MQTT host | `mqtt.flespi.io` | `vars` (wrangler.jsonc) |
-| `FLESPI_MQTT_TCP_PORT` | Port TCP TLS | `8883` | `vars` (wrangler.jsonc) |
+| `MQTT_HOST` | Broker MQTT 5 (EMQX Cloud Serverless) | `mqtt.flespi.io` (legacy) | `vars` (wrangler.jsonc) |
+| `MQTT_PORT` | Port TCP TLS | `8883` | `vars` (wrangler.jsonc) |
+| `MQTT_USERNAME` | Utilisateur broker (droit publish `.../relays/+/cmd`, subscribe `.../ack` + `.../telemetry`) | — | `wrangler secret` |
+| `MQTT_PASSWORD` | Mot de passe broker | = `MQTT_USERNAME` | `wrangler secret` |
+
+### Legacy Flespi
+
+Les anciens noms restent lus en repli (`FLESPI_MQTT_HOST`, `FLESPI_MQTT_TCP_PORT`,
+`FLESPI_MQTT_WORKER_TOKEN`) : le token sert alors de username **et** de password,
+et la propriété `freeze_timeout` est envoyée uniquement à ce broker.
 
 ## Build & Deploy
 
@@ -71,12 +78,16 @@ Les secrets se posent sur le **Worker** ; `worker.js` les relaie au container vi
 cd workers/mqtt5-worker
 wrangler secret put SUPABASE_URL
 wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-wrangler secret put FLESPI_MQTT_WORKER_TOKEN
+wrangler secret put MQTT_USERNAME
+wrangler secret put MQTT_PASSWORD
 ```
 
+Basculer d'un broker à l'autre ne demande **aucun rebuild d'image** : `MQTT_HOST`
+/ `MQTT_PORT` sont dans `vars` (wrangler.jsonc), les credentials dans les secrets.
+
 Un secret posé **vide** est accepté par l'API mais produit une connexion refusée
-côté broker. Vérifier avec `/_diag` : les longueurs attendues sont 40 (URL),
-219 (service role) et 64 (token Flespi).
+côté broker. Vérifier avec `/_diag` : les longueurs de `SUPABASE_URL` et de
+`MQTT_USERNAME` / `MQTT_PASSWORD` doivent être non nulles.
 
 ### Déploiement
 

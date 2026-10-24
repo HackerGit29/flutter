@@ -22,10 +22,12 @@ const startedAt = Date.now();
 const fatalErrors = [];
 const stats = { telemetryMessages: 0, acksProcessed: 0, commandsSent: 0 };
 
+// Les credentials MQTT ne sont pas listés ici : deux variantes existent
+// (MQTT_USERNAME/MQTT_PASSWORD, ou l'ancien FLESPI_MQTT_WORKER_TOKEN) — leur
+// absence est signalée par `mqtt_state`. Seul Supabase est obligatoire.
 const REQUIRED_ENV = [
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
-  "FLESPI_MQTT_WORKER_TOKEN",
 ];
 
 // Exposé pour que /health reflète l'état MQTT de app.js une fois chargé.

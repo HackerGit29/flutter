@@ -28,7 +28,8 @@ class MqttService {
   bool _initialized = false;
 
   String? _boxUid;
-  String? _mqttToken;
+  String? _mqttUsername;
+  String? _mqttPassword;
 
   Stream<MqttConnectionState> get connectionState =>
       _connectionStateController.stream;
@@ -69,14 +70,18 @@ class MqttService {
       _telemetryController = StreamController<BoxTelemetry>.broadcast();
     }
 
-    // boxUid is optional — a sensible default ("app") is used when missing,
-    // and the token falls back to the dart-defined Flespi app token.
+    // boxUid is optional — a sensible default ("app") is used when missing.
     _boxUid = boxUid ?? 'app';
-    _mqttToken = mqttToken ?? AppConstants.flespiAppToken;
+    // Credentials : soit passés explicitement (mqttToken = couple unique type
+    // Flespi), soit lus dans la config de build MQTT_USERNAME / MQTT_PASSWORD
+    // (repli automatique sur FLESPI_MQTT_APP_TOKEN, cf. AppConstants).
+    _mqttUsername = mqttToken ?? AppConstants.mqttUsername;
+    _mqttPassword = mqttToken ?? AppConstants.mqttPassword;
 
-    if (_mqttToken == null || _mqttToken!.isEmpty) {
+    if (_mqttUsername == null || _mqttUsername!.isEmpty) {
       throw ArgumentError(
-        'MQTT token missing — pass one or define FLESPI_MQTT_APP_TOKEN at build time',
+        'MQTT credentials missing — define MQTT_USERNAME / MQTT_PASSWORD at build time '
+        '(legacy: FLESPI_MQTT_APP_TOKEN)',
       );
     }
 
@@ -90,7 +95,7 @@ class MqttService {
       _client = createMqttClient();
 
       await _client.initialize(
-        host: AppConstants.flespiHost,
+        host: AppConstants.mqttHost,
         port: kIsWeb ? _wssPort : _tcpTlsPort,
         clientId: clientId,
         useWebSocket: kIsWeb,
@@ -98,12 +103,12 @@ class MqttService {
       );
 
       _client.setCredentials(
-        username: _mqttToken!,
-        // ponytail: Flespi tokens must be sent as both username and password.
-        // Sending password="" makes some MQTT5 stacks encode a malformed
-        // packet (Password flag set but length 0), which Flespi rejects
-        // with badUsernameOrPassword. Mirror the token to the password.
-        password: _mqttToken!,
+        username: _mqttUsername!,
+        // Flespi : le token doit être envoyé en username ET password (un
+        // password vide produit un paquet MQTT5 malformé, refusé avec
+        // badUsernameOrPassword). AppConstants.mqttPassword retombe donc sur
+        // le username quand MQTT_PASSWORD n'est pas défini.
+        password: _mqttPassword!,
       );
 
       _client.setOnConnected(() => _onConnected(_boxUid!));
@@ -118,7 +123,10 @@ class MqttService {
       _initialized = true;
     } catch (e) {
       debugPrint('[MQTT5] Connexion impossible: $e');
-      debugPrint('[MQTT5] boxUid=$_boxUid tokenLength=${_mqttToken?.length}');
+      debugPrint(
+        '[MQTT5] boxUid=$_boxUid host=${AppConstants.mqttHost} '
+        'userLength=${_mqttUsername?.length}',
+      );
 
       _connectionStateController.add(MqttConnectionState.disconnected);
 
@@ -205,15 +213,13 @@ class MqttService {
 
   void _scheduleReconnect() {
     final boxUid = _boxUid;
-    final mqttToken = _mqttToken;
 
-    if (boxUid == null || mqttToken == null) return;
+    if (boxUid == null) return;
 
+    // initialize() sans credentials explicites : ils sont relus depuis la
+    // config de build (MQTT_USERNAME / MQTT_PASSWORD).
     Timer(const Duration(seconds: 5), () {
-      initialize(
-        boxUid: boxUid,
-        mqttToken: mqttToken,
-      );
+      initialize(boxUid: boxUid);
     });
   }
 

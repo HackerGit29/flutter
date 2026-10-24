@@ -38,12 +38,14 @@
     }
   },
 
-  // Variables non secrètes relayées au container via envVars dans worker.js.
-  // Les secrets (SUPABASE_SERVICE_ROLE_KEY, FLESPI_MQTT_WORKER_TOKEN,
-  // SUPABASE_URL) se posent avec `wrangler secret put <NAME>`.
+  // Variables non secrètes relayées au container via envVars (worker.js).
+  // Les secrets (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MQTT_USERNAME,
+  // MQTT_PASSWORD) se posent avec `wrangler secret put <NAME>`.
+  // MQTT_HOST reste sur Flespi tant que le cluster EMQX Serverless n'est pas
+  // créé : basculer ici, aucun rebuild d'image nécessaire.
   "vars": {
-    "FLESPI_MQTT_HOST": "mqtt.flespi.io",
-    "FLESPI_MQTT_TCP_PORT": "8883",
+    "MQTT_HOST": "mqtt.flespi.io",
+    "MQTT_PORT": "8883",
     "TIPS_GENERATOR_URL": ""
   },
 

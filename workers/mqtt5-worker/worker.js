@@ -16,6 +16,21 @@
 
 import { Container } from "@cloudflare/containers";
 
+// Env relayé au container. Les secrets se lisent sur `env` (Worker secrets),
+// le reste vient de `vars` (wrangler.jsonc).
+function buildMqttEnvVars(env) {
+  const username = env.MQTT_USERNAME ?? env.FLESPI_MQTT_WORKER_TOKEN;
+  return {
+    SUPABASE_URL: env.SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
+    MQTT_HOST: env.MQTT_HOST ?? env.FLESPI_MQTT_HOST ?? "mqtt.flespi.io",
+    MQTT_PORT: env.MQTT_PORT ?? env.FLESPI_MQTT_TCP_PORT ?? "8883",
+    MQTT_USERNAME: username,
+    MQTT_PASSWORD: env.MQTT_PASSWORD ?? username,
+    TIPS_GENERATOR_URL: env.TIPS_GENERATOR_URL ?? "",
+  };
+}
+
 export class Mqtt5Container extends Container {
   defaultPort = 8080;
   // Dors 10 min après une période d'inactivité puis scale à zéro.
@@ -27,14 +42,9 @@ export class Mqtt5Container extends Container {
     // Variables d'environnement injectées dans le container au démarrage.
     // Les secrets (SUPABASE_SERVICE_ROLE_KEY, FLESPI_MQTT_WORKER_TOKEN) sont
     // posés via `wrangler secret put` sur le Worker puis relayés ici.
-    this.envVars = {
-      SUPABASE_URL: env.SUPABASE_URL,
-      SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
-      FLESPI_MQTT_WORKER_TOKEN: env.FLESPI_MQTT_WORKER_TOKEN,
-      FLESPI_MQTT_HOST: env.FLESPI_MQTT_HOST ?? "mqtt.flespi.io",
-      FLESPI_MQTT_TCP_PORT: env.FLESPI_MQTT_TCP_PORT ?? "8883",
-      TIPS_GENERATOR_URL: env.TIPS_GENERATOR_URL ?? "",
-    };
+    // Credentials MQTT : noms génériques (MQTT_USERNAME / MQTT_PASSWORD) pour
+    // EMQX Cloud Serverless, avec repli sur l'ancien token Flespi.
+    this.envVars = buildMqttEnvVars(env);
     const presence = Object.entries(this.envVars)
       .map(([k, v]) => `${k}=${typeof v}`)
       .join(" ");
@@ -67,6 +77,9 @@ export default {
       for (const k of [
         "SUPABASE_URL",
         "SUPABASE_SERVICE_ROLE_KEY",
+        "MQTT_HOST",
+        "MQTT_USERNAME",
+        "MQTT_PASSWORD",
         "FLESPI_MQTT_WORKER_TOKEN",
         "FLESPI_MQTT_HOST",
       ]) {
@@ -91,14 +104,7 @@ export default {
     if (url.pathname === "/_restart") {
       await container.stop();
       await container.destroy();
-      const envVars = {
-        SUPABASE_URL: env.SUPABASE_URL,
-        SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
-        FLESPI_MQTT_WORKER_TOKEN: env.FLESPI_MQTT_WORKER_TOKEN,
-        FLESPI_MQTT_HOST: env.FLESPI_MQTT_HOST ?? "mqtt.flespi.io",
-        FLESPI_MQTT_TCP_PORT: env.FLESPI_MQTT_TCP_PORT ?? "8883",
-        TIPS_GENERATOR_URL: env.TIPS_GENERATOR_URL ?? "",
-      };
+      const envVars = buildMqttEnvVars(env);
       await container.start({ envVars });
       console.log("[CF] restart avec envVars explicites:", Object.keys(envVars).join(","));
       return new Response("restarted", { status: 200 });
@@ -108,7 +114,7 @@ export default {
     // valeur) des variables relayées au container.
     try {
       const running = container.container?.running;
-      const presence = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "FLESPI_MQTT_WORKER_TOKEN"]
+      const presence = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "MQTT_USERNAME"]
         .map((k) => `${k}=${typeof env[k]}`)
         .join(" ");
       console.log(`[CF] wake: native_running=${running} env: ${presence}`);
