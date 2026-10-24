@@ -177,6 +177,7 @@ Gestion du **nom d'affichage** de l'utilisateur, stocké dans les métadonnées 
 | Container app | `aricie-mqtt5-worker-mqtt5container` |
 | Registre | `registry.cloudflare.com` |
 | Instance type | `basic` (1 GiB) |
+| Broker MQTT | EMQX Cloud Serverless — `r1aa3902.ala.eu-central-1.emqxsl.com` (8883 MQTT/TLS, 8084 WSS `/mqtt`, pas de port en clair) |
 
 Le worker tourne dans **Cloudflare Containers** (wrapper `worker.js` + Durable
 Object `Mqtt5Container`). Les services Azure (Container Apps, ACR, build-vm) ont

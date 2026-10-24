@@ -20,9 +20,9 @@ flutter build apk --obfuscate --split-debug-info=build/obfuscation/
 | State        | Riverpod (preferred) + Provider (theme only)                                             |
 | Backend      | Supabase (auth, realtime streams, PostgreSQL, Edge Functions)                            |
 | AI Agent     | Supabase Edge Functions + Azure Phi-4-mini-instruct (chat) / Azure OpenAI (tool calling) |
-| MQTT         | MQTT 5.0 via flespi broker, `mqtt5_client`, Node.js worker (mqtt.js v5)                  |
+| MQTT         | MQTT 5.0 via EMQX Cloud Serverless (Europe, déploiement `dev`), `mqtt5_client`, Node.js worker (mqtt.js v5) |
 | RAG          | pgvector (chat_embeddings, owner_id scopé)                                               |
-| IoT          | MQTT 5.0 via `mqtt5_client` (TCP TLS `mqtt.flespi.io:8883`, WSS `mqtt.flespi.io:443`)    |
+| IoT          | MQTT 5.0 via `mqtt5_client` (TCP TLS `r1aa3902.ala.eu-central-1.emqxsl.com:8883`, WSS `:8084/mqtt`) |
 | Voice        | `speech_to_text` (STT) + `flutter_tts` (TTS) ✅ Migré vers Azure gpt-4o-transcribe (STT) + Azure Neural TTS (TTS) via Edge Functions |
 | Design       | Soft Wellness Minimalism — seed `#4A6572`, DM Sans, pastel palette                       |
 | Architecture | Clean Architecture (`core/` → `data/` → `domain/` → `presentation/`)                     |
@@ -63,7 +63,7 @@ lib/
   services/                  ← External service integrations
     agent_service.dart       ← SSE client → Edge Function agent-orchestrator
     voice_service.dart       ← STT (speech_to_text) + TTS (flutter_tts)
-    mqtt_service.dart        ← MQTT 5.0 (flespi broker, telemetry/status only)
+    mqtt_service.dart        ← MQTT 5.0 (EMQX broker, telemetry/status only)
     auth_service.dart        ← Auth wrapper
     notification_service.dart← Notifications
     mqtt/
@@ -210,9 +210,11 @@ flutter build apk --obfuscate --split-debug-info=build/obfuscation/  # Release b
 
 ## MQTT — Architecture des credentials
 
-Broker cible : **EMQX Cloud Serverless** (MQTT 5, TLS 8883). Les noms `FLESPI_*`
-restent lus en repli (cf. `AGENTS.md` → issue #37) mais aucun nouveau token Flespi
-n'est accepté (tous révoqués).
+Broker en production : **EMQX Cloud Serverless** (MQTT 5), déploiement `dev`,
+région Europe → `r1aa3902.ala.eu-central-1.emqxsl.com`. Serverless n'expose que
+**8883 (MQTT over TLS)** et **8084 (WSS, chemin `/mqtt`)** : pas de port en clair.
+Les noms `FLESPI_*` restent lus en repli dans le code, mais l'ancien broker est
+abandonné (tokens révoqués, cf. issue #37).
 
 | Composant | Variables | Permissions | Usage |
 |-----------|-----------|-------------|-------|
@@ -286,7 +288,8 @@ wsl -d Debian -u root -- bash -c "cd '<repo>/workers/mqtt5-worker' && wrangler d
 # Secrets (posés sur le Worker, relayés au container par worker.js)
 wrangler secret put SUPABASE_URL
 wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-wrangler secret put FLESPI_MQTT_WORKER_TOKEN
+wrangler secret put MQTT_USERNAME
+wrangler secret put MQTT_PASSWORD
 ```
 
 ### Vérification
@@ -305,7 +308,7 @@ vivant. Lecture des champs :
 ```
 
 - `missing_env` non vide → secrets absents ou posés **vides** (l'API accepte le vide)
-- `mqtt_state: closed` + `Bad User Name or Password` → token Flespi expiré
+- `mqtt_state: closed` + `Bad User Name or Password` → credentials refusés par EMQX (utilisateur supprimé/régénéré dans le dashboard)
 - `/diag/supabase` ≠ 200 → URL/clé Supabase invalides
 
 ### Documentation
