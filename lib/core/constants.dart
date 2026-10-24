@@ -9,6 +9,27 @@ class AppConstants {
   // app at a specific hardware box (e.g. ESP32-A1B2C3D4) when the user has no
   // appliance bound yet. Empty default = keep the 'app' fallback.
   static const String flespiDefaultBoxUid = String.fromEnvironment('FLESPI_DEFAULT_BOX_UID', defaultValue: '');
+
+  // Broker MQTT 5 (EMQX Cloud Serverless). Les noms `flespi*` ci-dessus restent
+  // supportés en repli pour ne pas casser les builds existants : dès que
+  // MQTT_HOST / MQTT_USERNAME / MQTT_PASSWORD sont passés en --dart-define,
+  // ils prennent le dessus.
+  static const String mqttHost = String.fromEnvironment(
+    'MQTT_HOST',
+    defaultValue: flespiHost,
+  );
+  static const String mqttTcpPort = String.fromEnvironment(
+    'MQTT_TCP_PORT',
+    defaultValue: flespiTcpPort,
+  );
+  static const String mqttUsername = String.fromEnvironment(
+    'MQTT_USERNAME',
+    defaultValue: flespiAppToken,
+  );
+  static const String mqttPassword = String.fromEnvironment(
+    'MQTT_PASSWORD',
+    defaultValue: mqttUsername,
+  );
   static const Duration syncTimeout = Duration(seconds: 30);
   static const int syncRateLimitPerMinute = 10;
   static const int adminActionRateLimitPerMinute = 5;

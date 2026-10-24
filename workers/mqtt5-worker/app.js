@@ -11,7 +11,6 @@ const fatalErrors = [];
 const REQUIRED_ENV = [
   "SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
-  "FLESPI_MQTT_WORKER_TOKEN",
 ];
 
 const bootstrap = globalThis.__mqtt5App;
@@ -27,15 +26,25 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY ?? "invalid",
 );
 
-const mqttHost = process.env.FLESPI_MQTT_HOST ?? "mqtt.flespi.io";
-const mqttPort = Number(process.env.FLESPI_MQTT_TCP_PORT ?? 8883);
-const mqttToken = process.env.FLESPI_MQTT_WORKER_TOKEN;
+// Broker MQTT 5 : config générique (MQTT_HOST / MQTT_PORT / MQTT_USERNAME /
+// MQTT_PASSWORD) avec repli sur les noms historiques Flespi.
+const mqttHost = process.env.MQTT_HOST ?? process.env.FLESPI_MQTT_HOST ?? "mqtt.flespi.io";
+const mqttPort = Number(
+  process.env.MQTT_PORT ?? process.env.FLESPI_MQTT_TCP_PORT ?? 8883,
+);
+// Legacy : le token Flespi sert de username ET de password.
+const mqttToken = process.env.MQTT_USERNAME ?? process.env.FLESPI_MQTT_WORKER_TOKEN;
+const mqttPassword = process.env.MQTT_PASSWORD ?? mqttToken;
+const isFlespi = Boolean(process.env.FLESPI_MQTT_WORKER_TOKEN) &&
+  !process.env.MQTT_USERNAME;
 
 if (!mqttToken) {
-  // Non fatal : sans token, pas de MQTT, mais le container reste vivant et
-  // /health expose missing_env pour diagnostiquer côté Cloudflare.
-  fatalErrors.push("FLESPI_MQTT_WORKER_TOKEN manquant");
-  console.error("[FATAL] FLESPI_MQTT_WORKER_TOKEN absent — MQTT désactivé");
+  // Non fatal : sans credentials, pas de MQTT, mais le container reste vivant
+  // et /health expose l'erreur pour diagnostiquer côté Cloudflare.
+  fatalErrors.push("MQTT_USERNAME / FLESPI_MQTT_WORKER_TOKEN manquant");
+  console.error(
+    "[FATAL] MQTT_USERNAME (ou FLESPI_MQTT_WORKER_TOKEN) absent — MQTT désactivé",
+  );
 }
 
 const TIPS_GENERATOR_URL = process.env.TIPS_GENERATOR_URL;
@@ -81,17 +90,18 @@ async function evaluateLiveTip(userId, applianceId) {
 
 const mqttUrl = `mqtts://${mqttHost}:${mqttPort}`;
 
-console.log(`[MQTT5] Connecting to ${mqttUrl} (token=${mqttToken ? "set" : "missing"})`);
+console.log(
+  `[MQTT5] Connecting to ${mqttUrl} (user=${mqttToken ? "set" : "missing"}, flespi=${isFlespi})`,
+);
 bootstrap?.setMqttState?.("connecting");
 
 const client = mqttToken ? mqtt.connect(mqttUrl, {
   protocolVersion: 5,
   username: mqttToken,
-  // ponytail: Flespi tokens must be sent as both username and password.
-  // Sending password="" makes some MQTT5 stacks encode a malformed packet
-  // (Password flag set, length 0), which Flespi rejects with
-  // badUsernameOrPassword. Mirror the token to the password.
-  password: mqttToken,
+  // Flespi : token en username ET password (un password vide produit un
+  // paquet MQTT5 malformé, refusé en badUsernameOrPassword). Sur un broker
+  // standard, MQTT_PASSWORD porte le vrai mot de passe.
+  password: mqttPassword,
   clientId: `aricie-worker-${Date.now()}`,
 
   clean: true,
@@ -103,8 +113,10 @@ const client = mqttToken ? mqtt.connect(mqttUrl, {
   properties: {
     sessionExpiryInterval: 0,
 
+    // `freeze_timeout` est une propriété propriétaire Flespi (garde la session
+    // après déconnexion) : on ne l'envoie que sur ce broker.
     userProperties: {
-      freeze_timeout: "120",
+      ...(isFlespi ? { freeze_timeout: "120" } : {}),
       app: "aricie-mqtt5-worker",
     },
   },

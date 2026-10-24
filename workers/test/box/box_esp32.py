@@ -2,20 +2,29 @@
 box_esp32.py — Simulateur ESP32 pour le système Aricie.
 
 Reproduit le comportement attendu d'un boîtier physique ESP32 :
-  - Connexion TLS à Flespi MQTT (mqtt.flespi.io:8883)
+  - Connexion TLS MQTT 5 (EMQX Cloud Serverless par défaut, Flespi toléré)
   - Publie télémétrie toutes les 5 secondes
   - Publie status au démarrage
   - Souscrit aux commandes de relais
   - Acquitte chaque commande reçue
 
 Usage :
-  python box_esp32.py <boxUid> <flespi_token>
+  python box_esp32.py <boxUid> [username] [password]
 
-Exemple :
-  python box_esp32.py ESP32-A1B2C3D4 <votre_token_flespi>
+  Les credentials viennent des arguments, sinon de l'environnement :
+    MQTT_HOST (défaut mqtt.flespi.io), MQTT_PORT (8883),
+    MQTT_USERNAME, MQTT_PASSWORD
+  En legacy Flespi, un seul token suffit (il sert de username ET password).
+
+Exemples :
+  python box_esp32.py ESP32-A1B2C3D4
+  MQTT_HOST=abc123.ala.dedicated.emqx.cloud \
+    MQTT_USERNAME=worker-pub MQTT_PASSWORD=secret \
+    python box_esp32.py ESP32-A1B2C3D4
 """
 
 import json
+import os
 import random
 import signal
 import ssl
@@ -25,16 +34,29 @@ import re
 
 import paho.mqtt.client as mqtt
 
-HOST = "mqtt.flespi.io"
-PORT = 8883
+HOST = os.environ.get("MQTT_HOST", os.environ.get("FLESPI_MQTT_HOST", "mqtt.flespi.io"))
+PORT = int(os.environ.get("MQTT_PORT", os.environ.get("FLESPI_MQTT_TCP_PORT", "8883")))
 TELEMETRY_INTERVAL = 2  # secondes
 
-if len(sys.argv) < 3:
-    print(f"Usage: {sys.argv[0]} <boxUid> <flespi_token>", file=sys.stderr)
+if len(sys.argv) < 2:
+    print(f"Usage: {sys.argv[0]} <boxUid> [username] [password]", file=sys.stderr)
     sys.exit(1)
 
 BOX_UID = sys.argv[1]
-TOKEN = sys.argv[2]
+# Legacy : un seul argument = couple token (username = password), comme Flespi.
+_USERNAME = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("MQTT_USERNAME")
+_PASSWORD = (
+    sys.argv[3]
+    if len(sys.argv) > 3
+    else os.environ.get("MQTT_PASSWORD", _USERNAME)
+)
+
+if not _USERNAME:
+    print(
+        "Erreur: credentials MQTT manquants (argument <username> ou MQTT_USERNAME)",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 if not re.match(r"^[A-Za-z0-9_-]{9,}$", BOX_UID):
     print(f"Erreur: boxUid doit faire > 8 caractères alphanumériques", file=sys.stderr)
@@ -178,7 +200,7 @@ client = mqtt.Client(
     protocol=mqtt.MQTTv5,
 )
 
-client.username_pw_set(TOKEN, password=TOKEN)
+client.username_pw_set(_USERNAME, password=_PASSWORD)
 client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
 
 client.on_connect = on_connect
