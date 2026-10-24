@@ -140,6 +140,38 @@ curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/diag/supabase
 `/diag/supabase` doit renvoyer `{"http_status":200,...}` : c'est la preuve que le
 container joint Supabase (sinon le polling `device_commands` échoue en silence).
 
+## Test e2e sans broker cloud (EMQX en container)
+
+La chaîne complète se valide sans compte chez un broker, avec un EMQX local :
+
+```bash
+# 1. broker
+wsl -d Debian -u root -- bash -c "docker run -d --name emqx-local -p 1883:1883 emqx/emqx:5.8"
+
+# 2. worker local pointé dessus (MQTT_TLS=false → mqtt:// en clair)
+wsl -d Debian -u root -- bash -c \
+  "docker run -d --name mqtt5-worker-local --network host --env-file /tmp/local-worker.env aricie/mqtt5-worker:local"
+#    /tmp/local-worker.env : SUPABASE_*, MQTT_HOST=127.0.0.1, MQTT_PORT=1883,
+#    MQTT_TLS=false, MQTT_USERNAME=test, MQTT_PASSWORD=test
+
+# 3. boîtier simulé
+wsl -d Debian -u root -- bash -c \
+  "cd workers/test/box && MQTT_HOST=127.0.0.1 MQTT_PORT=1883 MQTT_TLS=false \
+     MQTT_USERNAME=test MQTT_PASSWORD=test python3 box_esp32.py ESP32-A1B2C3D4"
+
+# 4. une commande dans la file
+curl -X POST "$SUPABASE_URL/rest/v1/device_commands" -H "apikey: $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"...","box_id":"...","box_uid":"ESP32-A1B2C3D4","relay_index":2,
+       "action":"on","status":"pending","requested_by":"e2e_test"}'
+
+# 5. attendu : status acknowledged + ack_payload en < 2 s
+```
+
+Résultat du dernier passage (2026-10-24) : `sent` → `acknowledged` en 1 s,
+`ack_payload = { success: true }`, `appliances.is_on` synchronisé, télémétrie
+remontée dans `realtime_power` (155 messages).
+
 ## Troubleshooting
 
 | Symptôme | Cause probable | Action |

@@ -201,7 +201,9 @@ client = mqtt.Client(
 )
 
 client.username_pw_set(_USERNAME, password=_PASSWORD)
-client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
+# MQTT_TLS=false → broker local en clair (EMQX en container pour les tests e2e).
+if os.environ.get("MQTT_TLS", "true").lower() != "false":
+    client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
 
 client.on_connect = on_connect
 client.on_disconnect = on_disconnect
