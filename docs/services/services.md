@@ -173,35 +173,38 @@ Gestion du **nom d'affichage** de l'utilisateur, stocké dans les métadonnées 
 
 | Ressource | Valeur |
 |-----------|--------|
-| ACR | `paossimb7935acr.azurecr.io` |
-| Build VM | `68.210.96.129` (austriaeast, `Standard_B2ats_v2`) |
-| Container App | `mqtt5-worker` (francecentral) |
-| CA Environment | `cae-paossimb-7935` |
+| Worker | `aricie-mqtt5-worker` (https://aricie-mqtt5-worker.smitthwillson1213.workers.dev) |
+| Container app | `aricie-mqtt5-worker-mqtt5container` |
+| Registre | `registry.cloudflare.com` |
+| Instance type | `basic` (1 GiB) |
 
-Le worker est déployé dans Azure Container Apps. L'image Docker est buildée sur une VM Linux dédiée (ACR Tasks bloqué par la politique Azure for Students).
+Le worker tourne dans **Cloudflare Containers** (wrapper `worker.js` + Durable
+Object `Mqtt5Container`). Les services Azure (Container Apps, ACR, build-vm) ont
+été supprimés avec la fin de l'abonnement : plus aucune commande `az`.
 
 ### Workflow build + deploy
 
 ```
-Modifier workers/mqtt5-worker/index.js
-  → scripts/azure/deploy-mqtt5-worker.ps1
-    → 1. SCP des sources vers la VM (68.210.96.129)
-    → 2. Docker build sur la VM
-    → 3. Docker push vers ACR (paossimb7935acr.azurecr.io)
-    → 4. az containerapp update → nouveau revision
+Modifier workers/mqtt5-worker/app.js
+  → wrangler deploy (Docker local via WSL Debian)
+    → 1. Docker build depuis ./Dockerfile
+    → 2. Push registry.cloudflare.com
+    → 3. Update de l'application container
+    → 4. curl /_stop pour forcer un start avec envVars à jour
 ```
 
 ### Commande unique
 
 ```bash
-pwsh scripts/azure/deploy-mqtt5-worker.ps1
+./workers/mqtt5-worker/scripts/deploy-cloudflare.sh
+# ou, depuis Windows (Docker uniquement dans WSL)
+wsl -d Debian -u root -- bash -c "cd '<repo>/workers/mqtt5-worker' && wrangler deploy"
 ```
 
 ### Documentation complète
 
 Voir `workers/mqtt5-worker/README.md` pour :
-- Architecture détaillée du worker
-- Env vars et secrets
-- Déploiement manuel étape par étape
-- Création from scratch du Container App
-- Troubleshooting (CrashLoopBackOff, Ready=False, etc.)
+- Architecture détaillée du worker (bootstrap `index.js` / app `app.js`)
+- Env vars et secrets (`wrangler secret put`)
+- Routes de diagnostic (`/health`, `/_diag`, `/diag/supabase`, `/_stop`, `/_restart`)
+- Troubleshooting (container qui ne démarre pas, secrets vides, token Flespi expiré)
