@@ -17,136 +17,125 @@ device_commands (pending)
 
 | File | Role |
 |------|------|
-| `index.js` | Worker principal (polling + MQTT publish + ACK listener) |
-| `Dockerfile` | Image Docker node:22-alpine |
-| `package.json` | Dépendances : `@supabase/supabase-js`, `mqtt`, `dotenv` |
+| `index.js` | Bootstrap du container : monte `/health` AVANT tout import, charge `app.js` en dynamique, expose l'état MQTT |
+| `app.js` | Logique métier (polling `device_commands` + MQTT publish + ACK listener + télémétrie) |
+| `worker.js` | Wrapper Cloudflare (Durable Object `Mqtt5Container` + routes admin `/_stop`, `/_restart`, `/_diag`) |
+| `wrangler.jsonc` | Config Cloudflare Containers (image, instance type, vars non secrètes) |
+| `Dockerfile` | Image Docker node:22-alpine, `CMD ["node", "index.js"]` |
+| `package.json` | Dépendances : `@supabase/supabase-js`, `mqtt`, `dotenv`, `@cloudflare/containers` |
+| `scripts/deploy-cloudflare.sh` | Build + push + deploy Cloudflare |
+| `scripts/run-local-failover.sh` | Relais local (WSL) actif quand le container Cloudflare dort |
 | `.env` | Variables locales (ne pas commiter) |
+
+### Pourquoi deux fichiers (`index.js` / `app.js`)
+
+Le stdout d'un container Cloudflare n'est pas visible (cloudflare/containers#232) :
+un crash au démarrage se traduit par un opaque `Failed to start container`. Le
+bootstrap monte donc le serveur HTTP en premier, importe `app.js` en dynamique et
+publie toute exception d'import dans `/health` (`fatal_errors`), avec `missing_env`
+et `env_keys` (noms seulement, jamais les valeurs).
 
 ## Env vars
 
 | Variable | Description | Default | Secret |
 |----------|-------------|---------|--------|
-| `SUPABASE_URL` | Supabase project URL | — | secretRef (supabase-url) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (bypass RLS) | — | secretRef (supabase-key) |
-| `FLESPI_MQTT_WORKER_TOKEN` | Token Flespi pour auth MQTT | — | secretRef (flespi-token) |
-| `FLESPI_MQTT_HOST` | Broker MQTT host | `mqtt.flespi.io` | plain env |
-| `FLESPI_MQTT_TCP_PORT` | Port TCP TLS | `8883` | plain env |
+| `SUPABASE_URL` | Supabase project URL | — | `wrangler secret` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (bypass RLS) | — | `wrangler secret` |
+| `FLESPI_MQTT_WORKER_TOKEN` | Token Flespi pour auth MQTT | — | `wrangler secret` |
+| `FLESPI_MQTT_HOST` | Broker MQTT host | `mqtt.flespi.io` | `vars` (wrangler.jsonc) |
+| `FLESPI_MQTT_TCP_PORT` | Port TCP TLS | `8883` | `vars` (wrangler.jsonc) |
 
 ## Build & Deploy
 
 ### Infrastructure
 
-| Resource | Valeur |
-|----------|--------|
-| ACR | `paossimb7935acr.azurecr.io` |
-| Resource group | `rg-paossimb-7935` |
-| Container App | `mqtt5-worker` |
-| CA Environment | `cae-paossimb-7935` |
-| Région | `francecentral` |
-| Build VM | `68.210.96.129` (austriaeast, Standard_B2ats_v2) |
-| SSH key | `~/.ssh/id_rsa` |
+| Ressource | Valeur |
+|-----------|--------|
+| Worker | `aricie-mqtt5-worker` — https://aricie-mqtt5-worker.smitthwillson1213.workers.dev |
+| Container app | `aricie-mqtt5-worker-mqtt5container` |
+| Registre | `registry.cloudflare.com` (poussé automatiquement par `wrangler deploy`) |
+| Instance type | `basic` (1 GiB — `lite` crashait au chargement de Node + mqtt + supabase-js) |
+| `sleepAfter` | `10m` — au-delà, le relais local WSL prend la main |
+| DO | `Mqtt5Container` (`MQTT5_CONTAINER`), storage sqlite |
 
-### Build VM
+> Les services Azure (Container Apps, ACR, build-vm) ont été **supprimés** :
+> l'abonnement a pris fin. Le build Docker passe par Docker local (WSL Debian),
+> déclenché par `wrangler deploy` — plus aucune commande `az`.
 
-La VM `build-vm` (austriaeast) est utilisée pour builder l'image Docker car ACR Tasks est bloqué par la politique Azure for Students.
+### Secrets
 
-**État actuel : Running.** Ne pas arrêter (ou la redémarrer si arrêtée).
+Les secrets se posent sur le **Worker** ; `worker.js` les relaie au container via
+`startConfig.env` :
 
-Connexion :
 ```bash
-ssh -i ~/.ssh/id_rsa azureuser@68.210.96.129
+cd workers/mqtt5-worker
+wrangler secret put SUPABASE_URL
+wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+wrangler secret put FLESPI_MQTT_WORKER_TOKEN
 ```
 
-Docker est pré-installé. Le répertoire de travail sur la VM est `/home/azureuser/mqtt5-worker/`.
+Un secret posé **vide** est accepté par l'API mais produit une connexion refusée
+côté broker. Vérifier avec `/_diag` : les longueurs attendues sont 40 (URL),
+219 (service role) et 64 (token Flespi).
 
-### Déploiement automatisé
+### Déploiement
 
 ```bash
-# Full build + deploy
-pwsh scripts/azure/deploy-mqtt5-worker.ps1
+# complet : build Docker + push + deploy Worker/Container
+./scripts/deploy-cloudflare.sh
 
-# Build only (test)
-pwsh scripts/azure/deploy-mqtt5-worker.ps1 -SkipDeploy
+# deploy seul (image inchangée)
+SKIP_BUILD=1 ./scripts/deploy-cloudflare.sh
 
-# Deploy only (reuse last image)
-pwsh scripts/azure/deploy-mqtt5-worker.ps1 -SkipBuild
+# sous WSL (Docker n'est pas dans le PATH Windows)
+wsl -d Debian -u root -- bash -c "cd '<repo>/workers/mqtt5-worker' && wrangler deploy"
 ```
 
-### Déploiement manuel étape par étape
+`wrangler deploy` construit l'image depuis `containers[].image` (`./Dockerfile`),
+la pousse sur `registry.cloudflare.com` puis met à jour l'application.
+
+### Après un déploiement
+
+Un container déjà `running` **ne réapplique pas** `envVars` : il faut le stopper
+pour repartir de zéro avec la nouvelle config.
 
 ```bash
-# 1. Sync source
-scp -i ~/.ssh/id_rsa -r workers/mqtt5-worker/* azureuser@68.210.96.129:/home/azureuser/mqtt5-worker/
-
-# 2. Build image
-ssh -i ~/.ssh/id_rsa azureuser@68.210.96.129 "
-  cd /home/azureuser/mqtt5-worker
-  sudo docker build -t paossimb7935acr.azurecr.io/mqtt5-worker:latest .
-"
-
-# 3. Push to ACR
-$acrPwd = az acr credential show --name paossimb7935acr --resource-group rg-paossimb-7935 --query "passwords[0].value" -o tsv
-ssh -i ~/.ssh/id_rsa azureuser@68.210.96.129 "
-  sudo docker login paossimb7935acr.azurecr.io -u paossimb7935acr -p '$acrPwd'
-  sudo docker push paossimb7935acr.azurecr.io/mqtt5-worker:latest
-"
-
-# 4. Restart Container App
-az containerapp update --name mqtt5-worker --resource-group rg-paossimb-7935 --image paossimb7935acr.azurecr.io/mqtt5-worker:latest
-
-# 5. Verify
-az containerapp logs show --name mqtt5-worker --resource-group rg-paossimb-7935 --type console --tail 20
-```
-
-### Création from scratch (uniquement si le Container App n'existe pas)
-
-```bash
-az containerapp create `
-  --name mqtt5-worker `
-  --resource-group rg-paossimb-7935 `
-  --environment cae-paossimb-7935 `
-  --image paossimb7935acr.azurecr.io/mqtt5-worker:latest `
-  --registry-server paossimb7935acr.azurecr.io `
-  --registry-username paossimb7935acr `
-  --registry-password (az acr credential show --name paossimb7935acr --resource-group rg-paossimb-7935 --query "passwords[0].value" -o tsv) `
-  --secrets `
-    supabase-url="https://eevjozgobudwnbvjecnw.supabase.co" `
-    supabase-key="<SERVICE_ROLE_KEY>" `
-    flespi-token="<FLESPI_TOKEN>" `
-  --env-vars `
-    SUPABASE_URL="secretref:supabase-url" `
-    SUPABASE_SERVICE_ROLE_KEY="secretref:supabase-key" `
-    FLESPI_MQTT_WORKER_TOKEN="secretref:flespi-token" `
-    FLESPI_MQTT_HOST="mqtt.flespi.io" `
-    FLESPI_MQTT_TCP_PORT="8883" `
-  --ingress internal `
-  --target-port 80 `
-  --min-replicas 1 --max-replicas 1
+curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/_stop
+curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/_restart  # stop + start avec envVars explicites
+curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/_diag     # longueurs des secrets vus par le Worker
 ```
 
 ## Vérification
 
 ```bash
-# Logs temps réel
-az containerapp logs show --name mqtt5-worker --resource-group rg-paossimb-7935 --type console --tail 100
-
-# Révisions
-az containerapp revision list --name mqtt5-worker --resource-group rg-paossimb-7935 -o table
+curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/health
+curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/diag/supabase
 ```
 
-## Logs de démarrage OK
+`/health` répond **toujours** 200 (même app cassée) ; le diagnostic est dans le corps :
 
+```json
+{
+  "status": "ok",
+  "app_loaded": true,
+  "mqtt_state": "connected",
+  "mqtt_last_error": null,
+  "missing_env": [],
+  "fatal_errors": [],
+  "stats": { "telemetryMessages": 3, "acksProcessed": 1, "commandsSent": 2 }
+}
 ```
-[WORKER] mqtt5-worker-1 started in MQTT 5 mode
-[MQTT5] Connected to mqtts://mqtt.flespi.io:8883
-[MQTT5] Subscribed to ACK topics
-```
+
+`/diag/supabase` doit renvoyer `{"http_status":200,...}` : c'est la preuve que le
+container joint Supabase (sinon le polling `device_commands` échoue en silence).
 
 ## Troubleshooting
 
 | Symptôme | Cause probable | Action |
 |---|---|---|
-| CrashLoopBackOff | Secrets manquants ou invalides | `az containerapp logs show --tail 50`, vérifier les secrets via `az containerapp show --query "properties.template.containers[0].env"`, re-deployer |
-| `Failed to connect to broker` | Token Flespi invalide/expiré | Vérifier `FLESPI_MQTT_WORKER_TOKEN`, tester avec `mosquitto_sub -h mqtt.flespi.io -p 8883 -t test -u <token>` |
-| Supabase errors | URL ou service_role_key invalides | Re-générer la clé dans Supabase Dashboard → Settings → API |
-| `Ready = False` | Normal (worker background, pas de HTTP) | Vérifier les logs. Si le worker tourne et traite des commandes, c'est OK |
+| `Failed to start container` | Instance en échec ou `instance_type` trop petit | `/_stop` puis re-wake ; garder `basic`. Le vrai message est dans `/health` → `fatal_errors` |
+| `/health` OK mais `app_loaded: false` | Import de `app.js` en échec | Lire `fatal_errors` (stack, 500 caractères) |
+| `missing_env` non vide | Secrets absents ou posés vides | `wrangler secret put` puis `/_stop` pour forcer un nouveau start |
+| `env_keys` sans les secrets | Secrets posés sur un autre Worker | `wrangler secret list`, comparer avec `/_diag` |
+| `mqtt_state: closed` + `Bad User Name or Password` | Token Flespi expiré/révoqué | Régénérer le token (droit publish `.../relays/+/cmd`, subscribe `.../ack` et `.../telemetry`) |
+| `/diag/supabase` ≠ 200 | URL/clé Supabase invalides | Re-générer la service role key (Supabase Dashboard → Settings → API) |

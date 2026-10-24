@@ -238,53 +238,66 @@ Flutter → Edge Function (agent-orchestrator) → device_commands (BDD)
 
 Le worker relaye les commandes IoT (`device_commands` Supabase → boîtiers via MQTT 5).
 
-### Infrastructure
+### Infrastructure (Cloudflare Containers)
 
-| Ressource      | Valeur                       | Méthode d'accès                                |
-| -------------- | ---------------------------- | ---------------------------------------------- |
-| ACR            | `paossimb7935acr.azurecr.io` | `az acr login`                                 |
-| Build VM       | `68.210.96.129`              | `ssh -i ~/.ssh/id_rsa azureuser@68.210.96.129` |
-| Container App  | `mqtt5-worker`               | `az containerapp` CLI                          |
-| CA Environment | `cae-paossimb-7935`          | `az containerapp env` CLI                      |
+| Ressource      | Valeur                                                  | Méthode d'accès                     |
+| -------------- | ------------------------------------------------------- | ----------------------------------- |
+| Worker         | `aricie-mqtt5-worker`                                   | `wrangler deploy` / `wrangler tail` |
+| Container app  | `aricie-mqtt5-worker-mqtt5container`                     | `wrangler deploy`                   |
+| Registre       | `registry.cloudflare.com`                               | poussé par `wrangler deploy`        |
+| Instance type  | `basic` (1 GiB)                                         | `wrangler.jsonc`                    |
 
-**Règle : ACR Tasks est bloqué par la politique Azure for Students.** Le build Docker doit impérativement passer par la VM `build-vm` (austriaeast, Standard_B2ats_v2, Docker pré-installé).
+**Règle : les services Azure (Container Apps, ACR, build-vm) ont été supprimés —
+l'abonnement a pris fin.** Le build Docker se fait en local (WSL Debian, Docker
+disponible) et `wrangler deploy` construit + pousse l'image depuis le
+`Dockerfile` du dossier. Aucune commande `az` ne doit être réintroduite.
 
 ### Workflow
 
 ```
-Modifier workers/mqtt5-worker/index.js
-  → pwsh scripts/azure/deploy-mqtt5-worker.ps1
-    → SCP sources → Build VM → Docker build → Docker push → az containerapp update
+Modifier workers/mqtt5-worker/app.js
+  → wsl -d Debian -u root -- bash -c "cd '<repo>/workers/mqtt5-worker' && wrangler deploy"
+    → Docker build local → push registry.cloudflare.com → update container app
+  → curl /_stop  (un container running ne réapplique pas envVars)
+  → curl /health (app_loaded, mqtt_state, missing_env, fatal_errors)
 ```
 
 ### Commandes
 
 ```bash
-# Full build + deploy (recommandé)
-pwsh scripts/azure/deploy-mqtt5-worker.ps1
+# Build + push + deploy complet
+./scripts/deploy-cloudflare.sh
 
-# Build only
-pwsh scripts/azure/deploy-mqtt5-worker.ps1 -SkipDeploy
+# Deploy seul (image inchangée)
+SKIP_BUILD=1 ./scripts/deploy-cloudflare.sh
 
-# Deploy only (reuse last image tag)
-pwsh scripts/azure/deploy-mqtt5-worker.ps1 -SkipBuild
+# Déployer depuis Windows (Docker uniquement dans WSL)
+wsl -d Debian -u root -- bash -c "cd '<repo>/workers/mqtt5-worker' && wrangler deploy"
 
-# Logs
-az containerapp logs show --name mqtt5-worker --resource-group rg-paossimb-7935 --type console --tail 50
-
-# Status
-az containerapp revision list --name mqtt5-worker --resource-group rg-paossimb-7935 -o table
+# Secrets (posés sur le Worker, relayés au container par worker.js)
+wrangler secret put SUPABASE_URL
+wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+wrangler secret put FLESPI_MQTT_WORKER_TOKEN
 ```
 
 ### Vérification
 
-Logs de démarrage OK :
+```bash
+curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/health
+curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/diag/supabase
+```
 
+`/health` répond toujours 200 ; `status: degraded` = app cassée mais container
+vivant. Lecture des champs :
+
+```json
+{ "status": "ok", "app_loaded": true, "mqtt_state": "connected",
+  "missing_env": [], "fatal_errors": [], "stats": { "acksProcessed": 1 } }
 ```
-[WORKER] mqtt5-worker-1 started in MQTT 5 mode
-[MQTT5] Connected to mqtts://mqtt.flespi.io:8883
-[MQTT5] Subscribed to ACK topics
-```
+
+- `missing_env` non vide → secrets absents ou posés **vides** (l'API accepte le vide)
+- `mqtt_state: closed` + `Bad User Name or Password` → token Flespi expiré
+- `/diag/supabase` ≠ 200 → URL/clé Supabase invalides
 
 ### Documentation
 
