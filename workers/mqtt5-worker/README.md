@@ -67,12 +67,41 @@ broker est abandonné (tokens révoqués, cf. issue #37).
 | Registre | `registry.cloudflare.com` (poussé automatiquement par `wrangler deploy`) |
 | Instance type | `basic` (1 GiB — `lite` crashait au chargement de Node + mqtt + supabase-js) |
 | `sleepAfter` | `10m` — au-delà, le relais local WSL prend la main |
+| Veille | `enforceSleep` (garde-fou 60 s) + SIGTERM → SIGKILL de secours, aucun cron keep-alive |
 | DO | `Mqtt5Container` (`MQTT5_CONTAINER`), storage sqlite |
 | Broker | EMQX Cloud Serverless — déploiement `dev`, région Europe, `r1aa3902.ala.eu-central-1.emqxsl.com` (8883 MQTT/TLS, 8084 WSS `/mqtt`) |
 
 > Les services Azure (Container Apps, ACR, build-vm) ont été **supprimés** :
 > l'abonnement a pris fin. Le build Docker passe par Docker local (WSL Debian),
 > déclenché par `wrangler deploy` — plus aucune commande `az`.
+
+### Veille (scale-to-zero)
+
+Le container **ne doit pas tourner en permanence** : après `sleepAfter` (10 min)
+sans requête, il doit passer en veille pour ne pas facturer l'instance.
+
+1. le SDK (`sleepAfter = "600s"`) envoie `stop()` (SIGTERM) à l'expiration de
+   l'activité ;
+2. `index.js` installe des handlers **SIGTERM/SIGINT** — indispensable, le
+   process étant **PID 1** du container, un signal sans handler est ignoré par
+   le noyau et l'instance resterait active (bug constaté en prod : 8 h d'uptime
+   malgré un `stop()` du SDK) ;
+3. `worker.js` arme `enforceSleep` (tâche `schedule()` toutes les 60 s, réarmée
+   à la construction du DO et à chaque `onStart()`) : il trace sa propre
+   activité (`fetch` surcounté côté wrapper) et, si le compteur interne du SDK
+   est bloqué (`inflightRequests > 0` après une requête annulée, ce qui rend
+   `isActivityExpired()` toujours faux), il déclenche lui-même la veille ;
+4. si l'instance vit encore 30 s après le SIGTERM (image ancienne), passe à
+   `destroy()` (SIGKILL) → `LIVE INSTANCES` repasse à 0.
+
+**Aucun cron keep-alive** (`triggers.crons` absent) : réveiller = une requête
+HTTP sur le Worker, le relais local WSL/cloudflared assure la continuité pendant
+la veille. Vérification :
+
+```bash
+wrangler containers list          # LIVE INSTANCES doit retomber à 0
+wrangler tail                     # « veille forcée après 10 min sans requête »
+```
 
 ### Secrets
 

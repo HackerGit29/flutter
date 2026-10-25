@@ -54,3 +54,7 @@ supabase/.temp/
 
 .vscode/
 workers/opencode-bridge/.logs/
+
+# Artefacts générés
+coverage/
+workers/mqtt5-worker/dist/
