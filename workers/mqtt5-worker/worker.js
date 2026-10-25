@@ -34,6 +34,8 @@ function buildMqttEnvVars(env) {
 // Délai de veille (doit refléter `sleepAfter`) et cadence du garde-fou.
 const SLEEP_AFTER_S = 10 * 60;
 const SLEEP_CHECK_S = 60;
+// Délai entre le SIGTERM envoyé par stop() et le SIGKILL de secours (destroy).
+const STOP_GRACE_S = 30;
 
 export class Mqtt5Container extends Container {
   defaultPort = 8080;
@@ -47,6 +49,7 @@ export class Mqtt5Container extends Container {
     // bloqué sur une requête annulée, cf. enforceSleep).
     this.lastActivityAt = Date.now();
     this.activeRequests = 0;
+    this.stopRequestedAt = 0;
     // Variables d'environnement injectées dans le container au démarrage.
     // Les secrets (SUPABASE_SERVICE_ROLE_KEY, FLESPI_MQTT_WORKER_TOKEN) sont
     // posés via `wrangler secret put` sur le Worker puis relayés ici.
@@ -101,7 +104,10 @@ export class Mqtt5Container extends Container {
   // Arrête le container après SLEEP_AFTER_S sans requête → scale-to-zero →
   // plus de facturation instance tant qu'aucun client ne réveille le Worker.
   async enforceSleep() {
-    if (!this.container?.running) return; // container déjà arrêté : on n'arme plus
+    if (!this.container?.running) {
+      this.stopRequestedAt = 0;
+      return; // container déjà arrêté : on n'arme plus
+    }
 
     if (this.activeRequests > 0) {
       await this.schedule(30, "enforceSleep", {});
@@ -109,18 +115,32 @@ export class Mqtt5Container extends Container {
     }
 
     const idleMs = Date.now() - this.lastActivityAt;
-    if (idleMs >= SLEEP_AFTER_S * 1000) {
-      console.log(
-        `[CF] veille forcée après ${Math.round(idleMs / 60000)} min sans requête`,
+    if (idleMs < SLEEP_AFTER_S * 1000) {
+      this.stopRequestedAt = 0;
+      const next = Math.max(
+        15,
+        Math.min(SLEEP_CHECK_S, Math.ceil((SLEEP_AFTER_S * 1000 - idleMs) / 1000)),
       );
-      await this.stop();
+      await this.schedule(next, "enforceSleep", {});
       return;
     }
-    const next = Math.max(
-      15,
-      Math.min(SLEEP_CHECK_S, Math.ceil((SLEEP_AFTER_S * 1000 - idleMs) / 1000)),
-    );
-    await this.schedule(next, "enforceSleep", {});
+
+    if (!this.stopRequestedAt) {
+      this.stopRequestedAt = Date.now();
+      console.log(
+        `[CF] veille forcée après ${Math.round(idleMs / 60000)} min sans requête (SIGTERM)`,
+      );
+      await this.stop();
+      await this.schedule(STOP_GRACE_S, "enforceSleep", {});
+      return;
+    }
+
+    // Toujours vivant après le délai de grâce : le process (PID 1) a ignoré
+    // le SIGTERM (image sans handler) → SIGKILL pour garantir le
+    // scale-to-zero et arrêter la facturation de l'instance.
+    console.warn("[CF] toujours vivant après SIGTERM → destroy() (SIGKILL)");
+    this.stopRequestedAt = 0;
+    await this.destroy();
   }
 
   onStop() {

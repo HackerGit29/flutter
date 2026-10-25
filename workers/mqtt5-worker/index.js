@@ -115,6 +115,21 @@ healthServer.listen(healthPort, () => {
 });
 
 // --- Garde-fous process : on reste vivant et observable ------------------
+//
+// ARRÊT PROPRE (indispensable sur Cloudflare Containers) : le process est
+// PID 1 du container, et le noyau ignore un signal sans handler sur PID 1 —
+// sans ces lignes, `stop()` du SDK (SIGTERM) ne fait jamais sortir le
+// process, l'instance reste "active" et se facture alors que le DO croit
+// l'avoir arrêtée (cf. enforceSleep dans worker.js).
+for (const sig of ["SIGTERM", "SIGINT"]) {
+  process.on(sig, () => {
+    // process.exit explicite : sans handler, PID 1 ignore le signal ; avec un
+    // handler qui se contente de revenir, le process resterait vivant.
+    console.log(`[BOOT] ${sig} reçu → arrêt propre du worker`);
+    process.exit(0);
+  });
+}
+
 process.on("uncaughtException", (err) => {
   const msg = `uncaughtException: ${err?.stack ?? err}`;
   console.error("[BOOT]", msg);
