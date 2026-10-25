@@ -187,6 +187,14 @@ Le worker tourne dans **Cloudflare Containers** (wrapper `worker.js` + Durable
 Object `Mqtt5Container`). Les services Azure (Container Apps, ACR, build-vm) ont
 été supprimés avec la fin de l'abonnement : plus aucune commande `az`.
 
+### Veille (scale-to-zero)
+
+L'instance **dort après 10 min sans requête** : `sleepAfter = "600s"` du SDK +
+garde-fou `enforceSleep` dans `worker.js` (arrêt toutes les 60 s, SIGKILL de
+secours 30 s après un SIGTERM ignoré — le process est PID 1 du container).
+Aucun cron keep-alive : le relais local WSL/cloudflared prend le relais pendant
+la veille, le claim atomique de `device_commands` évite tout double traitement.
+
 ### Workflow build + deploy
 
 ```
