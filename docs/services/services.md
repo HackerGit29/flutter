@@ -56,12 +56,16 @@ Flutter Client
   → AgentService (SSE client)
     → POST /functions/v1/agent-orchestrator (JWT + message)
       → Supabase Edge Function (Deno)
-        → Azure OpenAI GPT-4o (tool calling + streaming)
+        → LLM : bridge OpenCode (free) → DeepSeek/OpenCode Zen → Azure OpenAI
         → Policy Engine (ownership + RBAC + rate limit)
         → device_commands (file d'attente)
         → Audit log
         → SSE response typée
 ```
+
+### Providers LLM
+
+Chaîne ordonnée, bascule automatique sur toute panne : **bridge OpenCode** (modèles `*-free`, `workers/opencode-bridge/`) → **DeepSeek / OpenCode Zen** → **Azure OpenAI**. Le free tier d'OpenCode Zen refuse les appels serveur (`403 FreeTierError`) : le pont fait exécuter la requête par le client OpenCode de la machine de dev et l'expose en `chat/completions`. Voir `workers/opencode-bridge/README.md`.
 
 ### Flux SSE (v1.4.1)
 | Event | UI visible ? | Description |
