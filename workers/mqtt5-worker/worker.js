@@ -31,14 +31,22 @@ function buildMqttEnvVars(env) {
   };
 }
 
+// Délai de veille (doit refléter `sleepAfter`) et cadence du garde-fou.
+const SLEEP_AFTER_S = 10 * 60;
+const SLEEP_CHECK_S = 60;
+
 export class Mqtt5Container extends Container {
   defaultPort = 8080;
   // Dors 10 min après une période d'inactivité puis scale à zéro.
   // Le failover local prend le relais pendant ce temps.
-  sleepAfter = "10m";
+  sleepAfter = `${SLEEP_AFTER_S}s`;
 
   constructor(ctx, env) {
     super(ctx, env);
+    // Activité observée par CE wrapper (le compteur interne du SDK peut rester
+    // bloqué sur une requête annulée, cf. enforceSleep).
+    this.lastActivityAt = Date.now();
+    this.activeRequests = 0;
     // Variables d'environnement injectées dans le container au démarrage.
     // Les secrets (SUPABASE_SERVICE_ROLE_KEY, FLESPI_MQTT_WORKER_TOKEN) sont
     // posés via `wrangler secret put` sur le Worker puis relayés ici.
@@ -49,10 +57,70 @@ export class Mqtt5Container extends Container {
       .map(([k, v]) => `${k}=${typeof v}`)
       .join(" ");
     console.log(`[CF] DO constructor envVars: ${presence}`);
+
+    // Arment aussi ici : au (ré)création du DO, le container peut être déjà
+    // lancé et onStart() ne sera alors plus rappelé → sans cette ligne, le
+    // garde-fou ne repartirait qu'après un prochain stop/start.
+    try {
+      this.deleteSchedules("enforceSleep");
+      this.schedule(SLEEP_CHECK_S, "enforceSleep", {})
+        .catch((err) => console.error("[CF] arment veille:", err?.message ?? err));
+    } catch (err) {
+      console.error("[CF] arment veille impossible:", err?.message ?? err);
+    }
   }
 
-  onStart() {
+  // Trace l'activité réelle côté wrapper : c'est ce compteur qui déclenche la
+  // veille, pas celui du SDK (dont `isActivityExpired()` ne se déclenche jamais
+  // tant que `inflightRequests > 0`, y compris après une requête annulée).
+  async fetch(request) {
+    this.lastActivityAt = Date.now();
+    this.activeRequests++;
+    try {
+      return await super.fetch(request);
+    } finally {
+      this.activeRequests = Math.max(0, this.activeRequests - 1);
+      this.lastActivityAt = Date.now();
+    }
+  }
+
+  async onStart() {
     console.log("[CF] mqtt5-container started");
+    this.lastActivityAt = Date.now();
+    // (Ré)armement du garde-fou de veille : on repart d'une tâche unique pour
+    // ne pas cumuler les callbacks après un wake.
+    try {
+      this.deleteSchedules("enforceSleep");
+      await this.schedule(SLEEP_CHECK_S, "enforceSleep", {});
+    } catch (err) {
+      console.error("[CF] arment veille impossible:", err?.message ?? err);
+    }
+  }
+
+  // Garde-fou de veille : exécuté par la boucle d'alarms du SDK.
+  // Arrête le container après SLEEP_AFTER_S sans requête → scale-to-zero →
+  // plus de facturation instance tant qu'aucun client ne réveille le Worker.
+  async enforceSleep() {
+    if (!this.container?.running) return; // container déjà arrêté : on n'arme plus
+
+    if (this.activeRequests > 0) {
+      await this.schedule(30, "enforceSleep", {});
+      return;
+    }
+
+    const idleMs = Date.now() - this.lastActivityAt;
+    if (idleMs >= SLEEP_AFTER_S * 1000) {
+      console.log(
+        `[CF] veille forcée après ${Math.round(idleMs / 60000)} min sans requête`,
+      );
+      await this.stop();
+      return;
+    }
+    const next = Math.max(
+      15,
+      Math.min(SLEEP_CHECK_S, Math.ceil((SLEEP_AFTER_S * 1000 - idleMs) / 1000)),
+    );
+    await this.schedule(next, "enforceSleep", {});
   }
 
   onStop() {
