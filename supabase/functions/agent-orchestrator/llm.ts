@@ -62,47 +62,7 @@ async function withRetry<T>(
   throw lastError;
 }
 
-// --- Azure OpenAI ---
-
-function getAzureConfig() {
-  return {
-    endpoint: Deno.env.get("AZURE_OPENAI_ENDPOINT") ?? "",
-    apiKey: Deno.env.get("AZURE_OPENAI_API_KEY") ?? "",
-    deployment: Deno.env.get("AZURE_OPENAI_DEPLOYMENT") ?? "gpt-4o",
-    apiVersion: Deno.env.get("AZURE_OPENAI_API_VERSION") ?? "2024-10-21",
-  };
-}
-
-async function callAzureOpenAI(
-  body: object,
-): Promise<{ response: Response; provider: "azure" }> {
-  const config = getAzureConfig();
-  if (!config.endpoint || !config.apiKey) {
-    throw new Error("Azure OpenAI non configuré.");
-  }
-  const url =
-    `${config.endpoint}/openai/deployments/${config.deployment}/chat/completions?api-version=${config.apiVersion}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "api-key": config.apiKey,
-    },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    const text = await response.text();
-    throw new LlmHttpError(
-      `Azure error ${response.status}`,
-      response.status,
-      text,
-      response.headers,
-    );
-  }
-  return { response, provider: "azure" };
-}
-
-// --- DeepSeek fallback ---
+// --- DeepSeek (LLM de base de l'orchestrateur) ---
 
 async function callDeepSeek(
   body: object,
@@ -134,6 +94,66 @@ async function callDeepSeek(
     );
   }
   return { response, provider: "deepseek" };
+}
+
+// --- Cloudflare Workers AI (dernier recours) ---
+//
+// Point d'entrée compatible OpenAI de Workers AI : tools + streaming SSE au
+// format OpenAI, donc le même `body` que les autres providers. Le modèle
+// deepseek-v4.1-flash-1017 y est hébergé par Cloudflare (1M de contexte,
+// function calling). Nécessite CLOUDFLARE_ACCOUNT_ID + CLOUDFLARE_API_TOKEN
+// (scopes Account:Read + WorkersAI:Read/Write) et un plan Workers Payant.
+
+function getCloudflareConfig() {
+  const accountId = Deno.env.get("CLOUDFLARE_ACCOUNT_ID") ?? "";
+  const token = Deno.env.get("CLOUDFLARE_API_TOKEN") ?? "";
+  return {
+    accountId,
+    token,
+    model: Deno.env.get("CLOUDFLARE_AI_MODEL") ??
+      "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
+  };
+}
+
+async function callCloudflareAI(
+  body: object,
+): Promise<{ response: Response; provider: "cloudflare" }> {
+  const config = getCloudflareConfig();
+  if (!config.accountId || !config.token) {
+    throw new Error("Cloudflare Workers AI non configuré.");
+  }
+
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${config.accountId}/ai/v1/chat/completions`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.token}`,
+      },
+      body: JSON.stringify({
+        ...body,
+        model: config.model,
+        // deepseek-v4.1-flash-1017 est un modèle "reasoning" : sans
+        // reasoning_effort=none, le raisonnement consomme les max_tokens et le
+        // contenu de la réponse peut arriver vide (finish_reason=length).
+        ...((body as Record<string, unknown>).reasoning_effort === undefined
+          ? { reasoning_effort: "none" }
+          : {}),
+      }),
+      signal: AbortSignal.timeout(60_000),
+    },
+  );
+  if (!response.ok) {
+    const text = await response.text();
+    throw new LlmHttpError(
+      `Cloudflare error ${response.status}`,
+      response.status,
+      text,
+      response.headers,
+    );
+  }
+  return { response, provider: "cloudflare" };
 }
 
 // --- OpenCode bridge (modèles free, exécutés par le client local) ---
@@ -181,12 +201,7 @@ async function callOpenCodeBridge(
 
 // --- Fallback orchestrator ---
 
-function azureConfigured(): boolean {
-  const config = getAzureConfig();
-  return Boolean(config.endpoint && config.apiKey);
-}
-
-type LlmProvider = "bridge" | "deepseek" | "azure";
+type LlmProvider = "bridge" | "deepseek" | "cloudflare";
 
 const PROVIDER_CALLERS: Record<
   LlmProvider,
@@ -194,15 +209,18 @@ const PROVIDER_CALLERS: Record<
 > = {
   bridge: callOpenCodeBridge,
   deepseek: callDeepSeek,
-  azure: callAzureOpenAI,
+  cloudflare: callCloudflareAI,
 };
 
 function availableProviders(): LlmProvider[] {
   const list: LlmProvider[] = [];
-  // Ordre de préférence : bridge OpenCode (gratuit) → DeepSeek (payant) → Azure.
+  // Ordre de préférence : pont OpenCode (modèles free, gratuit) →
+  // DeepSeek v4.1-flash (LLM de base de l'orchestrateur) →
+  // Cloudflare Workers AI (dernier recours, indépendant de la machine de dev).
   if (getBridgeConfig().url) list.push("bridge");
   if (Deno.env.get("DEEPSEEK_API_KEY")) list.push("deepseek");
-  if (azureConfigured()) list.push("azure");
+  const cloudflare = getCloudflareConfig();
+  if (cloudflare.accountId && cloudflare.token) list.push("cloudflare");
   return list;
 }
 
@@ -215,7 +233,8 @@ async function callLLMWithFallback(
   const providers = availableProviders();
   if (providers.length === 0) {
     throw new Error(
-      "Aucun provider LLM configuré (OPENCODE_BRIDGE_URL, DEEPSEEK_*, AZURE_*).",
+      "Aucun provider LLM configuré " +
+        "(OPENCODE_BRIDGE_URL, DEEPSEEK_*, CLOUDFLARE_*).",
     );
   }
   // Sans fallback, on garde uniquement le provider prioritaire.

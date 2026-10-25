@@ -56,7 +56,7 @@ Flutter Client
   → AgentService (SSE client)
     → POST /functions/v1/agent-orchestrator (JWT + message)
       → Supabase Edge Function (Deno)
-        → LLM : bridge OpenCode (free) → DeepSeek/OpenCode Zen → Azure OpenAI
+        → LLM : bridge OpenCode (free) → DeepSeek v4.1-flash → Cloudflare Workers AI
         → Policy Engine (ownership + RBAC + rate limit)
         → device_commands (file d'attente)
         → Audit log
@@ -65,7 +65,7 @@ Flutter Client
 
 ### Providers LLM
 
-Chaîne ordonnée, bascule automatique sur toute panne : **bridge OpenCode** (modèles `*-free`, `workers/opencode-bridge/`) → **DeepSeek / OpenCode Zen** → **Azure OpenAI**. Le free tier d'OpenCode Zen refuse les appels serveur (`403 FreeTierError`) : le pont fait exécuter la requête par le client OpenCode de la machine de dev et l'expose en `chat/completions`. Voir `workers/opencode-bridge/README.md`.
+Chaîne ordonnée, bascule automatique sur toute panne : **bridge OpenCode** (modèles `*-free`, `workers/opencode-bridge/`) → **DeepSeek / OpenCode Zen** (`deepseek-v4.1-flash`, LLM de base de l'orchestrateur) → **Cloudflare Workers AI** (`@cf/deepseek-ai/deepseek-v4.1-flash-1017`, dernier recours, secrets `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`). Azure OpenAI retiré (abonnement terminé). Le free tier d'OpenCode Zen refuse les appels serveur (`403 FreeTierError`) : le pont fait exécuter la requête par le client OpenCode de la machine de dev et l'expose en `chat/completions`. Voir `workers/opencode-bridge/README.md`.
 
 ### Flux SSE (v1.4.1)
 | Event | UI visible ? | Description |

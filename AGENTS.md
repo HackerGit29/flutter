@@ -125,7 +125,7 @@ Flutter Chat / Voice
       → auth.ts : user_id extrait du JWT (ignoré du body)
       → context opérationnel (appliances + subscription scope user)
       → RAG pgvector (owner_id = requester_id)
-      → LLM : bridge OpenCode (free) → DeepSeek → Azure OpenAI (tool calling)
+      → LLM : bridge OpenCode (free) → DeepSeek v4.1-flash → Cloudflare Workers AI (tool calling)
       → Policy Engine (ownership + rate limit + criticalité haute → confirmation modale)
       → device_commands (file d'attente)
       → audit log
@@ -138,7 +138,7 @@ Flutter Chat / Voice
 
 **Tools** : `get_subscription_info`, `get_my_appliances`, `turn_on_appliance`, `turn_off_appliance`, `get_realtime_consumption`, `get_device_status`, `get_total_consumption`, `get_live_consumption`, `get_energy_history`, `push_tip`
 
-**Providers LLM** (`llm.ts`) : chaîne ordonnée `bridge` (OpenCode local, gratuit) → `deepseek` (OpenCode Zen payant) → `azure`. Toute panne (réseau, timeout, 5xx) bascule sur le suivant.
+**Providers LLM** (`llm.ts`) : chaîne ordonnée `bridge` (OpenCode local, gratuit) → `deepseek` (OpenCode Zen, LLM de base `deepseek-v4.1-flash`) → `cloudflare` (Workers AI, `@cf/deepseek-ai/deepseek-v4.1-flash-1017`). Toute panne (réseau, timeout, 5xx) bascule sur le suivant. Azure OpenAI retiré (abonnement terminé).
 
 ### OpenCode bridge (LLM free)
 

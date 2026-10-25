@@ -730,7 +730,7 @@ Deno.serve(async (req) => {
           query: body.message,
         });
 
-        // Premier appel Azure OpenAI : détection d'intention + tool calling
+        // Premier appel LLM (chaîne bridge → DeepSeek → Cloudflare) : détection d'intention + tool calling
         const firstPass = await detectToolOrAnswer({
           message: body.message,
           operationalContext,
@@ -812,7 +812,7 @@ Deno.serve(async (req) => {
           error.message.includes("non configuré")
         ) {
           errorMsg =
-            "L'assistant IA n'est pas encore configuré. Veuillez déployer Azure OpenAI et définir les secrets Supabase.";
+            "L'assistant IA n'est pas encore configuré. Définissez OPENCODE_BRIDGE_URL, DEEPSEEK_API_KEY ou CLOUDFLARE_* dans les secrets Supabase.";
           errorCode = "configuration_error";
         }
 
