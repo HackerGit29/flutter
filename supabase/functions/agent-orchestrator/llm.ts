@@ -136,6 +136,49 @@ async function callDeepSeek(
   return { response, provider: "deepseek" };
 }
 
+// --- OpenCode bridge (modèles free, exécutés par le client local) ---
+//
+// Les modèles `*-free` d'OpenCode Zen refusent tout appel venant d'un serveur
+// (403 FreeTierError). Le pont `workers/opencode-bridge` fait exécuter la
+// requête par le client OpenCode de l'utilisateur et l'expose en
+// `chat/completions` OpenAI : le free tier s'applique donc réellement.
+// Contrepartie : disponible seulement quand la machine de l'utilisateur tourne.
+
+function getBridgeConfig() {
+  return {
+    url: (Deno.env.get("OPENCODE_BRIDGE_URL") ?? "").replace(/\/+$/, ""),
+    token: Deno.env.get("OPENCODE_BRIDGE_TOKEN") ?? "",
+    model: Deno.env.get("OPENCODE_MODEL") ?? "deepseek-v4.1-flash-free",
+  };
+}
+
+async function callOpenCodeBridge(
+  body: object,
+): Promise<{ response: Response; provider: "bridge" }> {
+  const config = getBridgeConfig();
+  if (!config.url) throw new Error("OpenCode bridge non configuré.");
+
+  const response = await fetch(`${config.url}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(config.token ? { Authorization: `Bearer ${config.token}` } : {}),
+    },
+    body: JSON.stringify({ ...body, model: config.model }),
+    signal: AbortSignal.timeout(240_000),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new LlmHttpError(
+      `Bridge error ${response.status}`,
+      response.status,
+      text,
+      response.headers,
+    );
+  }
+  return { response, provider: "bridge" };
+}
+
 // --- Fallback orchestrator ---
 
 function azureConfigured(): boolean {
@@ -143,20 +186,23 @@ function azureConfigured(): boolean {
   return Boolean(config.endpoint && config.apiKey);
 }
 
-type LlmProvider = "azure" | "deepseek";
+type LlmProvider = "bridge" | "deepseek" | "azure";
 
 const PROVIDER_CALLERS: Record<
   LlmProvider,
   (body: object) => Promise<{ response: Response; provider: LlmProvider }>
 > = {
-  azure: callAzureOpenAI,
+  bridge: callOpenCodeBridge,
   deepseek: callDeepSeek,
+  azure: callAzureOpenAI,
 };
 
 function availableProviders(): LlmProvider[] {
   const list: LlmProvider[] = [];
-  if (azureConfigured()) list.push("azure");
+  // Ordre de préférence : bridge OpenCode (gratuit) → DeepSeek (payant) → Azure.
+  if (getBridgeConfig().url) list.push("bridge");
   if (Deno.env.get("DEEPSEEK_API_KEY")) list.push("deepseek");
+  if (azureConfigured()) list.push("azure");
   return list;
 }
 
@@ -168,7 +214,9 @@ async function callLLMWithFallback(
 
   const providers = availableProviders();
   if (providers.length === 0) {
-    throw new Error("Aucun provider LLM configuré (AZURE_*, DEEPSEEK_*).");
+    throw new Error(
+      "Aucun provider LLM configuré (OPENCODE_BRIDGE_URL, DEEPSEEK_*, AZURE_*).",
+    );
   }
   // Sans fallback, on garde uniquement le provider prioritaire.
   const chain = fallbackEnabled ? providers : providers.slice(0, 1);

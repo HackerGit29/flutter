@@ -125,7 +125,7 @@ Flutter Chat / Voice
       → auth.ts : user_id extrait du JWT (ignoré du body)
       → context opérationnel (appliances + subscription scope user)
       → RAG pgvector (owner_id = requester_id)
-      → Azure OpenAI GPT-4o tool calling (fallback LLM)
+      → LLM : bridge OpenCode (free) → DeepSeek → Azure OpenAI (tool calling)
       → Policy Engine (ownership + rate limit + criticalité haute → confirmation modale)
       → device_commands (file d'attente)
       → audit log
@@ -137,6 +137,17 @@ Flutter Chat / Voice
 **Actions critiques** : backend demande confirmation modale via `tool_pending { requires_confirmation: true }`. Flutter envoie `confirmed_tool_call` structuré (contourne le LLM) pour exécution directe, avec `confirmed: true` dans les arguments pour éviter la boucle infinie.
 
 **Tools** : `get_subscription_info`, `get_my_appliances`, `turn_on_appliance`, `turn_off_appliance`, `get_realtime_consumption`, `get_device_status`, `get_total_consumption`, `get_live_consumption`, `get_energy_history`, `push_tip`
+
+**Providers LLM** (`llm.ts`) : chaîne ordonnée `bridge` (OpenCode local, gratuit) → `deepseek` (OpenCode Zen payant) → `azure`. Toute panne (réseau, timeout, 5xx) bascule sur le suivant.
+
+### OpenCode bridge (LLM free)
+
+Les modèles `*-free` d'OpenCode Zen refusent les appels serveur (`403 FreeTierError: can only be used from within OpenCode`). `workers/opencode-bridge/` fait exécuter la requête par le **client OpenCode de la machine de dev** (`opencode serve` sur `:4096`) et l'expose en `POST /chat/completions` OpenAI sur `:4097`, publié par `cloudflared`.
+
+- `bash workers/opencode-bridge/start.sh` → pont + tunnel + secrets Supabase (`OPENCODE_BRIDGE_URL`, `OPENCODE_BRIDGE_TOKEN`, `OPENCODE_MODEL`)
+- Tool calling : les définitions sont passées dans le prompt, le pont reconvertit le JSON en `tool_calls` OpenAI
+- Contrepartie : le chat ne répond que si la machine est allumée ; `supabase secrets unset OPENCODE_BRIDGE_URL` pour revenir à DeepSeek/Azure
+- Doc : `workers/opencode-bridge/README.md`
 
 ### Principes de sécurité
 
