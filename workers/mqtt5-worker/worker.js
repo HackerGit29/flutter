@@ -64,12 +64,17 @@ export class Mqtt5Container extends Container {
     // Arment aussi ici : au (ré)création du DO, le container peut être déjà
     // lancé et onStart() ne sera alors plus rappelé → sans cette ligne, le
     // garde-fou ne repartirait qu'après un prochain stop/start.
-    try {
-      this.deleteSchedules("enforceSleep");
-      this.schedule(SLEEP_CHECK_S, "enforceSleep", {})
-        .catch((err) => console.error("[CF] arment veille:", err?.message ?? err));
-    } catch (err) {
-      console.error("[CF] arment veille impossible:", err?.message ?? err);
+    // Si le container est à l'arrêt, on n'arme PAS : sinon chaque réveil du DO
+    // (éviction après inactivité) réarmerait une tâche et créerait une boucle
+    // d'alarms perpétuelle sans aucun container à veiller.
+    if (this.container?.running) {
+      try {
+        this.deleteSchedules("enforceSleep");
+        this.schedule(SLEEP_CHECK_S, "enforceSleep", {})
+          .catch((err) => console.error("[CF] arment veille:", err?.message ?? err));
+      } catch (err) {
+        console.error("[CF] arment veille impossible:", err?.message ?? err);
+      }
     }
   }
 
