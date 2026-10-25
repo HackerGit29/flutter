@@ -110,7 +110,7 @@ async function callDeepSeek(
   const baseUrl = Deno.env.get("DEEPSEEK_BASE_URL") ??
     "https://opencode.ai/zen/v1";
   const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
-  const model = Deno.env.get("DEEPSEEK_MODEL") ?? "deepseek-v4-flash-free";
+  const model = Deno.env.get("DEEPSEEK_MODEL") ?? "deepseek-v4.1-flash";
 
   if (!apiKey) {
     throw new Error("DeepSeek non configuré.");
@@ -138,30 +138,63 @@ async function callDeepSeek(
 
 // --- Fallback orchestrator ---
 
+function azureConfigured(): boolean {
+  const config = getAzureConfig();
+  return Boolean(config.endpoint && config.apiKey);
+}
+
+type LlmProvider = "azure" | "deepseek";
+
+const PROVIDER_CALLERS: Record<
+  LlmProvider,
+  (body: object) => Promise<{ response: Response; provider: LlmProvider }>
+> = {
+  azure: callAzureOpenAI,
+  deepseek: callDeepSeek,
+};
+
+function availableProviders(): LlmProvider[] {
+  const list: LlmProvider[] = [];
+  if (azureConfigured()) list.push("azure");
+  if (Deno.env.get("DEEPSEEK_API_KEY")) list.push("deepseek");
+  return list;
+}
+
 async function callLLMWithFallback(
   body: object,
-): Promise<{ response: Response; provider: "azure" | "deepseek" }> {
-  const fallbackEnabled = (Deno.env.get("LLM_FALLBACK_ENABLED") ?? "false")
+): Promise<{ response: Response; provider: LlmProvider }> {
+  const fallbackEnabled = (Deno.env.get("LLM_FALLBACK_ENABLED") ?? "true")
     .toLowerCase() === "true";
 
-  try {
-    const result = await withRetry(() => callAzureOpenAI(body));
-    console.log(`[LLM] Provider: ${result.provider}`);
-    return result;
-  } catch (error) {
-    if (
-      !fallbackEnabled || !(error instanceof LlmHttpError) ||
-      ![429, 500, 502, 503, 504].includes(error.status)
-    ) {
-      throw error;
-    }
-    console.warn(
-      `[LLM] Azure failed (${error.status}). Falling back to DeepSeek.`,
-    );
-    const result = await withRetry(() => callDeepSeek(body));
-    console.log(`[LLM] Provider: ${result.provider} (fallback)`);
-    return result;
+  const providers = availableProviders();
+  if (providers.length === 0) {
+    throw new Error("Aucun provider LLM configuré (AZURE_*, DEEPSEEK_*).");
   }
+  // Sans fallback, on garde uniquement le provider prioritaire.
+  const chain = fallbackEnabled ? providers : providers.slice(0, 1);
+
+  let lastError: unknown;
+  for (let i = 0; i < chain.length; i++) {
+    const provider = chain[i];
+    try {
+      const result = await withRetry(() => PROVIDER_CALLERS[provider](body));
+      console.log(`[LLM] Provider: ${provider}`);
+      return result;
+    } catch (error) {
+      lastError = error;
+      // On bascule sur TOUTE panne, y compris réseau (fetch qui throw) ou une
+      // ressource supprimée : avant, seuls les statuts 429/5xx déclenchaient le
+      // fallback, donc un endpoint mort laissait le chat sans réponse.
+      const reason = error instanceof LlmHttpError
+        ? `HTTP ${error.status}`
+        : (error as Error)?.message ?? "erreur réseau";
+      const next = chain[i + 1];
+      console.warn(
+        `[LLM] ${provider} failed (${reason}).${next ? ` Falling back to ${next}.` : ""}`,
+      );
+    }
+  }
+  throw lastError;
 }
 
 // ============================================================
@@ -242,8 +275,11 @@ export async function streamFinalAnswer(params: {
       if (data === "[DONE]") return;
       try {
         const json = JSON.parse(data);
+        // Certains providers renvoient un token non-string (nombre) : on coerce.
         const token = json.choices?.[0]?.delta?.content;
-        if (token) await params.onToken(token);
+        if (token !== undefined && token !== null && token !== "") {
+          await params.onToken(String(token));
+        }
       } catch {
         // ignore partial/non-JSON chunks
       }
