@@ -76,6 +76,7 @@ lib/
     ai-chat/                 ← Edge Function : Chat simple Phi-4-mini-instruct
     agent-orchestrator/      ← Edge Function : Azure OpenAI + tool calling + SSE
     energy-aggregator/       ← Edge Function : ETL realtime_power → energy_data
+    admin-api/               ← Edge Function : backoffice web (KPI, users, boxes, RBAC)
   migrations/
     20260621133535_init_schema.sql
     20260623000001_agent_tables.sql  ← device_commands, agent_audit_logs, chat_embeddings
@@ -106,6 +107,7 @@ workers/
 | `supabase/functions/transcribe-audio/index.ts` | Edge Function : audio → gpt-4o-transcribe → texte          |
 | `supabase/functions/text-to-speech/index.ts`   | Edge Function : texte → Azure Neural TTS → audio MP3        |
 | `supabase/functions/energy-aggregator/index.ts`| Edge Function : ETL realtime_power → energy_data quotidien  |
+| `supabase/functions/admin-api/index.ts` | Edge Function : backoffice web (KPI, users, boxes, RBAC admin) |
 | `lib/services/mqtt_service.dart`          | IoT messaging (telemetry stream, control commands)              |
 | `lib/services/agent_service.dart`         | SSE client for agent-orchestrator Edge Function                 |
 | `lib/services/voice_service.dart`         | STT (Azure transcribe) + TTS (Azure Neural TTS)                 |
@@ -382,6 +384,7 @@ Semantic Versioning 2.0.0. Canonical version in `pubspec.yaml`. See `VERSION.md`
 | `supabase/migrations/20260629000002_enable_realtime.sql` | Realtime broadcast sur energy_data + device_commands |
 | `supabase/migrations/20261026000001_admin_geo.sql` | Geo boxes (lat/lng/precision/installed_at), coverage_zones, analytics_events, admin_notes |
 | `supabase/migrations/20261026000002_admin_rbac.sql` | users.admin_level (viewer/operator/super_admin) + vue admin_coverage_view |
+| `supabase/migrations/20261026000003_admin_kpi_rpcs.sql` | RPC admin_kpi_summary / admin_kpi_timeseries + enum admin_action_type étendu |
 
 ## Gotchas
 
