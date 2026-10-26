@@ -380,6 +380,8 @@ Semantic Versioning 2.0.0. Canonical version in `pubspec.yaml`. See `VERSION.md`
 | `supabase/migrations/20260628000001_energy_rollup.sql` | Energy_data : kwh + cumulative_kwh au lieu de total_day/week/month/year |
 | `supabase/migrations/20260629000001_fix_rpc_group_by.sql` | Fix TOO_MANY_ROWS dans sum_total_consumption |
 | `supabase/migrations/20260629000002_enable_realtime.sql` | Realtime broadcast sur energy_data + device_commands |
+| `supabase/migrations/20261026000001_admin_geo.sql` | Geo boxes (lat/lng/precision/installed_at), coverage_zones, analytics_events, admin_notes |
+| `supabase/migrations/20261026000002_admin_rbac.sql` | users.admin_level (viewer/operator/super_admin) + vue admin_coverage_view |
 
 ## Gotchas
 
