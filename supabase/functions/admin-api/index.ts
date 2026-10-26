@@ -8,6 +8,8 @@
 // Routes :
 //   GET   /v1/kpi/summary
 //   GET   /v1/kpi/timeseries
+//   GET   /v1/geo/coverage
+//   GET   /v1/geo/heatmap
 //   GET   /v1/users
 //   GET   /v1/users/:id
 //   GET   /v1/users/:id/timeline
@@ -24,6 +26,7 @@
 import { corsHeaders, HttpError, jsonError } from "./http.ts";
 import { requireAdmin, type AdminLevel } from "./auth.ts";
 import { handleKpiSummary, handleKpiTimeseries } from "./kpi.ts";
+import { handleGeoCoverage, handleGeoHeatmap } from "./geo.ts";
 import {
   handleGetUser,
   handleListUsers,
@@ -66,6 +69,16 @@ Deno.serve(async (req) => {
     if (resource === "kpi" && id === "timeseries" && method === "GET") {
       await requireAdmin(req, "viewer");
       return await handleKpiTimeseries(url);
+    }
+
+    // ---- Géo (viewer+) ----
+    if (resource === "geo" && id === "coverage" && method === "GET") {
+      const ctx = await requireAdmin(req, "viewer");
+      return await handleGeoCoverage(url, ctx);
+    }
+    if (resource === "geo" && id === "heatmap" && method === "GET") {
+      const ctx = await requireAdmin(req, "viewer");
+      return await handleGeoHeatmap(url, ctx);
     }
 
     // ---- Users ----
