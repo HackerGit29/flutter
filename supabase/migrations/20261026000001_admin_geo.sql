@@ -44,7 +44,7 @@ EXCEPTION WHEN others THEN null; END $$;
 --    Lecture : admin via RLS.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS analytics_events (
-  id BIGINT GENERATED ALWAYS AS PRIMARY KEY,
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   box_id UUID REFERENCES boxes(id) ON DELETE SET NULL,
   event TEXT NOT NULL,          -- 'app_open','chat_message','tool_confirmed','tip_shown'…
