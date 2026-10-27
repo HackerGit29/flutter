@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Backoffice `admin-api` : routes `/v1/subscriptions` (liste paginée + filtres, PATCH opérateur billing), `/v1/licenses` (liste avec statut dérivé, `activate` operator, `revoke` super_admin motivé) et `/v1/admin` (`actions` journal filtré, `audit-logs` fusion admin+agent, `notes` support GET/POST)
+- Migration `20261027000001_admin_billing.sql` : colonnes de révocation `licenses` (`revoked_at`, `revoke_reason`) + valeur `update_subscription` dans l'enum `admin_action_type`
+
+### Changed
+- `audit.ts` : union `AdminActionName` étendue (`update_subscription`, `activate_license`, `revoke_license`)
+- Docs actualisées pour refléter le code réel : chaîne LLM chat = **OpenCode bridge → DeepSeek → Cloudflare Workers AI** ; Azure conservé **uniquement** pour les embeddings RAG et la voix (STT/TTS, migration en attente) ; worker MQTT5 sur **Cloudflare Containers** ; broker **EMQX Cloud Serverless**. Retrait des références Microsoft/Azure retirées de `README.md`, `AGENTS.md`, `agent-architecture`, `core`, `architecture-reseau`, `services` et des READMEs workers.
+
+### Fixed
+- `.gitignore` : ignore les dossiers d'outillage `.freebuff` et `.claude`
+
 ## [1.4.1+1] — 2026-06-29
 
 ### Fixed
