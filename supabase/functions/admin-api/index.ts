@@ -22,6 +22,15 @@
 //   POST  /v1/boxes/:id/assign
 //   POST  /v1/boxes/:id/reset
 //   POST  /v1/boxes/:id/force-sync
+//   GET   /v1/subscriptions
+//   PATCH /v1/subscriptions/:id
+//   GET   /v1/licenses
+//   POST  /v1/licenses/activate
+//   POST  /v1/licenses/revoke
+//   GET   /v1/admin/actions
+//   GET   /v1/admin/audit-logs
+//   GET   /v1/admin/notes
+//   POST  /v1/admin/notes
 
 import { corsHeaders, HttpError, jsonError } from "./http.ts";
 import { requireAdmin, type AdminLevel } from "./auth.ts";
@@ -43,6 +52,21 @@ import {
   handleResetBox,
   handleUpdateBox,
 } from "./boxes.ts";
+import {
+  handleListSubscriptions,
+  handleUpdateSubscription,
+} from "./subscriptions.ts";
+import {
+  handleActivateLicense,
+  handleListLicenses,
+  handleRevokeLicense,
+} from "./licenses.ts";
+import {
+  handleCreateNote,
+  handleFusedAuditLogs,
+  handleListAdminActions,
+  handleListNotes,
+} from "./admin.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -134,6 +158,54 @@ Deno.serve(async (req) => {
       if (id && sub === "force-sync" && method === "POST") {
         const ctx = await requireAdmin(req, "operator");
         return await handleForceSync(id, ctx);
+      }
+    }
+
+    // ---- Subscriptions (§5.3.9) ----
+    if (resource === "subscriptions") {
+      if (!id && method === "GET") {
+        const ctx = await requireAdmin(req, "viewer");
+        return await handleListSubscriptions(url, ctx);
+      }
+      if (id && !sub && method === "PATCH") {
+        const ctx = await requireAdmin(req, "operator");
+        return await handleUpdateSubscription(id, await readBody(req), ctx);
+      }
+    }
+
+    // ---- Licenses (§5.3.9) ----
+    if (resource === "licenses") {
+      if (!id && method === "GET") {
+        const ctx = await requireAdmin(req, "viewer");
+        return await handleListLicenses(url, ctx);
+      }
+      if (id === "activate" && method === "POST") {
+        const ctx = await requireAdmin(req, "operator");
+        return await handleActivateLicense(await readBody(req), ctx);
+      }
+      if (id === "revoke" && method === "POST") {
+        const ctx = await requireAdmin(req, "super_admin");
+        return await handleRevokeLicense(await readBody(req), ctx);
+      }
+    }
+
+    // ---- Admin & audit (§5.3.13) ----
+    if (resource === "admin") {
+      if (id === "actions" && !sub && method === "GET") {
+        const ctx = await requireAdmin(req, "viewer");
+        return await handleListAdminActions(url, ctx);
+      }
+      if (id === "audit-logs" && !sub && method === "GET") {
+        const ctx = await requireAdmin(req, "super_admin");
+        return await handleFusedAuditLogs(url, ctx);
+      }
+      if (id === "notes" && !sub && method === "GET") {
+        const ctx = await requireAdmin(req, "operator");
+        return await handleListNotes(url, ctx);
+      }
+      if (id === "notes" && !sub && method === "POST") {
+        const ctx = await requireAdmin(req, "operator");
+        return await handleCreateNote(await readBody(req), ctx);
       }
     }
 
