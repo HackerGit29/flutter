@@ -218,5 +218,5 @@ remontée dans `realtime_power` (155 messages).
 | `/health` OK mais `app_loaded: false` | Import de `app.js` en échec | Lire `fatal_errors` (stack, 500 caractères) |
 | `missing_env` non vide | Secrets absents ou posés vides | `wrangler secret put` puis `/_stop` pour forcer un nouveau start |
 | `env_keys` sans les secrets | Secrets posés sur un autre Worker | `wrangler secret list`, comparer avec `/_diag` |
-| `mqtt_state: closed` + `Bad User Name or Password` | Token Flespi expiré/révoqué | Régénérer le token (droit publish `.../relays/+/cmd`, subscribe `.../ack` et `.../telemetry`) |
+| `mqtt_state: closed` + `Bad User Name or Password` | Credentials EMQX invalides | Vérifier `MQTT_USERNAME` / `MQTT_PASSWORD` (droit publish `.../relays/+/cmd`, subscribe `.../ack` et `.../telemetry`) |
 | `/diag/supabase` ≠ 200 | URL/clé Supabase invalides | Re-générer la service role key (Supabase Dashboard → Settings → API) |
