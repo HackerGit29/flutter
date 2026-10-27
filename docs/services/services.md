@@ -3,10 +3,10 @@
 Infrastructure services for external communication.
 
 ## MqttService
-Service IoT connecté au broker flespi en MQTT 5.0.
+Service IoT connecté au broker EMQX Cloud Serverless en MQTT 5.0.
 
-- **Broker**: `mqtt.flespi.io` — TCP TLS `:8883` (natif), WSS `:443` (web)
-- **Auth**: Token flespi comme `username`, password vide
+- **Broker**: `r1aa3902.ala.eu-central-1.emqxsl.com` — TCP TLS `:8883` (natif), WSS `:8084/mqtt` (web)
+- **Auth**: credentials EMQX (`MQTT_USERNAME` / `MQTT_PASSWORD` via `--dart-define`) ; repli automatique sur les anciennes constantes `FLESPI_*`
 - **QoS**: `atLeastOnce` (QoS 1) maximum
 - **Package**: `mqtt5_client ^4.17.1`
 
@@ -130,7 +130,7 @@ device_commands (pending)
 - **Claim atomique** : `UPDATE device_commands SET status = 'processing' WHERE id = pending.id AND status = 'pending'`
 - **ACK listener** : subscribe `aricie/v1/boxes/+/relays/+/ack`
 - **Timeout** : `markTimeoutCommands()` toutes les 10s
-- **Variables `.env`** : `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `FLESPI_MQTT_HOST`, `FLESPI_MQTT_TCP_PORT`, `FLESPI_MQTT_WORKER_TOKEN`
+- **Variables `.env`** : `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `MQTT_USERNAME`, `MQTT_PASSWORD`
 
 ### Commande MQTT 5 publiée
 ```json
@@ -220,4 +220,4 @@ Voir `workers/mqtt5-worker/README.md` pour :
 - Architecture détaillée du worker (bootstrap `index.js` / app `app.js`)
 - Env vars et secrets (`wrangler secret put`)
 - Routes de diagnostic (`/health`, `/_diag`, `/diag/supabase`, `/_stop`, `/_restart`)
-- Troubleshooting (container qui ne démarre pas, secrets vides, token Flespi expiré)
+- Troubleshooting (container qui ne démarre pas, secrets vides, credentials EMQX invalides)
