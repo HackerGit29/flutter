@@ -12,7 +12,10 @@ export type AdminActionName =
   | "update_box"
   | "reset_box"
   | "force_sync"
-  | "override_ownership";
+  | "override_ownership"
+  | "update_subscription"
+  | "activate_license"
+  | "revoke_license";
 
 export type AdminTargetType =
   | "user"
