@@ -16,14 +16,15 @@ L'orchestrateur central de l'agent conversationnel Aricie.
 
 | Fichier | Rôle |
 |---|---|
-| `index.ts` | Entry point : auth JWT → Azure OpenAI → tool calling → SSE |
+| `index.ts` | Entry point : auth JWT → LLM (`llm.ts`) → tool calling → SSE |
 | `auth.ts` | Extraction `user_id` depuis le JWT Supabase (`auth.getUser()`) |
 | `tools.ts` | Définition des 5 tools métier + system prompt |
-| `azure_openai.ts` | Client Azure OpenAI GPT-4o (tool calling + streaming) |
+| `llm.ts` | Chaîne LLM multi-provider : OpenCode bridge → DeepSeek → Cloudflare Workers AI |
+| `azure_openai.ts` | Legacy : client Azure OpenAI (chat), **non importé** par l'orchestrateur |
 | `policy.ts` | Résolution des noms métier → IDs + vérification ownership |
 | `actions.ts` | Insertion `device_commands`, lecture `energy_data`, etc. |
 | `audit.ts` | Journalisation dans `agent_audit_logs` |
-| `rag.ts` | Embeddings + RAG vectoriel scope par `owner_id` |
+| `rag.ts` | Embeddings + RAG vectoriel scope par `owner_id` (embeddings encore Azure) |
 | `stream.ts` | Utilitaires SSE (headers, write events) |
 | `types.ts` | Types TypeScript partagés |
 
@@ -32,25 +33,31 @@ ETL quotidien : lit `realtime_power` (table du worker MQTT5) et upsert dans `ene
 
 ### Secrets requis
 
-#### Dashboard Supabase (Edge Function)
+#### Dashboard Supabase — chaîne LLM chat (`llm.ts`)
+```
+OPENCODE_BRIDGE_URL / OPENCODE_BRIDGE_TOKEN / OPENCODE_MODEL
+DEEPSEEK_API_KEY / DEEPSEEK_MODEL
+CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN
+LLM_FALLBACK_ENABLED=true
+```
+
+#### Dashboard Supabase — encore Azure (RAG embeddings + voix ; migration en attente)
 ```
 AZURE_OPENAI_ENDPOINT
 AZURE_OPENAI_API_KEY
-AZURE_OPENAI_DEPLOYMENT           → gpt-4o
-AZURE_OPENAI_API_VERSION          → 2024-10-21
-AZURE_OPENAI_EMBEDDING_DEPLOYMENT → text-embedding-3-small
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT → text-embedding-3-*
+AZURE_SPEECH_KEY                 → TTS Neural
 ```
 
 #### Worker MQTT 5 fichier `.env`
 ```
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
-FLESPI_MQTT_HOST=mqtt.flespi.io
-FLESPI_MQTT_TCP_PORT=8883
-FLESPI_MQTT_WORKER_TOKEN=
+MQTT_USERNAME=
+MQTT_PASSWORD=
 ```
 
-> Les secrets Supabase sont configurés dans le dashboard. Les variables flespi sont dans le `.env` du worker Node.js `workers/mqtt5-worker/`.
+> Les secrets Supabase sont configurés dans le dashboard. Les credentials MQTT (EMQX Cloud Serverless) sont dans le `.env` du worker Node.js `workers/mqtt5-worker/` (ou posés en secrets du Worker Cloudflare).
 
 > Les secrets ne sont jamais accessibles côté client Flutter.
 
