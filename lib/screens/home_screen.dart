@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:aricie/theme/app_theme.dart';
 import 'package:aricie/core/constants.dart';
 import 'package:aricie/core/di/injection_container.dart';
@@ -22,6 +21,7 @@ import 'settings/settings_screen.dart';
 import 'update/update_screen.dart';
 import '../widgets/chatbot_floating_button.dart';
 import '../services/tips_realtime_service.dart';
+import '../widgets/daily_energy_tip_banner.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -127,6 +127,12 @@ class _DashboardTabState extends State<DashboardTab> {
   List<Appliance> _appliances = [];
   Map<String, double> _applianceEnergy = {};
   double _totalConsumption = 0.0;
+  // Variation de la conso du jour vs la veille (en %). null si indéterminable.
+  double? _dailyTrendPercent;
+  // Conso de la veille (kWh) mémorisée pour recalculer la tendance en direct.
+  double? _yesterdayKwh;
+  // Index du point « aujourd'hui » dans _weeklySpots (null si absent de l'historique).
+  int? _todaySpotIndex;
 
   final Map<String, RealtimePowerReading> _liveReadings = {};
   StreamSubscription<RealtimePowerReading>? _powerSub;
@@ -138,25 +144,12 @@ class _DashboardTabState extends State<DashboardTab> {
   StreamSubscription<BoxTelemetry>? _telemetrySub;
   List<FlSpot> _weeklySpots = [];
 
-  String? _tipText;
-  StreamSubscription<EnergyTipEvent>? _tipSub;
-  Timer? _autoClearTimer;
-
   @override
   void initState() {
     super.initState();
     _mqttService = sl<MqttService>();
+    // Le conseil du jour + les pushes live sont gérés par DailyEnergyTipBanner.
     TipsRealtimeService.instance.start();
-    _loadDailyTip();
-    _tipSub = TipsRealtimeService.instance.stream.listen((e) {
-      if (!mounted) return;
-      setState(() => _tipText = e.body);
-      _autoClearTimer?.cancel();
-      _autoClearTimer = Timer(const Duration(hours: 24), () {
-        if (!mounted) return;
-        _loadDailyTip();
-      });
-    });
     _loadData();
   }
 
@@ -216,6 +209,26 @@ class _DashboardTabState extends State<DashboardTab> {
       _weeklySpots = List.generate(sorted.length, (i) {
         return FlSpot(i.toDouble(), sorted[i].kwh);
       });
+
+      final now = DateTime.now();
+      bool isToday(DateTime d) =>
+          d.year == now.year && d.month == now.month && d.day == now.day;
+
+      // Point « aujourd'hui » du graphe : suivra le total en direct (cf.
+      // _recomputeLiveAggregates), pour que la courbe évolue avec la conso.
+      final todayIdx = sorted.indexWhere((p) => isToday(p.date));
+      _todaySpotIndex = todayIdx >= 0 ? todayIdx : null;
+
+      // Conso de la veille (dernier jour antérieur à aujourd'hui) mémorisée
+      // pour recalculer la tendance à chaque nouvelle valeur temps réel.
+      final previousDays = sorted.where((p) => !isToday(p.date)).toList();
+      _yesterdayKwh = (previousDays.isNotEmpty && previousDays.last.kwh > 0)
+          ? previousDays.last.kwh
+          : null;
+
+      final y = _yesterdayKwh;
+      _dailyTrendPercent =
+          (y != null) ? (_totalConsumption - y) / y * 100 : null;
     });
   }
 
@@ -244,41 +257,6 @@ class _DashboardTabState extends State<DashboardTab> {
     });
   }
 
-  Future<void> _loadDailyTip() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) {
-      _useFallback();
-      return;
-    }
-    final res = await Supabase.instance.client
-        .from('daily_energy_tip')
-        .select('body')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-    if (!mounted) return;
-    if (res != null) {
-      setState(() => _tipText = res['body'] as String);
-    } else {
-      _useFallback();
-    }
-  }
-
-  void _useFallback() {
-    const tips = [
-      'Réduisez votre consommation en éteignant les appareils en veille',
-      'Réglez votre chauffe-eau à 55°C : l\'équilibre idéal entre confort et économies',
-      'Dégivrez votre frigo régulièrement pour éviter 30% de surconsommation',
-      'Lavez à 30°C : 3× moins d\'énergie qu\'à 60°C',
-      'Débranchez les chargeurs inutilisés, ils consomment même à vide',
-      'Préférez le séchage à l\'air libre plutôt que le sèche-linge',
-      'Remplacez vos ampoules par des LED : 85% d\'économie',
-    ];
-    final day = DateTime.now().day;
-    final idx = (day - 1) % tips.length;
-    setState(() => _tipText = tips[idx]);
-  }
-
   void _initRealtimePower() {
     final uid = _userId;
     if (uid == null) return;
@@ -286,21 +264,45 @@ class _DashboardTabState extends State<DashboardTab> {
     _powerSub?.cancel();
     _powerSub = RealtimePowerService.instance.stream.listen((r) {
       if (!mounted) return;
-      setState(() => _liveReadings[r.applianceId] = r);
+      setState(() {
+        _liveReadings[r.applianceId] = r;
+        _recomputeLiveAggregates();
+      });
     });
+  }
+
+  // Recalcule les agrégats affichés (total journalier, tendance vs veille et
+  // point « aujourd'hui » du graphe) à partir des lectures temps réel, avec
+  // repli sur les valeurs de la base pour les appareils pas encore vus en live.
+  // Même logique que les cartes par appareil, pour rester cohérent.
+  void _recomputeLiveAggregates() {
+    double total = 0.0;
+    for (final a in _appliances) {
+      final live = _liveReadings[a.id]?.powerKwh;
+      total += live ?? (_applianceEnergy[a.id] ?? 0.0);
+    }
+    _totalConsumption = total;
+
+    final y = _yesterdayKwh;
+    _dailyTrendPercent =
+        (y != null && y > 0) ? (_totalConsumption - y) / y * 100 : null;
+
+    final idx = _todaySpotIndex;
+    if (idx != null && idx >= 0 && idx < _weeklySpots.length) {
+      _weeklySpots[idx] = FlSpot(idx.toDouble(), _totalConsumption);
+    }
   }
 
   @override
   void dispose() {
     _telemetrySub?.cancel();
     _powerSub?.cancel();
-    _tipSub?.cancel();
-    _autoClearTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final (dailyChange, dailyChangeColor, dailyChangeIcon) = _dailyTrend();
     return SafeArea(
       child: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -362,9 +364,9 @@ class _DashboardTabState extends State<DashboardTab> {
                           _buildConsumptionCard(
                             'Consommation Journalière',
                             _totalConsumption.toStringAsFixed(1),
-                            '+5%',
-                            AppColors.accentDot,
-                            Icons.arrow_upward,
+                            dailyChange,
+                            dailyChangeColor,
+                            dailyChangeIcon,
                             AppColors.accentCoral.withValues(alpha: 0.3),
                             AppColors.accentCoral,
                           ),
@@ -454,13 +456,7 @@ class _DashboardTabState extends State<DashboardTab> {
                               ),
                             ),
                             const SizedBox(height: AppSpacing.s4),
-                            if (_tipText != null)
-                              _buildTipCard(
-                                _tipText!,
-                                Icons.lightbulb_outline,
-                                AppColors.accentGold.withValues(alpha: 0.3),
-                                AppColors.accentGold,
-                              ),
+                            const DailyEnergyTipBanner(),
                           ],
                         ),
                       ),
@@ -472,36 +468,6 @@ class _DashboardTabState extends State<DashboardTab> {
                 ),
               ),
             ),
-    );
-  }
-
-  Widget _buildTipCard(String tip, IconData icon, Color backgroundColor, Color iconColor) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.s4),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        boxShadow: [AppShadows.sm],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.s3),
-            decoration: BoxDecoration(
-              color: iconColor.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-            ),
-            child: Icon(icon, color: iconColor),
-          ),
-          const SizedBox(width: AppSpacing.s4),
-          Expanded(
-            child: Text(
-              tip,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -560,6 +526,20 @@ class _DashboardTabState extends State<DashboardTab> {
         ],
       ),
     );
+  }
+
+  // Traduit _dailyTrendPercent en (texte, couleur, icône) pour la pastille de
+  // tendance. Hausse = corail (défavorable), baisse = menthe (favorable),
+  // neutre / indéterminé = gris avec une flèche plate.
+  (String, Color, IconData) _dailyTrend() {
+    final trend = _dailyTrendPercent;
+    if (trend == null) {
+      return ('—', AppColors.accentDot, Icons.trending_flat);
+    }
+    final pct = trend.round();
+    if (pct > 0) return ('+$pct%', AppColors.accentCoral, Icons.arrow_upward);
+    if (pct < 0) return ('$pct%', AppColors.accentMint, Icons.arrow_downward);
+    return ('0%', AppColors.accentDot, Icons.trending_flat);
   }
 
   Widget _buildConsumptionCard(

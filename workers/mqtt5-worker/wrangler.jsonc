@@ -1,0 +1,55 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "aricie-mqtt5-worker",
+  "main": "worker.js",
+  "compatibility_date": "2026-10-01",
+
+  // Container : l'image est buildée depuis le Dockerfile de ce dossier.
+  // max_instances = 1 car le claim des device_commands est déjà atomique et
+  // un seul client MQTT par boîtier suffit (redondance gérée par le failover
+  // local WSL/cloudflared, pas par des instances Cloudflare multiples).
+  // AUCUN triggers.crons : pas de keep-alive payant sur Cloudflare, le
+  // container dort après sleepAfter (10m) et le relais local assure la suite.
+  "containers": [
+    {
+      "class_name": "Mqtt5Container",
+      "image": "./Dockerfile",
+      "max_instances": 1,
+      // "lite" (256 MiB) est trop juste pour Node 22 + mqtt + supabase-js au
+      // chargement : le container crashait au démarrage (instance inactive,
+      // fetch → "Failed to start container"). "basic" (1 GiB) le fait tenir.
+      "instance_type": "basic"
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "MQTT5_CONTAINER",
+        "class_name": "Mqtt5Container"
+      }
+    ]
+  },
+
+  "exports": {
+    "Mqtt5Container": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+
+  // Variables non secrètes relayées au container via envVars (worker.js).
+  // Les secrets (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MQTT_USERNAME,
+  // MQTT_PASSWORD) se posent avec `wrangler secret put <NAME>`.
+  // EMQX Cloud Serverless (plan Dev, région Europe). Serverless n'expose que
+  // 8883 (MQTT over TLS) et 8084 (WSS) — pas de port en clair.
+  "vars": {
+    "MQTT_HOST": "r1aa3902.ala.eu-central-1.emqxsl.com",
+    "MQTT_PORT": "8883",
+    "TIPS_GENERATOR_URL": ""
+  },
+
+  "observability": {
+    "enabled": true
+  }
+}

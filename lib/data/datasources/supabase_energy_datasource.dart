@@ -21,14 +21,22 @@ class SupabaseEnergyDataSource {
     }
   }
 
+  // Plafond d'appareils par utilisateur, utilisé pour dimensionner la limite
+  // de lignes : `energy_data` contient une ligne PAR APPAREIL ET PAR JOUR, donc
+  // la limite doit couvrir (nb de jours × nb d'appareils), sinon la série
+  // journalière est tronquée (bug : « Semaine » ne renvoyait que 7 lignes).
+  static const int _maxAppliancesPerUser = 50;
+
   int _limitForTimeFrame(String timeFrame) {
+    final int days;
     switch (timeFrame) {
-      case 'Jour': return 1;
-      case 'Semaine': return 7;
-      case 'Mois': return 31;
-      case 'Année': return 366;
-      default: return 30;
+      case 'Jour': days = 1; break;
+      case 'Semaine': days = 7; break;
+      case 'Mois': days = 31; break;
+      case 'Année': days = 366; break;
+      default: days = 30;
     }
+    return days * _maxAppliancesPerUser;
   }
 
   Future<List<Map<String, dynamic>>> getEnergyHistory({

@@ -56,12 +56,16 @@ Flutter Client
   → AgentService (SSE client)
     → POST /functions/v1/agent-orchestrator (JWT + message)
       → Supabase Edge Function (Deno)
-        → Azure OpenAI GPT-4o (tool calling + streaming)
+        → LLM : bridge OpenCode (free) → DeepSeek v4.1-flash → Cloudflare Workers AI
         → Policy Engine (ownership + RBAC + rate limit)
         → device_commands (file d'attente)
         → Audit log
         → SSE response typée
 ```
+
+### Providers LLM
+
+Chaîne ordonnée, bascule automatique sur toute panne : **bridge OpenCode** (modèles `*-free`, `workers/opencode-bridge/`) → **DeepSeek / OpenCode Zen** (`deepseek-v4.1-flash`, LLM de base de l'orchestrateur) → **Cloudflare Workers AI** (`@cf/deepseek-ai/deepseek-v4.1-flash-1017`, dernier recours, secrets `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN`). Azure OpenAI retiré (abonnement terminé). Le free tier d'OpenCode Zen refuse les appels serveur (`403 FreeTierError`) : le pont fait exécuter la requête par le client OpenCode de la machine de dev et l'expose en `chat/completions`. Voir `workers/opencode-bridge/README.md`.
 
 ### Flux SSE (v1.4.1)
 | Event | UI visible ? | Description |
@@ -156,41 +160,64 @@ device_commands (pending)
 ## NotificationService
 Handles local and push notifications for system alerts and reminders.
 
+## NotificationPreferences
+Service pur (SharedPreferences) qui persiste les préférences de notification de l'utilisateur.
+- Clé `notif_daily_reminder_enabled` (défaut `true`), `dailyReminderId = 1`.
+- `NotificationPreferencesScreen` bascule le rappel quotidien → planifie/annule via `NotificationService` (désactivé sur web).
+- `main.dart` respecte la préférence au démarrage (plus de planification en dur).
+
+## ProfileService
+Gestion du **nom d'affichage** de l'utilisateur, stocké dans les métadonnées du compte Supabase Auth (`user_metadata.display_name`).
+- `getDisplayName()` / `setDisplayName(name)` via `auth.updateUser(UserAttributes(data: ...))`.
+- Synchronisé au compte (donc à tous les appareils), **sans colonne BDD ni migration**. L'email reste l'identifiant de connexion (non modifiable dans l'app).
+
 ## MQTT Worker — Build & Deploy
 
 ### Infrastructure
 
 | Ressource | Valeur |
 |-----------|--------|
-| ACR | `paossimb7935acr.azurecr.io` |
-| Build VM | `68.210.96.129` (austriaeast, `Standard_B2ats_v2`) |
-| Container App | `mqtt5-worker` (francecentral) |
-| CA Environment | `cae-paossimb-7935` |
+| Worker | `aricie-mqtt5-worker` (https://aricie-mqtt5-worker.smitthwillson1213.workers.dev) |
+| Container app | `aricie-mqtt5-worker-mqtt5container` |
+| Registre | `registry.cloudflare.com` |
+| Instance type | `basic` (1 GiB) |
+| Broker MQTT | EMQX Cloud Serverless — `r1aa3902.ala.eu-central-1.emqxsl.com` (8883 MQTT/TLS, 8084 WSS `/mqtt`, pas de port en clair) |
 
-Le worker est déployé dans Azure Container Apps. L'image Docker est buildée sur une VM Linux dédiée (ACR Tasks bloqué par la politique Azure for Students).
+Le worker tourne dans **Cloudflare Containers** (wrapper `worker.js` + Durable
+Object `Mqtt5Container`). Les services Azure (Container Apps, ACR, build-vm) ont
+été supprimés avec la fin de l'abonnement : plus aucune commande `az`.
+
+### Veille (scale-to-zero)
+
+L'instance **dort après 10 min sans requête** : `sleepAfter = "600s"` du SDK +
+garde-fou `enforceSleep` dans `worker.js` (arrêt toutes les 60 s, SIGKILL de
+secours 30 s après un SIGTERM ignoré — le process est PID 1 du container).
+Aucun cron keep-alive : le relais local WSL/cloudflared prend le relais pendant
+la veille, le claim atomique de `device_commands` évite tout double traitement.
 
 ### Workflow build + deploy
 
 ```
-Modifier workers/mqtt5-worker/index.js
-  → scripts/azure/deploy-mqtt5-worker.ps1
-    → 1. SCP des sources vers la VM (68.210.96.129)
-    → 2. Docker build sur la VM
-    → 3. Docker push vers ACR (paossimb7935acr.azurecr.io)
-    → 4. az containerapp update → nouveau revision
+Modifier workers/mqtt5-worker/app.js
+  → wrangler deploy (Docker local via WSL Debian)
+    → 1. Docker build depuis ./Dockerfile
+    → 2. Push registry.cloudflare.com
+    → 3. Update de l'application container
+    → 4. curl /_stop pour forcer un start avec envVars à jour
 ```
 
 ### Commande unique
 
 ```bash
-pwsh scripts/azure/deploy-mqtt5-worker.ps1
+./workers/mqtt5-worker/scripts/deploy-cloudflare.sh
+# ou, depuis Windows (Docker uniquement dans WSL)
+wsl -d Debian -u root -- bash -c "cd '<repo>/workers/mqtt5-worker' && wrangler deploy"
 ```
 
 ### Documentation complète
 
 Voir `workers/mqtt5-worker/README.md` pour :
-- Architecture détaillée du worker
-- Env vars et secrets
-- Déploiement manuel étape par étape
-- Création from scratch du Container App
-- Troubleshooting (CrashLoopBackOff, Ready=False, etc.)
+- Architecture détaillée du worker (bootstrap `index.js` / app `app.js`)
+- Env vars et secrets (`wrangler secret put`)
+- Routes de diagnostic (`/health`, `/_diag`, `/diag/supabase`, `/_stop`, `/_restart`)
+- Troubleshooting (container qui ne démarre pas, secrets vides, token Flespi expiré)

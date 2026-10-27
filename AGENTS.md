@@ -20,9 +20,9 @@ flutter build apk --obfuscate --split-debug-info=build/obfuscation/
 | State        | Riverpod (preferred) + Provider (theme only)                                             |
 | Backend      | Supabase (auth, realtime streams, PostgreSQL, Edge Functions)                            |
 | AI Agent     | Supabase Edge Functions + Azure Phi-4-mini-instruct (chat) / Azure OpenAI (tool calling) |
-| MQTT         | MQTT 5.0 via flespi broker, `mqtt5_client`, Node.js worker (mqtt.js v5)                  |
+| MQTT         | MQTT 5.0 via EMQX Cloud Serverless (Europe, déploiement `dev`), `mqtt5_client`, Node.js worker (mqtt.js v5) |
 | RAG          | pgvector (chat_embeddings, owner_id scopé)                                               |
-| IoT          | MQTT 5.0 via `mqtt5_client` (TCP TLS `mqtt.flespi.io:8883`, WSS `mqtt.flespi.io:443`)    |
+| IoT          | MQTT 5.0 via `mqtt5_client` (TCP TLS `r1aa3902.ala.eu-central-1.emqxsl.com:8883`, WSS `:8084/mqtt`) |
 | Voice        | `speech_to_text` (STT) + `flutter_tts` (TTS) ✅ Migré vers Azure gpt-4o-transcribe (STT) + Azure Neural TTS (TTS) via Edge Functions |
 | Design       | Soft Wellness Minimalism — seed `#4A6572`, DM Sans, pastel palette                       |
 | Architecture | Clean Architecture (`core/` → `data/` → `domain/` → `presentation/`)                     |
@@ -63,7 +63,7 @@ lib/
   services/                  ← External service integrations
     agent_service.dart       ← SSE client → Edge Function agent-orchestrator
     voice_service.dart       ← STT (speech_to_text) + TTS (flutter_tts)
-    mqtt_service.dart        ← MQTT 5.0 (flespi broker, telemetry/status only)
+    mqtt_service.dart        ← MQTT 5.0 (EMQX broker, telemetry/status only)
     auth_service.dart        ← Auth wrapper
     notification_service.dart← Notifications
     mqtt/
@@ -76,6 +76,7 @@ lib/
     ai-chat/                 ← Edge Function : Chat simple Phi-4-mini-instruct
     agent-orchestrator/      ← Edge Function : Azure OpenAI + tool calling + SSE
     energy-aggregator/       ← Edge Function : ETL realtime_power → energy_data
+    admin-api/               ← Edge Function : backoffice web (KPI, users, boxes, RBAC)
   migrations/
     20260621133535_init_schema.sql
     20260623000001_agent_tables.sql  ← device_commands, agent_audit_logs, chat_embeddings
@@ -106,6 +107,7 @@ workers/
 | `supabase/functions/transcribe-audio/index.ts` | Edge Function : audio → gpt-4o-transcribe → texte          |
 | `supabase/functions/text-to-speech/index.ts`   | Edge Function : texte → Azure Neural TTS → audio MP3        |
 | `supabase/functions/energy-aggregator/index.ts`| Edge Function : ETL realtime_power → energy_data quotidien  |
+| `supabase/functions/admin-api/index.ts` | Edge Function : backoffice web (KPI, users, boxes, RBAC admin) |
 | `lib/services/mqtt_service.dart`          | IoT messaging (telemetry stream, control commands)              |
 | `lib/services/agent_service.dart`         | SSE client for agent-orchestrator Edge Function                 |
 | `lib/services/voice_service.dart`         | STT (Azure transcribe) + TTS (Azure Neural TTS)                 |
@@ -125,7 +127,7 @@ Flutter Chat / Voice
       → auth.ts : user_id extrait du JWT (ignoré du body)
       → context opérationnel (appliances + subscription scope user)
       → RAG pgvector (owner_id = requester_id)
-      → Azure OpenAI GPT-4o tool calling (fallback LLM)
+      → LLM : bridge OpenCode (free) → DeepSeek v4.1-flash → Cloudflare Workers AI (tool calling)
       → Policy Engine (ownership + rate limit + criticalité haute → confirmation modale)
       → device_commands (file d'attente)
       → audit log
@@ -137,6 +139,17 @@ Flutter Chat / Voice
 **Actions critiques** : backend demande confirmation modale via `tool_pending { requires_confirmation: true }`. Flutter envoie `confirmed_tool_call` structuré (contourne le LLM) pour exécution directe, avec `confirmed: true` dans les arguments pour éviter la boucle infinie.
 
 **Tools** : `get_subscription_info`, `get_my_appliances`, `turn_on_appliance`, `turn_off_appliance`, `get_realtime_consumption`, `get_device_status`, `get_total_consumption`, `get_live_consumption`, `get_energy_history`, `push_tip`
+
+**Providers LLM** (`llm.ts`) : chaîne ordonnée `bridge` (OpenCode local, gratuit) → `deepseek` (OpenCode Zen, LLM de base `deepseek-v4.1-flash`) → `cloudflare` (Workers AI, `@cf/deepseek-ai/deepseek-v4.1-flash-1017`). Toute panne (réseau, timeout, 5xx) bascule sur le suivant. Azure OpenAI retiré (abonnement terminé).
+
+### OpenCode bridge (LLM free)
+
+Les modèles `*-free` d'OpenCode Zen refusent les appels serveur (`403 FreeTierError: can only be used from within OpenCode`). `workers/opencode-bridge/` fait exécuter la requête par le **client OpenCode de la machine de dev** (`opencode serve` sur `:4096`) et l'expose en `POST /chat/completions` OpenAI sur `:4097`, publié par `cloudflared`.
+
+- `bash workers/opencode-bridge/start.sh` → pont + tunnel + secrets Supabase (`OPENCODE_BRIDGE_URL`, `OPENCODE_BRIDGE_TOKEN`, `OPENCODE_MODEL`)
+- Tool calling : les définitions sont passées dans le prompt, le pont reconvertit le JSON en `tool_calls` OpenAI
+- Contrepartie : le chat ne répond que si la machine est allumée ; `supabase secrets unset OPENCODE_BRIDGE_URL` pour revenir à DeepSeek/Azure
+- Doc : `workers/opencode-bridge/README.md`
 
 ### Principes de sécurité
 
@@ -208,12 +221,22 @@ dart run flutter_launcher_icons        # Regenerate app icons
 flutter build apk --obfuscate --split-debug-info=build/obfuscation/  # Release build
 ```
 
-## MQTT — Architecture des tokens
+## MQTT — Architecture des credentials
 
-| Composant | Token Flespi | Permissions | Usage |
-|-----------|-------------|-------------|-------|
-| Worker (`mqtt5-worker`) | `FLESPI_MQTT_WORKER_TOKEN` | PUBLISH cmd, SUBSCRIBE ack | Envoi commandes aux boitiers |
-| App Flutter | `FLESPI_MQTT_APP_TOKEN` | SUBSCRIBE telemetry/status | Recuperer donnees capteurs en temps reel |
+Broker en production : **EMQX Cloud Serverless** (MQTT 5), déploiement `dev`,
+région Europe → `r1aa3902.ala.eu-central-1.emqxsl.com`. Serverless n'expose que
+**8883 (MQTT over TLS)** et **8084 (WSS, chemin `/mqtt`)** : pas de port en clair.
+Les noms `FLESPI_*` restent lus en repli dans le code, mais l'ancien broker est
+abandonné (tokens révoqués, cf. issue #37).
+
+| Composant | Variables | Permissions | Usage |
+|-----------|-----------|-------------|-------|
+| Worker (`mqtt5-worker`) | `MQTT_USERNAME` / `MQTT_PASSWORD` | PUBLISH `.../relays/+/cmd`, SUBSCRIBE `.../ack` + `.../telemetry` | Envoi commandes aux boitiers |
+| App Flutter | `MQTT_USERNAME` / `MQTT_PASSWORD` (`--dart-define`) | SUBSCRIBE telemetry/status | Recuperer donnees capteurs en temps reel |
+| Simulateur / ESP32 | `MQTT_HOST` / `MQTT_PORT` / `MQTT_USERNAME` / `MQTT_PASSWORD` | PUBLISH telemetry/status/ack | Tests e2e |
+
+Legacy Flespi : un seul token sert de username **et** de password
+(`FLESPI_MQTT_WORKER_TOKEN` / `FLESPI_MQTT_APP_TOKEN`).
 
 ### Flux de commandes
 
@@ -233,58 +256,73 @@ Flutter → Edge Function (agent-orchestrator) → device_commands (BDD)
 - `force: true` dans `initialize()` ne recrée PAS `_connectionStateController` — les `StreamBuilder` déjà montés gardent leur abonnement
 - En cas de connexion échouée, `_scheduleReconnect()` tente une reconnexion après 5s
 - Si pas d'appareils et pas de `FLESPI_DEFAULT_BOX_UID` : connexion MQTT skipée, pas de notification
+- Credentials : `AppConstants.mqttHost` / `mqttTcpPort` / `mqttUsername` / `mqttPassword` (dart-define `MQTT_HOST`, `MQTT_TCP_PORT`, `MQTT_USERNAME`, `MQTT_PASSWORD`), avec repli automatique sur les constantes Flespi
 
 ## MQTT5 Worker — Build & Deploy
 
 Le worker relaye les commandes IoT (`device_commands` Supabase → boîtiers via MQTT 5).
 
-### Infrastructure
+### Infrastructure (Cloudflare Containers)
 
-| Ressource      | Valeur                       | Méthode d'accès                                |
-| -------------- | ---------------------------- | ---------------------------------------------- |
-| ACR            | `paossimb7935acr.azurecr.io` | `az acr login`                                 |
-| Build VM       | `68.210.96.129`              | `ssh -i ~/.ssh/id_rsa azureuser@68.210.96.129` |
-| Container App  | `mqtt5-worker`               | `az containerapp` CLI                          |
-| CA Environment | `cae-paossimb-7935`          | `az containerapp env` CLI                      |
+| Ressource      | Valeur                                                  | Méthode d'accès                     |
+| -------------- | ------------------------------------------------------- | ----------------------------------- |
+| Worker         | `aricie-mqtt5-worker`                                   | `wrangler deploy` / `wrangler tail` |
+| Container app  | `aricie-mqtt5-worker-mqtt5container`                     | `wrangler deploy`                   |
+| Registre       | `registry.cloudflare.com`                               | poussé par `wrangler deploy`        |
+| Instance type  | `basic` (1 GiB)                                         | `wrangler.jsonc`                    |
 
-**Règle : ACR Tasks est bloqué par la politique Azure for Students.** Le build Docker doit impérativement passer par la VM `build-vm` (austriaeast, Standard_B2ats_v2, Docker pré-installé).
+**Règle : les services Azure (Container Apps, ACR, build-vm) ont été supprimés —
+l'abonnement a pris fin.** Le build Docker se fait en local (WSL Debian, Docker
+disponible) et `wrangler deploy` construit + pousse l'image depuis le
+`Dockerfile` du dossier. Aucune commande `az` ne doit être réintroduite.
 
 ### Workflow
 
 ```
-Modifier workers/mqtt5-worker/index.js
-  → pwsh scripts/azure/deploy-mqtt5-worker.ps1
-    → SCP sources → Build VM → Docker build → Docker push → az containerapp update
+Modifier workers/mqtt5-worker/app.js
+  → wsl -d Debian -u root -- bash -c "cd '<repo>/workers/mqtt5-worker' && wrangler deploy"
+    → Docker build local → push registry.cloudflare.com → update container app
+  → curl /_stop  (un container running ne réapplique pas envVars)
+  → curl /health (app_loaded, mqtt_state, missing_env, fatal_errors)
 ```
 
 ### Commandes
 
 ```bash
-# Full build + deploy (recommandé)
-pwsh scripts/azure/deploy-mqtt5-worker.ps1
+# Build + push + deploy complet
+./scripts/deploy-cloudflare.sh
 
-# Build only
-pwsh scripts/azure/deploy-mqtt5-worker.ps1 -SkipDeploy
+# Deploy seul (image inchangée)
+SKIP_BUILD=1 ./scripts/deploy-cloudflare.sh
 
-# Deploy only (reuse last image tag)
-pwsh scripts/azure/deploy-mqtt5-worker.ps1 -SkipBuild
+# Déployer depuis Windows (Docker uniquement dans WSL)
+wsl -d Debian -u root -- bash -c "cd '<repo>/workers/mqtt5-worker' && wrangler deploy"
 
-# Logs
-az containerapp logs show --name mqtt5-worker --resource-group rg-paossimb-7935 --type console --tail 50
-
-# Status
-az containerapp revision list --name mqtt5-worker --resource-group rg-paossimb-7935 -o table
+# Secrets (posés sur le Worker, relayés au container par worker.js)
+wrangler secret put SUPABASE_URL
+wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+wrangler secret put MQTT_USERNAME
+wrangler secret put MQTT_PASSWORD
 ```
 
 ### Vérification
 
-Logs de démarrage OK :
+```bash
+curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/health
+curl https://aricie-mqtt5-worker.smitthwillson1213.workers.dev/diag/supabase
+```
 
+`/health` répond toujours 200 ; `status: degraded` = app cassée mais container
+vivant. Lecture des champs :
+
+```json
+{ "status": "ok", "app_loaded": true, "mqtt_state": "connected",
+  "missing_env": [], "fatal_errors": [], "stats": { "acksProcessed": 1 } }
 ```
-[WORKER] mqtt5-worker-1 started in MQTT 5 mode
-[MQTT5] Connected to mqtts://mqtt.flespi.io:8883
-[MQTT5] Subscribed to ACK topics
-```
+
+- `missing_env` non vide → secrets absents ou posés **vides** (l'API accepte le vide)
+- `mqtt_state: closed` + `Bad User Name or Password` → credentials refusés par EMQX (utilisateur supprimé/régénéré dans le dashboard)
+- `/diag/supabase` ≠ 200 → URL/clé Supabase invalides
 
 ### Documentation
 
@@ -295,8 +333,8 @@ Logs de démarrage OK :
 
 - `test/domain/entities/user_test.dart` — User entity unit tests (passing)
 - `test/widget_test.dart` — placeholder, needs rewrite
-- BDD scenarios: `test_driver/features/*.feature` (Gherkin)
-- Step definitions: `test_driver/steps/*.dart`
+- BDD scenarios: `test/*.feature` (Gherkin) compiled to widget tests by `bdd_widget_test`
+- Custom steps: `test/step/*.dart` — regenerate with `dart run build_runner build`, run with `flutter test`
 
 ## Branch naming
 
@@ -344,6 +382,9 @@ Semantic Versioning 2.0.0. Canonical version in `pubspec.yaml`. See `VERSION.md`
 | `supabase/migrations/20260628000001_energy_rollup.sql` | Energy_data : kwh + cumulative_kwh au lieu de total_day/week/month/year |
 | `supabase/migrations/20260629000001_fix_rpc_group_by.sql` | Fix TOO_MANY_ROWS dans sum_total_consumption |
 | `supabase/migrations/20260629000002_enable_realtime.sql` | Realtime broadcast sur energy_data + device_commands |
+| `supabase/migrations/20261026000001_admin_geo.sql` | Geo boxes (lat/lng/precision/installed_at), coverage_zones, analytics_events, admin_notes |
+| `supabase/migrations/20261026000002_admin_rbac.sql` | users.admin_level (viewer/operator/super_admin) + vue admin_coverage_view |
+| `supabase/migrations/20261026000003_admin_kpi_rpcs.sql` | RPC admin_kpi_summary / admin_kpi_timeseries + enum admin_action_type étendu |
 
 ## Gotchas
 

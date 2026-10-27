@@ -1,398 +1,156 @@
-import "dotenv/config";
-import mqtt from "mqtt";
-import { createClient } from "@supabase/supabase-js";
+// Bootstrap de démarrage du container mqtt5-worker.
+//
+// Contexte : sur Cloudflare Containers, le container "crash" silencieusement
+// (wrangler tail ne montre jamais le stdout du container — cf.
+// cloudflare/containers#232). En local le même image fonctionne, donc on
+// rend chaque étape observable :
+//   1. serveur /health monté EN PREMIER (avant tout import applicatif) pour
+//      que le port soit joignable même si l'app échoue
+//   2. import dynamique de ./app.js (le code applicatif historique) — toute
+//      exception d'import est capturée et exposée dans /health (fatal_errors)
+//   3. handlers process-level (uncaughtException / unhandledRejection) qui
+//      poussent dans fatalErrors au lieu de tuer le process immédiatement
+//
+// Le serveur /health répond donc dans TOUS les cas, ce qui laisse au
+// diagnostic la possibilité de distinguer "container mort" (aucune réponse)
+// de "app cassée mais container vivant" (status=degraded + fatal_errors).
+
+import http from "node:http";
 
 const WORKER_ID = `mqtt5-worker-${process.pid}`;
+const startedAt = Date.now();
+const fatalErrors = [];
+const stats = { telemetryMessages: 0, acksProcessed: 0, commandsSent: 0 };
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-);
+// Les credentials MQTT ne sont pas listés ici : deux variantes existent
+// (MQTT_USERNAME/MQTT_PASSWORD, ou l'ancien FLESPI_MQTT_WORKER_TOKEN) — leur
+// absence est signalée par `mqtt_state`. Seul Supabase est obligatoire.
+const REQUIRED_ENV = [
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_ROLE_KEY",
+];
 
-const mqttHost = process.env.FLESPI_MQTT_HOST ?? "mqtt.flespi.io";
-const mqttPort = Number(process.env.FLESPI_MQTT_TCP_PORT ?? 8883);
-const mqttToken = process.env.FLESPI_MQTT_WORKER_TOKEN;
+// Exposé pour que /health reflète l'état MQTT de app.js une fois chargé.
+// NB : ce global doit être posé AVANT l'import de app.js — app.js capture
+// `globalThis.__mqtt5App` au chargement du module (sinon bootstrap=undefined
+// et mqtt_connected ne remonte jamais dans /health).
+const appState = {
+  mqttConnected: false,
+  loaded: false,
+  loadMs: null,
+  mqttState: "init",
+  mqttLastError: null,
+};
 
-if (!mqttToken) {
-  throw new Error("FLESPI_MQTT_WORKER_TOKEN is required");
-}
-
-const TIPS_GENERATOR_URL = process.env.TIPS_GENERATOR_URL;
-
-// Cooldown 1h par (user_id, appliance_id) — évite spam sur pic persistant.
-const lastLivePushByAppliance = new Map();
-const LIVE_PUSH_COOLDOWN_MS = 60 * 60 * 1000;
-
-async function evaluateLiveTip(userId, applianceId) {
-  const key = `${userId}:${applianceId}`;
-  const last = lastLivePushByAppliance.get(key);
-  if (last && Date.now() - last < LIVE_PUSH_COOLDOWN_MS) return;
-
-  if (!TIPS_GENERATOR_URL) {
-    console.warn("[TIPS] TIPS_GENERATOR_URL non configuré, skip");
-    return;
-  }
-
-  try {
-    const res = await fetch(`${TIPS_GENERATOR_URL}/evaluate-live`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ userId, applianceId }),
-    });
-    if (!res.ok) {
-      console.error(`[TIPS] evaluate-live HTTP ${res.status}`);
-      return;
-    }
-    const json = await res.json();
-    if (json.pushed) {
-      lastLivePushByAppliance.set(key, Date.now());
-      console.log(
-        `[TIPS] live push user=${userId} appliance=${applianceId} rule=${json.tip?.ruleId}`,
-      );
-    }
-  } catch (err) {
-    console.error("[TIPS] evaluate-live error:", err);
-  }
-}
-
-const mqttUrl = `mqtts://${mqttHost}:${mqttPort}`;
-
-const client = mqtt.connect(mqttUrl, {
-  protocolVersion: 5,
-  username: mqttToken,
-  // ponytail: Flespi tokens must be sent as both username and password.
-  // Sending password="" makes some MQTT5 stacks encode a malformed packet
-  // (Password flag set, length 0), which Flespi rejects with
-  // badUsernameOrPassword. Mirror the token to the password.
-  password: mqttToken,
-  clientId: `aricie-worker-${Date.now()}`,
-
-  clean: true,
-
-  keepalive: 30,
-  reconnectPeriod: 5000,
-  connectTimeout: 15000,
-
-  properties: {
-    sessionExpiryInterval: 0,
-
-    userProperties: {
-      freeze_timeout: "120",
-      app: "aricie-mqtt5-worker",
-    },
+globalThis.__mqtt5App = {
+  setMqttConnected: (v) => {
+    appState.mqttConnected = v;
+    appState.mqttState = v ? "connected" : "disconnected";
   },
-});
+  setMqttState: (s, err) => {
+    appState.mqttState = s;
+    if (err) appState.mqttLastError = String(err).slice(0, 300);
+  },
+  setStats: (s) => Object.assign(stats, s),
+};
 
-client.on("connect", (packet) => {
-  console.log(`[MQTT5] Connected to ${mqttUrl}`);
+const healthPort = Number(process.env.PORT ?? 8080);
 
-  client.subscribe(
-    "aricie/v1/boxes/+/relays/+/ack",
-    { qos: 1 },
-    (err) => {
-      if (err) {
-        console.error("[MQTT5] ACK subscribe error:", err);
-      } else {
-        console.log("[MQTT5] Subscribed to ACK topics");
-      }
-    },
-  );
-
-  client.subscribe(
-    "aricie/v1/boxes/+/telemetry",
-    { qos: 1 },
-    (err) => {
-      if (err) {
-        console.error("[MQTT5] Telemetry subscribe error:", err);
-      } else {
-        console.log("[MQTT5] Subscribed to telemetry topics");
-      }
-    },
-  );
-});
-
-client.on("reconnect", () => {
-  console.log("[MQTT5] Reconnecting...");
-});
-
-client.on("error", (err) => {
-  console.error("[MQTT5] Error:", err);
-});
-
-async function upsertRealtimePower({ applianceId, userId, boxId, payload }) {
-  if (payload.kwh_total === undefined) return;
-
-  const { error } = await supabase
-    .from("realtime_power")
-    .upsert(
-      {
-        appliance_id: applianceId,
-        user_id: userId,
-        box_id: boxId,
-        power_kwh: payload.kwh_total,
-        instant_power_w: payload.power_w ?? null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "appliance_id" },
+const healthServer = http.createServer((req, res) => {
+  if (req.url === "/health" || req.url === "/") {
+    const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
+    const status = fatalErrors.length || !appState.loaded ? "degraded" : "ok";
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        status,
+        worker_id: WORKER_ID,
+        bootstrap: true,
+        app_loaded: appState.loaded,
+        app_load_ms: appState.loadMs,
+        mqtt_connected: appState.mqttConnected,
+        mqtt_state: appState.mqttState,
+        mqtt_last_error: appState.mqttLastError,
+        uptime_s: Math.round((Date.now() - startedAt) / 1000),
+        missing_env: missing,
+        // Noms (jamais valeurs) des variables visibles par le process —
+        // sert à vérifier que startConfig.env de la plateforme est appliqué.
+        env_keys: Object.keys(process.env).sort(),
+        fatal_errors: fatalErrors,
+        stats,
+      }),
     );
-
-  if (error) {
-    console.error("[TELEMETRY] realtime_power upsert error:", error);
-  }
-}
-
-client.on("message", async (topic, payload, packet) => {
-  try {
-    const message = JSON.parse(payload.toString());
-
-    // Télémétrie per-boîtier : upsert realtime_power pour chaque appliance du box
-    if (topic.startsWith("aricie/v1/boxes/") && topic.endsWith("/telemetry")) {
-      const boxUid = topic.split("/")[3];
-      const { data: appliances, error: appliancesError } = await supabase
-        .from("appliances")
-        .select("id, user_id, box_id, relay_index, is_on, boxes!inner(uid_hardware)")
-        .eq("boxes.uid_hardware", boxUid);
-
-      if (appliancesError) {
-        console.error("[TELEMETRY] appliances lookup error:", appliancesError);
-      } else if (Array.isArray(appliances)) {
-        // payload peut contenir power_w par relais (relay_index -> watts)
-        const relayPowers = message.relay_power_w ?? {};
-        for (const appliance of appliances) {
-          const kwh = message.kwh_total_per_relay?.[appliance.relay_index] ??
-            message.kwh_total ?? 0;
-          const watts = relayPowers[appliance.relay_index] ??
-            message.power_w ?? null;
-          await upsertRealtimePower({
-            applianceId: appliance.id,
-            userId: appliance.user_id,
-            boxId: appliance.box_id,
-            payload: { kwh_total: kwh, power_w: watts },
-          });
-          await evaluateLiveTip(appliance.user_id, appliance.id);
-
-          if (message.relays && Array.isArray(message.relays)) {
-            const relayStatus = message.relays.find(
-              (r) => r.index === appliance.relay_index
-            );
-            if (relayStatus && typeof relayStatus.status === 'string') {
-              const newIsOn = relayStatus.status === 'on';
-              if (newIsOn !== appliance.is_on) {
-                const { error: syncErr } = await supabase
-                  .from('appliances')
-                  .update({ is_on: newIsOn })
-                  .eq('id', appliance.id);
-                if (syncErr) {
-                  console.error('[TELEMETRY] is_on sync error:', syncErr);
-                } else {
-                  console.log(`[TELEMETRY] Appliance ${appliance.id} is_on corrected to ${newIsOn}`);
-                }
-              }
-            }
-          }
-        }
-      }
-      return; // télémétrie ≠ ACK, on ne traite pas plus loin
-    }
-
-    if (!message.command_id) {
-      console.warn("[ACK] Missing command_id:", topic, message);
+  } else if (req.url === "/diag/supabase") {
+    // Vérifie que le container joint bien Supabase (REST + service role) :
+    // sans ça le polling device_commands échoue silencieusement.
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) {
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "env manquant" }));
       return;
     }
-
-    // Fetch the command row to know which appliance/action this ACK concerns
-    const { data: cmdRow, error: cmdErr } = await supabase
-      .from("device_commands")
-      .select("id, action, appliance_id")
-      .eq("id", message.command_id)
-      .maybeSingle();
-
-    if (cmdErr) {
-      console.error("[ACK] Could not fetch device_command:", cmdErr);
-      return;
-    }
-
-    const updates = {
-      status: message.success ? "acknowledged" : "failed",
-      acknowledged_at: new Date().toISOString(),
-      ack_payload: message,
-      error_message: message.success ? null : "Device returned failure ACK",
-    };
-
-    const { error: updateError } = await supabase
-      .from("device_commands")
-      .update(updates)
-      .eq("id", message.command_id);
-
-    if (updateError) {
-      console.error("[ACK] Supabase update error:", updateError);
-      return;
-    }
-
-    console.log(`[ACK] Command ${message.command_id} ${message.success ? 'acknowledged' : 'failed'}`);
-
-    // If acknowledged and we have an appliance_id, update appliance.is_on to reflect the action
-    try {
-      if (message.success && cmdRow && cmdRow.appliance_id) {
-        // Prefer action from the ACK payload if provided, otherwise fall back to stored action
-        const action = message.action || cmdRow.action || null;
-        if (action === 'on' || action === 'off') {
-          const { error: appErr } = await supabase
-            .from('appliances')
-            .update({ is_on: action === 'on' })
-            .eq('id', cmdRow.appliance_id);
-          if (appErr) {
-            console.error('[ACK] Failed to update appliance state:', appErr);
-          } else {
-            console.log(`[ACK] Appliance ${cmdRow.appliance_id} is_on set to ${action === 'on'}`);
-          }
-        }
-      }
-    } catch (e) {
-      console.error('[ACK] Error while updating appliance state:', e);
-    }
-  } catch (err) {
-    console.error("[ACK] Invalid ACK payload:", err);
-  }
-});
-
-async function claimPendingCommand() {
-  const { data: pending, error: selectError } = await supabase
-    .from("device_commands")
-    .select("id")
-    .eq("status", "pending")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (selectError) {
-    console.error("[DB] Select pending error:", selectError);
-    return null;
-  }
-
-  if (!pending) return null;
-
-  const { data: claimed, error: claimError } = await supabase
-    .from("device_commands")
-    .update({
-      status: "processing",
-      processing_at: new Date().toISOString(),
-      worker_id: WORKER_ID,
+    const t0 = Date.now();
+    fetch(`${url}/rest/v1/device_commands?select=id&limit=1`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
     })
-    .eq("id", pending.id)
-    .eq("status", "pending")
-    .select(
-      "id, box_uid, relay_index, action, appliance_name, created_at",
-    )
-    .maybeSingle();
-
-  if (claimError) {
-    console.error("[DB] Claim error:", claimError);
-    return null;
+      .then(async (r) => ({
+        http_status: r.status,
+        body: (await r.text()).slice(0, 200),
+        ms: Date.now() - t0,
+      }))
+      .catch((e) => ({ error: e?.message ?? String(e), ms: Date.now() - t0 }))
+      .then((result) => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      });
+  } else {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("not found");
   }
+});
 
-  return claimed;
-}
+healthServer.listen(healthPort, () => {
+  console.log(`[BOOT] Health server listening on :${healthPort}`);
+});
 
-function publishCommand(command) {
-  return new Promise((resolve, reject) => {
-    const topic =
-      `aricie/v1/boxes/${command.box_uid}/relays/${command.relay_index}/cmd`;
-
-    const payload = JSON.stringify({
-      command_id: command.id,
-      action: command.action,
-      relay_index: command.relay_index,
-      appliance_name: command.appliance_name,
-      source: "ai_agent",
-      issued_at: new Date().toISOString(),
-    });
-
-    client.publish(
-      topic,
-      payload,
-      {
-        qos: 1,
-        retain: false,
-
-        properties: {
-          messageExpiryInterval: 30,
-          payloadFormatIndicator: true,
-          contentType: "application/json",
-          userProperties: {
-            command_id: command.id,
-            source: "ai_agent",
-            protocol: "mqtt5",
-          },
-        },
-      },
-      (err) => {
-        if (err) return reject(err);
-        resolve({ topic, payload });
-      },
-    );
+// --- Garde-fous process : on reste vivant et observable ------------------
+//
+// ARRÊT PROPRE (indispensable sur Cloudflare Containers) : le process est
+// PID 1 du container, et le noyau ignore un signal sans handler sur PID 1 —
+// sans ces lignes, `stop()` du SDK (SIGTERM) ne fait jamais sortir le
+// process, l'instance reste "active" et se facture alors que le DO croit
+// l'avoir arrêtée (cf. enforceSleep dans worker.js).
+for (const sig of ["SIGTERM", "SIGINT"]) {
+  process.on(sig, () => {
+    // process.exit explicite : sans handler, PID 1 ignore le signal ; avec un
+    // handler qui se contente de revenir, le process resterait vivant.
+    console.log(`[BOOT] ${sig} reçu → arrêt propre du worker`);
+    process.exit(0);
   });
 }
 
-async function processOneCommand() {
-  if (!client.connected) return;
+process.on("uncaughtException", (err) => {
+  const msg = `uncaughtException: ${err?.stack ?? err}`;
+  console.error("[BOOT]", msg);
+  fatalErrors.push(msg.slice(0, 500));
+});
 
-  const command = await claimPendingCommand();
-  if (!command) return;
+process.on("unhandledRejection", (reason) => {
+  const msg = `unhandledRejection: ${reason?.stack ?? reason}`;
+  console.error("[BOOT]", msg);
+  fatalErrors.push(msg.slice(0, 500));
+});
 
-  try {
-    const result = await publishCommand(command);
-
-    const { error } = await supabase
-      .from("device_commands")
-      .update({
-        status: "sent",
-        sent_at: new Date().toISOString(),
-        error_message: null,
-      })
-      .eq("id", command.id)
-      .eq("status", "processing");
-
-    if (error) {
-      console.error("[DB] Mark sent error:", error);
-      return;
-    }
-
-    console.log(`[CMD] Sent ${command.id} to ${result.topic}`);
-  } catch (err) {
-    console.error(`[CMD] Publish failed for ${command.id}:`, err);
-
-    await supabase
-      .from("device_commands")
-      .update({
-        status: "failed",
-        error_message: String(err),
-      })
-      .eq("id", command.id);
-  }
+// --- Chargement de l'app --------------------------------------------------
+const t0 = Date.now();
+try {
+  await import("./app.js");
+  appState.loaded = true;
+  appState.loadMs = Date.now() - t0;
+  console.log(`[BOOT] app.js chargée en ${appState.loadMs}ms`);
+} catch (err) {
+  const msg = `app.js import failed: ${err?.stack ?? err}`;
+  console.error("[BOOT]", msg);
+  fatalErrors.push(msg.slice(0, 500));
 }
-
-async function markTimeoutCommands() {
-  const timeoutDate = new Date(Date.now() - 30_000).toISOString();
-
-  const { error } = await supabase
-    .from("device_commands")
-    .update({
-      status: "timeout",
-      error_message: "No device ACK received before timeout",
-    })
-    .eq("status", "sent")
-    .lt("sent_at", timeoutDate);
-
-  if (error) {
-    console.error("[DB] Timeout update error:", error);
-  }
-}
-
-setInterval(processOneCommand, 1000);
-setInterval(markTimeoutCommands, 10_000);
-
-console.log(`[WORKER] ${WORKER_ID} started in MQTT 5 mode`);

@@ -1,0 +1,233 @@
+<mxfile host="app.diagrams.net" agent="Aricie" version="24.7.17">
+  <diagram id="topologie-reseau-aricie" name="Topologie reseau v2">
+    <mxGraphModel dx="1600" dy="1150" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1150" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ===== Titre ===== -->
+        <mxCell id="title" value="Topologie réseau — Aricie v2 (MQTT 5 / EMQX · 2 boîtiers · Cloudflare · IA en cascade)" style="text;html=1;align=center;verticalAlign=middle;fontStyle=1;fontSize=18;" vertex="1" parent="1">
+          <mxGeometry x="40" y="15" width="1520" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Postes clients (mobiles / hors LAN) ===== -->
+        <mxCell id="client" value="Postes clients&#10;smartphone / tablette / PC&#10;&#8212; Application Flutter" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;shape=mxgraph.networks.pc;" vertex="1" parent="1">
+          <mxGeometry x="60" y="90" width="170" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="client-note" value="Depuis n&#8217;importe quel r&#233;seau&#10;(Wi-Fi domestique, autre Wi-Fi, 4G/5G)&#10;souscription MQTT WSS 8084 + REST/Realtime" style="text;html=1;align=center;verticalAlign=middle;fontSize=10;fontStyle=2;fontColor=#666666;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="30" y="215" width="240" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ZONE : Site A / LAN domestique 1 ===== -->
+        <mxCell id="zone-lan-a" value="Site A &#8212; logement 1&#10;(LAN 192.168.1.0/24)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;opacity=70;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="290" width="360" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="router-a" value="Box Internet /&#10;Routeur Wi-Fi A" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.networks.router;" vertex="1" parent="1">
+          <mxGeometry x="150" y="340" width="100" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="box1" value="Bo&#238;tier #1 &#8212; ESP32&#10;3 relais + DHT22 + ACS712&#10;uid_hardware : box-aaa&#8230;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="75" y="465" width="160" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ZONE : Site B / second boitier ===== -->
+        <mxCell id="zone-lan-b" value="Site B &#8212; logement 2 (2&#176; bo&#238;tier)&#10;(autre LAN / autre FAI)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;opacity=70;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="610" width="360" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="router-b" value="Box Internet /&#10;Routeur Wi-Fi B" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.networks.router;" vertex="1" parent="1">
+          <mxGeometry x="150" y="660" width="100" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="box2" value="Bo&#238;tier #2 &#8212; ESP32&#10;3 relais + DHT22 + ACS712&#10;uid_hardware : box-bbb&#8230;" style="rounded=1;whiteSpace=wrap;html=1;fontSize=11;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="75" y="785" width="160" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Internet (media de transport) ===== -->
+        <mxCell id="internet" value="Internet" style="sketch=0;html=1;whiteSpace=wrap;fontSize=14;fontStyle=1;shape=mxgraph.networks.cloud;" vertex="1" parent="1">
+          <mxGeometry x="530" y="400" width="200" height="160" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ZONE : poste de dev (failover + pont LLM) ===== -->
+        <mxCell id="zone-dev" value="Poste de dev &#8212; infra locale&#10;(WSL + cloudflared, r&#244;les continus)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;opacity=70;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="450" y="600" width="330" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="bridge" value="Pont OpenCode&#10;bridge :4097&#10;&#8594; opencode serve :4096" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="470" y="645" width="140" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="relais" value="Relais Worker local&#10;(m&#234;me code que le worker)&#10;failover actif/actif" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="630" y="645" width="140" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ZONE : EMQX (ex-Flespi) ===== -->
+        <mxCell id="zone-emqx" value="EMQX Cloud Serverless &#8212; Europe (d&#233;ploiement dev)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;opacity=70;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="840" y="55" width="700" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="broker" value="r1aa3902.ala.eu-&#10;central-1.emqxsl.com&#10;Broker MQTT 5.0&#10;8883 TLS &#183; 8084 WSS" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.networks.server;" vertex="1" parent="1">
+          <mxGeometry x="890" y="110" width="170" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="emqx-note" value="Auth MQTT (MQTT_USERNAME / MQTT_PASSWORD, TLS obligatoire).&#10;Les 2 bo&#238;tiers, le worker (x2 en failover) et l&#8217;app y publient / souscrivent :&#10;&#8226; aricie/v1/boxes/{uid}/telemetry&#10;&#8226; aricie/v1/boxes/{uid}/status&#10;&#8226; aricie/v1/boxes/{uid}/relays/{i}/cmd&#10;&#8226; aricie/v1/boxes/{uid}/relays/{i}/ack&#10;Wildcard partag&#233; (base du flux inter-bo&#238;tier) : aricie/v1/boxes/+/*" style="text;html=1;align=left;verticalAlign=top;fontSize=10;fontColor=#555555;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="100" width="420" height="135" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ZONE : Supabase (BaaS) ===== -->
+        <mxCell id="zone-supabase" value="Supabase &#8212; BaaS (cloud manag&#233;)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;opacity=70;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="840" y="275" width="700" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="supabase" value="Serveur Supabase&#10;Auth (JWT) &#183; Realtime&#10;Edge Functions" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.networks.server;" vertex="1" parent="1">
+          <mxGeometry x="890" y="345" width="140" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="pgsql" value="PostgreSQL&#10;+ pgvector" style="shape=cylinder3;whiteSpace=wrap;html=1;fontSize=11;boundedLbl=1;backgroundOutline=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1070" y="340" width="130" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="supa-note" value="Tables : boxes &#183; appliances &#183; device_commands&#10;realtime_power &#183; energy_data &#183; chat_embeddings&#10;&#8226; point de convergence des 2 bo&#238;tiers&#10;  (chaque flux t&#233;l&#233;m&#233;trie est upsert&#233; par box_id)&#10;&#8226; Realtime publie energy_data + device_commands&#10;&#8226; RLS scop&#233; par user_id (owner_id pour le RAG)" style="text;html=1;align=left;verticalAlign=top;fontSize=10;fontColor=#555555;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="1240" y="340" width="280" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ZONE : Cloudflare ===== -->
+        <mxCell id="zone-cloudflare" value="Cloudflare &#8212; worker IoT (scale-to-zero)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;opacity=70;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="840" y="545" width="700" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="worker" value="Worker MQTT5&#10;aricie-mqtt5-worker&#10;Container Cloudflare (Node.js)" style="sketch=0;html=1;whiteSpace=wrap;fontSize=11;verticalLabelPosition=bottom;verticalAlign=top;shape=mxgraph.networks.server;" vertex="1" parent="1">
+          <mxGeometry x="890" y="600" width="220" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="cf-note" value="Instance basic (1 GiB), max_instances = 1.&#10;Veille : sleepAfter 10 min &#8594; scale-to-zero (0 instance factur&#233;e),&#10;r&#233;veil &#224; chaque requ&#234;te HTTP. Aucun cron keep-alive.&#10;En veille, le relais local (colonne centre) prend le relais." style="text;html=1;align=left;verticalAlign=top;fontSize=10;fontColor=#555555;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="1150" y="600" width="370" height="125" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ZONE : IA / Voix ===== -->
+        <mxCell id="zone-ia" value="IA &amp; Voix &#8212; cha&#238;ne de providers (appel&#233;e par les Edge Functions)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;dashed=1;verticalAlign=top;fontStyle=1;fontSize=13;opacity=70;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="840" y="775" width="700" height="235" as="geometry" />
+        </mxCell>
+        <mxCell id="llm1" value="1 &#183; Pont OpenCode&#10;deepseek-v4.1-flash-free&#10;(gratuit, machine d&#233;v allum&#233;e)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="880" y="830" width="150" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="llm2" value="2 &#183; OpenCode Zen&#10;deepseek-v4.1-flash&#10;(LLM de base, payant)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="830" width="150" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="llm3" value="3 &#183; Cloudflare Workers AI&#10;deepseek-v4.1-flash-1017&#10;(dernier recours)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="1220" y="830" width="155" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="voice" value="Voix &#8212; Azure Speech&#10;STT gpt-4o-transcribe&#10;TTS neural (francecentral)" style="rounded=1;whiteSpace=wrap;html=1;fontSize=10;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="1395" y="830" width="140" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="ia-note" value="Bascule sur TOUTE panne (r&#233;seau, timeout, 5xx, 403 FreeTier) : 1 &#8594; 2 &#8594; 3. Azure OpenAI retir&#233; de la cha&#238;ne chat (abonnement termin&#233;)." style="text;html=1;align=left;verticalAlign=top;fontSize=10;fontColor=#555555;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="880" y="960" width="655" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Note : communication inter-boitier ===== -->
+        <mxCell id="interbox-note" value="Communication inter-bo&#238;tier (via broker MQTT uniquement)&#10;&#8226; Aucun P2P direct : les 2 bo&#238;tiers ne se joignent que par le broker&#10;  (souscription crois&#233;e sur aricie/v1/boxes/+/*), aucun port ouvert sur le LAN.&#10;&#8226; Existant aujourd&#8217;hui : synchro INDIRECTE par la BDD &#8212; le worker agr&#232;ge les&#10;  2 flux (realtime_power, appliances.is_on) &#8594; Realtime &#8594; app voit les 2 bo&#238;tiers.&#10;&#8226; Specs potentielles (non d&#233;finies, sc&#233;narios envisageables du projet) :&#10;   &#8211; cascade de coupure : bo&#238;tier B coupe une charge si le total du&#10;     bo&#238;tier A / du foyer d&#233;passe un seuil (puissance ou quota)&#10;   &#8211; sc&#232;nes / groupes multi-bo&#238;tiers : m&#234;me commande sur les 2 boxes&#10;   &#8211; arbitrage de charge entre 2 logements (heures creuses, auto-production PV)&#10;   &#8211; rel&#232;ve du dernier &#233;tat connu si un bo&#238;tier est hors ligne" style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=10;fillColor=#fff2cc;strokeColor=#bf8f00;spacing=6;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="450" y="810" width="330" height="185" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Legende ===== -->
+        <mxCell id="legende" value="L&#233;gende&#10;&#8226; Liens annot&#233;s : protocole + port. Tout le trafic est chiffr&#233; (TLS).&#10;&#8226; Traits pleins = acc&#232;s depuis le site utilisateur ; pointill&#233;s = &#233;changes cloud-&#224;-cloud (backbone).&#10;&#8226; Trait &#233;pais jaune = flux inter-bo&#238;tier via broker (sp&#233;cs potentielles, cf. note).&#10;&#8226; Contr&#244;le possible depuis n&#8217;importe o&#249; : app et bo&#238;tiers &#233;mergent vers le cloud &#8212; aucun port ouvert sur la box.&#10;&#8226; Commande app &#8594; file device_commands &#8594; Worker &#8594; broker (jamais en direct).&#10;&#8226; v2 : broker EMQX (ex-Flespi), worker Cloudflare Containers en veille, IA en cascade 1&#8594;2&#8594;3." style="rounded=1;whiteSpace=wrap;html=1;align=left;verticalAlign=top;fontSize=10;fillColor=#f5f5f5;strokeColor=#999999;spacing=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="930" width="380" height="175" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Liens LAN (physiques) ===== -->
+        <mxCell id="e-box1-router" value="Wi-Fi 2,4 GHz" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;" edge="1" parent="1" source="box1" target="router-a">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-box2-router" value="Wi-Fi 2,4 GHz" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;" edge="1" parent="1" source="box2" target="router-b">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-routerA-net" value="WAN &#8212; FAI (fibre / 4G)&#10;uplink du bo&#238;tier A" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;" edge="1" parent="1" source="router-a" target="internet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-routerB-net" value="WAN &#8212; FAI (fibre / 4G)&#10;uplink du bo&#238;tier B" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;" edge="1" parent="1" source="router-b" target="internet">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="440" y="707" />
+              <mxPoint x="440" y="530" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== Acces client -> Internet ===== -->
+        <mxCell id="e-client-net" value="Acc&#232;s depuis n&#8217;importe quel r&#233;seau&#10;(Wi-Fi / 4G/5G)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;fontColor=#6c8ebf;" edge="1" parent="1" source="client" target="internet">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="460" y="150" />
+              <mxPoint x="460" y="470" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== Flux inter-boitier (MISE EN EVIDENCE) ===== -->
+        <mxCell id="e-interbox" value="Inter-bo&#238;tier VIA broker MQTT&#10;souscription crois&#233;e aricie/v1/boxes/+/*&#10;(aucun P2P direct)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;dashed=1;strokeWidth=3;strokeColor=#d6b656;fontSize=11;fontStyle=1;fontColor=#bf8f00;startArrow=classic;endArrow=classic;startFill=1;endFill=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="box1" target="box2">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="420" y="515" />
+              <mxPoint x="420" y="835" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== Liens Internet -> zones cloud ===== -->
+        <mxCell id="e-net-broker" value="MQTTS 8883 / WSS 8084 (TLS)&#10;bo&#238;tiers : pub telemetry &#183; status &#183; ack&#10;worker : pub cmd &#183; app : souscrit telemetry" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;fontColor=#b85450;" edge="1" parent="1" source="internet" target="broker">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="785" y="450" />
+              <mxPoint x="785" y="165" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-net-supabase" value="HTTPS 443 (REST/Auth) &#183; WSS 443 (Realtime) &#183; SSE 443 (IA)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;fontColor=#82b366;" edge="1" parent="1" source="internet" target="supabase">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="800" y="520" />
+              <mxPoint x="800" y="410" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== Liens cloud-a-cloud (backbone) ===== -->
+        <mxCell id="e-worker-broker" value="MQTTS 8883&#10;sub boxes/+/telemetry + boxes/+/ack&#10;pub boxes/{uid}/relays/{i}/cmd" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;dashed=1;fontSize=11;" edge="1" parent="1" source="worker" target="broker">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="830" y="662" />
+              <mxPoint x="830" y="205" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-worker-supabase" value="HTTPS 443 (service role)&#10;claim device_commands &#8594; upsert realtime_power" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;dashed=1;fontSize=11;" edge="1" parent="1" source="worker" target="supabase">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-relais-broker" value="MQTTS 8883 &#8212; failover actif/actif&#10;(m&#234;me claim atomique, pas de double envoi)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;dashed=1;fontSize=11;fontStyle=2;" edge="1" parent="1" source="relais" target="broker">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="815" y="700" />
+              <mxPoint x="815" y="195" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-bridge-supabase" value="HTTPS 443 (tunnel cloudflared)&#10;POST /chat/completions &#8212; provider n&#176;1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;dashed=1;fontSize=11;fontStyle=2;" edge="1" parent="1" source="bridge" target="supabase">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="540" y="790" />
+              <mxPoint x="835" y="790" />
+              <mxPoint x="835" y="430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-supabase-ia" value="HTTPS 443 (Edge Functions)&#10;cha&#238;ne 1 &#8594; 2 &#8594; 3, bascule sur panne" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;dashed=1;fontSize=11;" edge="1" parent="1" source="zone-supabase" target="zone-ia">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1555" y="470" />
+              <mxPoint x="1555" y="880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-supabase-voice" value="HTTPS 443 (Edge Functions)&#10;STT / TTS" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;dashed=1;fontSize=11;" edge="1" parent="1" source="zone-supabase" target="voice">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1575" y="500" />
+              <mxPoint x="1575" y="900" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-supabase-db" value="SQL interne" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=none;strokeWidth=2;fontSize=11;" edge="1" parent="1" source="supabase" target="pgsql">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

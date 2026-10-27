@@ -1,0 +1,10 @@
+# Exclut du contexte de build ce qui ne doit jamais figurer dans l'image.
+.env
+.env.*
+node_modules
+wrangler.jsonc
+worker.js
+README.md
+*.log
+.git
+.gitignore

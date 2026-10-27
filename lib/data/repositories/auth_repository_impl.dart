@@ -77,6 +77,24 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, void>> changePassword(
+    String currentPassword,
+    String newPassword,
+  ) async {
+    try {
+      await _remote.verifyCurrentPassword(currentPassword);
+    } catch (e) {
+      return Left(const InvalidCredentialsFailure('Mot de passe actuel incorrect'));
+    }
+    try {
+      await _remote.updatePassword(newPassword);
+      return const Right(null);
+    } catch (e) {
+      return Left(AuthFailure('Changement du mot de passe échoué: $e'));
+    }
+  }
+
+  @override
   Future<Either<Failure, User?>> getCurrentUser() async {
     try {
       final cachedId = await _local.getCachedUserId();

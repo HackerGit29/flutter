@@ -21,6 +21,8 @@ migrate_working_dir/
 .env 
 .env.*
 env/
+node_modules/
+.wrangler/
 
 scripts/*
 
@@ -51,3 +53,8 @@ supabase/.temp/
 .agents/
 
 .vscode/
+workers/opencode-bridge/.logs/
+
+# Artefacts générés
+coverage/
+workers/mqtt5-worker/dist/
