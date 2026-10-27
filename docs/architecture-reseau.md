@@ -7,6 +7,15 @@
 
 ## 1. Vue d'ensemble
 
+> **Mises à jour d'infrastructure (oct. 2026)** — broker MQTT **Flespi → EMQX
+> Cloud Serverless**, worker MQTT5 **Azure Container Apps → Cloudflare
+> Containers**, et scission de l'IA : le **chat / tool-calling** est migré hors
+> Azure (**OpenCode → DeepSeek → Cloudflare Workers AI**) ; les **embeddings
+> RAG et la voix (STT/TTS) restent sur Azure** (migration en attente). Le
+> diagramme **draw.io exporté** (`diagrams/01-topologie-reseau.png`) et sa
+> source `.drawio` reflètent l'ancien état et doivent être régénérés
+> manuellement.
+
 Aricie est une solution de suivi et de pilotage de la consommation d'énergie
 composée de cinq acteurs réseau :
 
@@ -14,10 +23,11 @@ composée de cinq acteurs réseau :
 |--------|------|-------------|
 | **Application Flutter** | Interface utilisateur (Android / iOS / Web / Desktop) | Appareils clients |
 | **Supabase** | Authentification, base PostgreSQL (+ pgvector), Realtime, Edge Functions | Cloud managé |
-| **Broker MQTT Flespi** | Bus de messages IoT (MQTT 5.0) | Cloud Flespi |
-| **Worker MQTT5** | Pont entre la file de commandes et les boîtiers | Azure Container Apps (francecentral) |
+| **Broker MQTT EMQX** | Bus de messages IoT (MQTT 5.0) | EMQX Cloud Serverless (Europe) |
+| **Worker MQTT5** | Pont entre la file de commandes et les boîtiers | Cloudflare Containers |
 | **Boîtier ESP32** | Mesure la consommation et pilote les relais | Terrain (chez l'utilisateur) |
-| **Azure OpenAI / Speech** | Agent IA (GPT-4o / Phi-4), transcription et synthèse vocale | Cloud Azure |
+| **LLM chat / tool calling** | Agent IA (OpenCode → DeepSeek → Cloudflare) | Cloud (OpenCode Zen, Workers AI) |
+| **Azure OpenAI / Speech** | Embeddings RAG + voix (STT/TTS) — migration en attente | Cloud Azure |
 
 ## 2. Schéma de topologie réseau
 
@@ -42,10 +52,10 @@ non les modules logiciels. Elle distingue quatre **segments** :
    de port sur la box (connexions **sortantes** de part et d'autre).
 3. **Internet** : média de transport chiffré entre le site utilisateur, les
    postes clients et les plateformes cloud.
-4. **Clouds fournisseurs**, chacun un segment distinct : **Flespi** (broker
-   MQTT), **Supabase** (serveur applicatif + base PostgreSQL/pgvector) et
-   **Microsoft Azure** *francecentral* (worker MQTT5, Azure OpenAI, Azure
-   Speech).
+4. **Clouds fournisseurs**, chacun un segment distinct : **EMQX** (broker
+   MQTT), **Supabase** (serveur applicatif + base PostgreSQL/pgvector),
+   **Cloudflare** (worker MQTT5 + IA chat via Workers AI) et **Microsoft
+   Azure** (embeddings RAG + voix STT/TTS, migration en attente).
 
 Chaque **lien** porte le **protocole et le port** réellement utilisés ; les
 liens en pointillés sont les échanges **cloud-à-cloud** (backbone), les liens
@@ -62,8 +72,8 @@ flowchart LR
     App["Application Flutter<br/>Android / iOS / Web / Desktop"]
   end
 
-  subgraph Flespi["Broker MQTT - Flespi"]
-    Broker["mqtt.flespi.io<br/>MQTT 5.0 - port 8883 TLS"]
+  subgraph Flespi["Broker MQTT - EMQX"]
+    Broker["r1aa3902.ala.eu-central-1.emqxsl.com<br/>MQTT 5.0 - port 8883 TLS"]
   end
 
   subgraph SupabaseZone["Supabase - BaaS"]
@@ -73,10 +83,13 @@ flowchart LR
     EF["Edge Functions"]
   end
 
-  subgraph AzureZone["Microsoft Azure"]
-    Worker["mqtt5-worker<br/>Container App - Node.js"]
-    AOAI["Azure OpenAI<br/>GPT-4o / Phi-4"]
-    Speech["Azure Speech<br/>STT / TTS"]
+  subgraph CloudZone["Cloudflare"]
+    Worker["mqtt5-worker<br/>Cloudflare Container - Node.js"]
+  end
+
+  subgraph IAZone["IA — LLM chat (Cloudflare/OpenCode) + Azure (RAG/voix)"]
+    AOAI["LLM chat<br/>OpenCode→DeepSeek→Cloudflare"]
+    Speech["Azure<br/>RAG embeddings + STT/TTS"]
   end
 
   subgraph Terrain["Terrain - IoT"]
@@ -104,11 +117,12 @@ flowchart LR
 | Source | Destination | Protocole | Port | Usage |
 |--------|-------------|-----------|------|-------|
 | Application | Supabase (Auth, DB, Realtime, Edge Functions) | HTTPS / WSS | 443 | Connexion, lecture/écriture des données, temps réel, appels IA |
-| Application | Broker Flespi | MQTTS (TCP TLS) | 8883 | Abonnement à la télémétrie et au statut des appareils |
+| Application | Broker EMQX | MQTTS (TCP TLS) | 8883 | Abonnement à la télémétrie et au statut des appareils |
 | Worker MQTT5 | Supabase | HTTPS (clé *service role*) | 443 | Lire `device_commands`, écrire `realtime_power`, synchroniser `appliances` |
-| Worker MQTT5 | Broker Flespi | MQTTS | 8883 | Publier les commandes, s'abonner aux ACK et à la télémétrie |
-| Boîtier ESP32 | Broker Flespi | MQTTS | 8883 | Publier télémétrie/ACK, s'abonner aux commandes |
-| Edge Functions | Azure OpenAI / Azure Speech | HTTPS | 443 | Génération IA, transcription (STT) et synthèse vocale (TTS) |
+| Worker MQTT5 | Broker EMQX | MQTTS | 8883 | Publier les commandes, s'abonner aux ACK et à la télémétrie |
+| Boîtier ESP32 | Broker EMQX | MQTTS | 8883 | Publier télémétrie/ACK, s'abonner aux commandes |
+| Edge Functions | LLM chat (OpenCode/DeepSeek/Cloudflare) | HTTPS | 443 | Chat + tool calling (agent-orchestrator) |
+| Edge Functions | Azure OpenAI / Azure Speech | HTTPS | 443 | Embeddings RAG + voix (STT/TTS) — migration en attente |
 
 **Convention des topics MQTT :**
 - Télémétrie : `aricie/v1/boxes/{boxUid}/telemetry`
@@ -127,7 +141,7 @@ sequenceDiagram
   participant App as App Flutter
   participant DB as Supabase (device_commands)
   participant W as Worker MQTT5
-  participant Brk as Broker Flespi
+  participant Brk as Broker EMQX
   participant ESP as Boîtier ESP32
 
   U->>App: Bascule un appareil (ON/OFF)
@@ -147,7 +161,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant ESP as Boîtier ESP32
-  participant Brk as Broker Flespi
+  participant Brk as Broker EMQX
   participant W as Worker MQTT5
   participant DB as Supabase
   participant App as App Flutter
@@ -166,11 +180,11 @@ sequenceDiagram
   participant App as App Flutter
   participant EF as Edge Function (agent-orchestrator)
   participant DB as Supabase (pgvector)
-  participant AO as Azure OpenAI
+  participant AO as LLM chat (OpenCode/DeepSeek/Cloudflare)
 
   App->>EF: Message utilisateur (HTTPS)
   EF->>DB: Recherche de contexte (RAG pgvector)
-  EF->>AO: Requête au modèle (GPT-4o / Phi-4)
+  EF->>AO: Requête au modèle (chat / tool calling)
   AO-->>EF: Réponse en streaming
   EF-->>App: Flux SSE (réponse progressive)
   Note over EF,DB: Une commande d'appareil demandée par l'IA<br/>est écrite dans device_commands (cf. section 4)
@@ -184,9 +198,7 @@ sequenceDiagram
   - Application → Supabase : **JWT** utilisateur, avec **RLS** (Row Level
     Security) isolant les données par propriétaire.
   - Worker → Supabase : clé **service role** (backend de confiance), qui
-    contourne la RLS pour traiter la file de commandes.
-  - Accès MQTT : **jetons Flespi** distincts pour l'application et pour le
-    worker.
+    contourne la RLS pour traiter la file de commandes.  - Accès MQTT : **credentials EMQX** (`MQTT_USERNAME` / `MQTT_PASSWORD`) distincts pour l'application et pour le worker.
 - **Identité des boîtiers** : appairage via **UID matériel** (paire unique
   boîtier ↔ utilisateur), vérifié côté backend.
 
@@ -194,12 +206,14 @@ sequenceDiagram
 
 - **Supabase** : plateforme managée (Auth, PostgreSQL + pgvector, Realtime,
   Edge Functions).
-- **Worker MQTT5** : conteneur Docker (`node:22-alpine`) déployé sur **Azure
-  Container Apps** (région *francecentral*), image stockée sur **Azure
-  Container Registry**.
-- **Broker MQTT** : service cloud **Flespi** (`mqtt.flespi.io`).
-- **IA** : **Azure OpenAI** (GPT-4o / Phi-4) et **Azure Speech** (STT/TTS),
-  appelés depuis les Edge Functions.
+- **Worker MQTT5** : conteneur Docker (`node:22-alpine`) déployé sur
+  **Cloudflare Containers** (build + push d'image par `wrangler deploy` sur
+  `registry.cloudflare.com`).
+- **Broker MQTT** : service cloud **EMQX Cloud Serverless** (Europe, ports 8883 / WSS 8084).
+- **IA (chat / tool calling)** : **OpenCode → DeepSeek → Cloudflare Workers
+  AI**, appelés depuis les Edge Functions (`llm.ts`).
+- **IA (RAG embeddings + voix)** : encore **Azure OpenAI / Azure Speech**
+  (STT/TTS), migration hors Azure en attente.
 
 ## 9. Choix et comparatif des technologies
 
@@ -210,14 +224,14 @@ contraint) et de la rapidité de mise en œuvre.
 | Besoin | Alternatives envisagées | Choix retenu | Justification |
 |--------|-------------------------|--------------|---------------|
 | Communication temps réel avec des objets contraints | HTTP (polling), CoAP, WebSocket brut | **MQTT 5.0** | Pub/sub léger, faible consommation de bande passante, bidirectionnel, QoS et ACK ; adapté à l'IoT et aux réseaux instables |
-| Broker MQTT | Mosquitto auto-hébergé, HiveMQ, AWS IoT Core | **Flespi (cloud managé)** | TLS et jetons intégrés, offre gratuite, support natif MQTT 5, aucune administration de serveur |
+| Broker MQTT | Mosquitto auto-hébergé, HiveMQ, AWS IoT Core | **EMQX Cloud Serverless (cloud managé)** | TLS et credentials intégrés, support natif MQTT 5, palier gratuit, aucune administration de serveur |
 | Backend (données, auth, temps réel) | Firebase, backend sur-mesure (Node/Django), AWS Amplify | **Supabase** | PostgreSQL relationnel (adapté aux données de consommation) + RLS + pgvector (RAG), Auth et Realtime intégrés, open-source, palier gratuit |
 | Transmission des commandes appareil | Publication MQTT directe app → broker | **File `device_commands` (via la base)** | Traçabilité, sécurité (RLS), fiabilité (claim atomique, ACK, timeout) ; l'application n'a pas à exposer le jeton du broker |
-| Exécution du pont IoT | Edge Function éphémère, tâche cron, VM dédiée | **Worker Node.js sur Azure Container Apps** | Un processus persistant est nécessaire (connexion MQTT et écoute des ACK en continu), scalable et sans gestion de VM |
-| Intelligence artificielle | OpenAI direct, LLM auto-hébergé (Ollama) | **Azure OpenAI (GPT-4o / Phi-4) + RAG pgvector** | Modèles récents, quotas et crédits Azure (offre étudiants), RAG réutilisant PostgreSQL (pas de base vectorielle séparée à maintenir) |
+| Exécution du pont IoT | Edge Function éphémère, tâche cron, VM dédiée | **Worker Node.js sur Cloudflare Containers** | Un processus persistant est nécessaire (connexion MQTT et écoute des ACK en continu), scalable et sans gestion de VM |
+| Intelligence artificielle | OpenAI direct, LLM auto-hébergé (Ollama) | **OpenCode → DeepSeek → Cloudflare Workers AI (chat) + RAG pgvector** | Modèles récents et GRATuits (free tier), RAG réutilisant PostgreSQL (pas de base vectorielle séparée à maintenir) ; embeddings/voix encore Azure en attendant une migration |
 | Application cliente | React Native, natif Android + iOS, PWA | **Flutter** | Base de code unique multi-plateformes (Android, iOS, Web, Desktop), bonnes performances, interface riche |
 
-> Ces choix privilégient des services **managés** (Flespi, Supabase, Azure) pour
+> Ces choix privilégient des services **managés** (EMQX, Supabase, Cloudflare, Azure) pour
 > réduire la charge d'exploitation et sécuriser le prototype, tout en gardant des
 > composants **open-source / standards** (MQTT, PostgreSQL, Flutter) pour limiter
 > la dépendance à un fournisseur unique.
