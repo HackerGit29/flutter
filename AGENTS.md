@@ -19,11 +19,11 @@ flutter build apk --obfuscate --split-debug-info=build/obfuscation/
 | App          | Flutter (latest stable)                                               |
 | State        | Riverpod (preferred) + Provider (theme only)                                             |
 | Backend      | Supabase (auth, realtime streams, PostgreSQL, Edge Functions)                            |
-| AI Agent     | Supabase Edge Functions + Azure Phi-4-mini-instruct (chat) / Azure OpenAI (tool calling) |
+| AI Agent     | Supabase Edge Functions + chaîne LLM OpenCode bridge → DeepSeek → Cloudflare Workers AI (chat + tool calling) ; embeddings RAG encore Azure |
 | MQTT         | MQTT 5.0 via EMQX Cloud Serverless (Europe, déploiement `dev`), `mqtt5_client`, Node.js worker (mqtt.js v5) |
 | RAG          | pgvector (chat_embeddings, owner_id scopé)                                               |
 | IoT          | MQTT 5.0 via `mqtt5_client` (TCP TLS `r1aa3902.ala.eu-central-1.emqxsl.com:8883`, WSS `:8084/mqtt`) |
-| Voice        | `speech_to_text` (STT) + `flutter_tts` (TTS) ✅ Migré vers Azure gpt-4o-transcribe (STT) + Azure Neural TTS (TTS) via Edge Functions |
+| Voice        | `speech_to_text` (STT) + `flutter_tts` (TTS) → Edge Functions `transcribe-audio` (gpt-4o-transcribe) + `text-to-speech` (Azure Neural TTS) — encore Azure, migration hors Azure en attente |
 | Design       | Soft Wellness Minimalism — seed `#4A6572`, DM Sans, pastel palette                       |
 | Architecture | Clean Architecture (`core/` → `data/` → `domain/` → `presentation/`)                     |
 
@@ -73,8 +73,8 @@ lib/
 
   supabase/
   functions/
-    ai-chat/                 ← Edge Function : Chat simple Phi-4-mini-instruct
-    agent-orchestrator/      ← Edge Function : Azure OpenAI + tool calling + SSE
+    ai-chat/                 ← Edge Function : chat simple (legacy, encore Azure)
+    agent-orchestrator/      ← Edge Function : LLM OpenCode→DeepSeek→Cloudflare + tool calling + SSE
     energy-aggregator/       ← Edge Function : ETL realtime_power → energy_data
     admin-api/               ← Edge Function : backoffice web (KPI, users, boxes, RBAC)
   migrations/
@@ -102,12 +102,12 @@ workers/
 | ----------------------------------------- | --------------------------------------------------------------- |
 | `lib/main.dart`                           | App initialization: Supabase, notifications, splash → auth flow |
 | `lib/core/constants.dart`                 | Environment-based configuration (`--dart-define`)               |
-| `supabase/functions/ai-chat/index.ts`     | Edge Function Phi-4-mini-instruct (chat simple)                 |
+| `supabase/functions/ai-chat/index.ts`     | Edge Function chat simple (legacy, encore Azure) |
 | `supabase/functions/agent-orchestrator/`  | Edge Function avancée (tool calling + SSE + RAG)                |
 | `supabase/functions/transcribe-audio/index.ts` | Edge Function : audio → gpt-4o-transcribe → texte          |
 | `supabase/functions/text-to-speech/index.ts`   | Edge Function : texte → Azure Neural TTS → audio MP3        |
 | `supabase/functions/energy-aggregator/index.ts`| Edge Function : ETL realtime_power → energy_data quotidien  |
-| `supabase/functions/admin-api/index.ts` | Edge Function : backoffice web (KPI, users, boxes, RBAC admin) |
+| `supabase/functions/admin-api/index.ts` | Edge Function : backoffice web (KPI, geo, users, boxes, subscriptions, licences, audit, RBAC admin) |
 | `lib/services/mqtt_service.dart`          | IoT messaging (telemetry stream, control commands)              |
 | `lib/services/agent_service.dart`         | SSE client for agent-orchestrator Edge Function                 |
 | `lib/services/voice_service.dart`         | STT (Azure transcribe) + TTS (Azure Neural TTS)                 |
@@ -148,7 +148,7 @@ Les modèles `*-free` d'OpenCode Zen refusent les appels serveur (`403 FreeTierE
 
 - `bash workers/opencode-bridge/start.sh` → pont + tunnel + secrets Supabase (`OPENCODE_BRIDGE_URL`, `OPENCODE_BRIDGE_TOKEN`, `OPENCODE_MODEL`)
 - Tool calling : les définitions sont passées dans le prompt, le pont reconvertit le JSON en `tool_calls` OpenAI
-- Contrepartie : le chat ne répond que si la machine est allumée ; `supabase secrets unset OPENCODE_BRIDGE_URL` pour revenir à DeepSeek/Azure
+- Contrepartie : le chat ne répond que si la machine est allumée ; `supabase secrets unset OPENCODE_BRIDGE_URL` pour revenir à DeepSeek/Cloudflare
 - Doc : `workers/opencode-bridge/README.md`
 
 ### Principes de sécurité
@@ -177,7 +177,7 @@ All tables use RLS. Admin bypass via `private.is_admin()` (SECURITY DEFINER quer
 
 ## 2026 project evolution (in progress)
 
-- **AI Agent v2**: Flowise → Supabase Edge Functions + Phi-4-mini-instruct (chat) / Azure OpenAI (tool calling) ✅
+- **AI Agent v2**: Flowise → Supabase Edge Functions + Phi-4-mini-instruct (chat) / Azure OpenAI (tool calling) ✅ — depuis migré vers OpenCode/DeepSeek/Cloudflare
 - **Voice mode**: STT/TTS intégré au chatbot avec toggle dans l'AppBar ✅
 - **Live streaming**: SSE streaming typé (token/tool_pending/tool_result/done) ✅
 - **Device control from chat**: "Éteins le chauffe-eau" → Policy Engine → MQTT ✅
@@ -187,7 +187,7 @@ All tables use RLS. Admin bypass via `private.is_admin()` (SECURITY DEFINER quer
 - **Pipeline stats**: Edge Function energy-aggregator + LiveConsumptionIndicator ✅
 - **Refonte UI appareils**: DevicesScreen lecture seule, toggle via device_commands ✅
 - **Nettoyage secrets**: supabaseServiceRoleKey, flespiWorkerToken retirés de constants.dart ✅
-- **Phi-4-mini-instruct**: Déployé sur Azure Foundry (chat et agent) ✅
+- **Phi-4-mini-instruct**: Déployé sur Azure Foundry (chat et agent) ✅ — puis remplacé par la chaîne OpenCode/DeepSeek/Cloudflare (Azure retiré)
 - **MQTT App singleton**: MqttService enregistré via get_it, paramètre `force` dans initialize, StreamController _connectionStateController non recréé pour préserver les abonnements ✅
 - **Boîtiers admin nullables**: ALTER boxes.user_id DROP NOT NULL, dropdown admin corrigé (initialValue → value) ✅
 - **Simulateur ESP32 Python**: workers/test/box/box_esp32.py — télémetrie 5s, ACK, 3 relays ✅
@@ -200,12 +200,13 @@ All tables use RLS. Admin bypass via `private.is_admin()` (SECURITY DEFINER quer
 - **IndexedStack tabs**: remplacement `Stack` → `IndexedStack` dans home_screen pour préserver les souscriptions entre tabs ✅
 - **Bouton Ajouter admin-only**: vérification `isAdmin` dans settings_screen ✅
 - **Toggle optimiste**: feedback immédiat + loading spinner + revert sur échec dans devices_screen ✅
-- **GPT-4o**: En attente d'augmentation de quota
+- **GPT-4o**: abandonné (abonnement Azure terminé)
 - **Fix RPC sum_total_consumption**: TOO_MANY_ROWS avec >1 appareil — passage en sous-requêtes scalaires ✅
 - **Fix boucle confirmation**: `confirmed: true` manquant dans les args Flutter ✅
 - **UX Chatbot clean**: suppression de l'affichage des appels de fonctions intermédiaires ✅
 - **Realtime energy_data + device_commands**: activation publication Supabase Realtime ✅
-- **DeepSeek fallback LLM**: bascule automatique si Azure OpenAI est indisponible ✅
+- **DeepSeek fallback LLM**: bascule automatique si un provider tombe ✅ — DeepSeek fait partie de la chaîne principale (bridge → deepseek → cloudflare)
+- **Admin API backoffice**: routes `/v1/subscriptions`, `/v1/licenses` (activate/revoke), `/v1/admin` (actions, audit-logs, notes) + migration `licenses` revoke ✅
 
 ## Design system (2026)
 
@@ -385,6 +386,8 @@ Semantic Versioning 2.0.0. Canonical version in `pubspec.yaml`. See `VERSION.md`
 | `supabase/migrations/20261026000001_admin_geo.sql` | Geo boxes (lat/lng/precision/installed_at), coverage_zones, analytics_events, admin_notes |
 | `supabase/migrations/20261026000002_admin_rbac.sql` | users.admin_level (viewer/operator/super_admin) + vue admin_coverage_view |
 | `supabase/migrations/20261026000003_admin_kpi_rpcs.sql` | RPC admin_kpi_summary / admin_kpi_timeseries + enum admin_action_type étendu |
+| `supabase/migrations/20261026000004_admin_geo_rpcs.sql` | RPC admin geo (clusters, zones, heatmap) |
+| `supabase/migrations/20261027000001_admin_billing.sql` | `licenses` revoke (`revoked_at`/`revoke_reason`) + enum `admin_action_type` `update_subscription` |
 
 ## Gotchas
 
@@ -392,7 +395,7 @@ Semantic Versioning 2.0.0. Canonical version in `pubspec.yaml`. See `VERSION.md`
 - Supabase URL/key required via `--dart-define` at compile time
 - `mqtt_client` import from `src/typed_buffer.dart` directly (non-standard pattern)
 - ~~`dependency_overrides.web: 1.1.1`~~ (removed — incompatible with Dart 3.7+; replaced with conditional imports for MQTT web/native client selection via `mqtt_client_factory*.dart`) pinned to avoid breaking changes
-- Azure OpenAI secrets must be set in Supabase dashboard (Edge Functions secrets)
+- `AZURE_OPENAI_*` secrets toujours requis côté Supabase pour les embeddings RAG et la voix (STT/TTS) — le chat LLM ne passe plus par Azure
 - `WEBHOOK_SECRET` required for mqtt-worker webhook security
-- Phi-4-mini-instruct utilise l'API version `2024-06-01` (pas `2024-10-21` comme les modèles OpenAI)
+- (legacy ai-chat) Phi-4-mini-instruct utilise l'API version `2024-06-01` — le chat principal n'utilise plus Azure
 - **Never commit secrets** — use `--dart-define` only
