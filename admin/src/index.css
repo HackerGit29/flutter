@@ -1,0 +1,54 @@
+/**
+ * Amorçage de la page.
+ *
+ * Volontairement minimal : les surfaces, la typographie et la barre de
+ * défilement sont gérées par `MuiCssBaseline` dans `theme/muiTheme.ts`, qui
+ * suit le mode clair/sombre.
+ *
+ * Ce fichier est chargé **avant** React et avant que MUI n'injecte ses
+ * variables CSS. Les valeurs de repli ci-dessous reprennent la palette
+ * aricie (fond clair `#C8D9E0`, fond sombre `#1A2530`) afin qu'il n'y ait
+ * aucun flash de couleur au chargement, et `prefers-color-scheme` choisit le
+ * bon repli tant que MUI n'a pas posé sa classe sur `<html>`.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  width: 100%;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Repli clair. Dès que MUI est actif, `--mui-palette-background-default`
+ * prend le dessus et suit le mode réellement sélectionné.
+ */
+html {
+  background-color: var(--mui-palette-background-default, #c8d9e0);
+}
+
+/*
+ * Repli sombre tant que MUI n'a pas posé sa classe : le sélecteur est plus
+ * spécifique que le précédent, donc il gagne quand l'OS est en sombre.
+ */
+@media (prefers-color-scheme: dark) {
+  html:not(.light) {
+    background-color: var(--mui-palette-background-default, #1a2530);
+  }
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}

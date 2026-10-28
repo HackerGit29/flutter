@@ -102,8 +102,8 @@ réponse en morceaux de mots pour un rendu progressif côté Flutter.
 Ordre de préférence des providers (`supabase/functions/agent-orchestrator/llm.ts`) :
 
 1. **bridge** — si `OPENCODE_BRIDGE_URL` est défini (gratuit, machine allumée) ;
-2. **deepseek** — si `DEEPSEEK_API_KEY` est défini (payant) ;
-3. **azure** — si `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` sont définis.
+2. **deepseek** — si `DEEPSEEK_API_KEY` est défini (OpenCode Zen) ;
+3. **cloudflare** — si `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` sont définis (Workers AI).
 
 Toute panne (bridge éteint, 5xx, timeout, DNS) bascule sur le provider suivant.
 Retirer le pont = `supabase secrets unset OPENCODE_BRIDGE_URL`.

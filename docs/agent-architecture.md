@@ -1,47 +1,13 @@
 # Aricie Agent IA — Architecture
 
-## Architecture
+> **État (oct. 2026)** — le chemin **principal** est `agent-orchestrator`
+> (SSE + tool calling). La fonction `ai-chat` est **legacy** (réponse JSON
+> simple, encore branchée sur Azure). La chaîne LLM du chat / tool-calling est
+> **OpenCode bridge → DeepSeek → Cloudflare Workers AI** (`llm.ts`). Les
+> **embeddings RAG** et la **voix (STT/TTS)** sont **encore sur Azure**
+> (abonnement terminé → migration hors Azure en attente).
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  Flutter Client                                                   │
-│  ┌──────────┐ ┌────────────┐ ┌─────────────┐                    │
-│  │ Chat UI  │ │ Voice STT  │ │ SSE Stream  │                    │
-│  │ (widgets)│ │ (speech_to │ │ Reader      │                    │
-│  │          │ │  _text)    │ │             │                    │
-│  └────┬─────┘ └─────┬──────┘ └──────┬──────┘                    │
-│       │             │               │                            │
-│       └──────┬──────┴──────┬────────┘                            │
-│              ▼             ▼                                     │
-│  ┌─────────────────────────────────────────────┐                 │
-│  │ AgentService (Flutter)                       │                 │
-│  │ • supabase.functions.invoke('ai-chat', ...)  │                 │
-│  │ • JWT Supabase (Authorization)               │                 │
-│  │ • Réponse JSON → UI et/ou VoiceService TTS   │                 │
-│  │ • VoiceService : STT input → TTS output      │                 │
-│  └────────────────┬────────────────────────────┘                 │
-└───────────────────┼──────────────────────────────────────────────┘
-                    │ POST + JWT
-                    ▼
-┌──────────────────────────────────────────────────────────────────┐
-│  Supabase Edge Function : ai-chat                                │
-│                                                                   │
-│  1. Reçoit { messages, temperature, max_tokens }                  │
-│  2. Lit AZURE_OPENAI secrets via Deno.env.get()                   │
-│  3. POST /openai/deployments/LLM/chat/completions│
-│  4. Retourne { success, content, raw }                            │
-└──────────────────────────┬───────────────────────────────────────┘
-                           │ fetch() + api-key
-                           ▼
-┌──────────────────────────────────────────────────────────────────┐
-│  Azure AI Foundry : LLM (GlobalStandard)         │
-│  • Endpoint : paossimb-7935-resource.cognitiveservices.azure.com │
-│  • API version : 2024-06-01                                      │
-│  • Rate limit : 1 req/s, 400 tokens/min                         │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-## Architecture avancée (agent-orchestrator)
+## Architecture avancée (agent-orchestrator) — chemin principal
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -55,8 +21,8 @@
 │  1. AUTH : parse JWT → auth.uid (IGNORE body.user_id)        │
 │  2. RAG : pgvector WHERE owner_id = auth.uid                 │
 │  3. Contexte opérationnel : appliances + subscription scope   │
-│  4. Azure OpenAI GPT-4o : tool calling                        │
-│     • Le LLM ne manipule que des noms métier                  │
+│  4. LLM (llm.ts) : chaîne bridge → deepseek → cloudflare      │
+│     • tool calling ; le LLM ne voit que des noms métier       │
 │     • Il propose une intention, ne choisit jamais les IDs     │
 │  5. Policy Engine :                                           │
 │     • Resolve appliance_name → appliance_id → relay_index     │
@@ -73,19 +39,16 @@
 ┌──────────────────┐    ┌────────────────────────┐
 │ pgvector (RAG)    │    │ device_commands        │
 │ owner_id scoped   │    │ (file d'attente)       │
-│ FAQ + docs user   │    │ pending → sent → ack   │
+│ embeddings Azure  │    │ pending → sent → ack   │
 └──────────────────┘    └───────────┬────────────┘
                                     │ Database Webhook
                                     ▼
                           ┌────────────────────────┐
-                          │ Worker MQTT             │
-                          │ /functions/v1/mqtt-     │
-                          │ worker                  │
-                          │                         │
-                          │ 1. Vérifie secret       │
-                          │ 2. Vérifie idempotence  │
-                          │ 3. Publie MQTT          │
-                          │ 4. Update status        │
+                          │ Worker MQTT5           │
+                          │ (Cloudflare Containers)│
+                          │ 1. Idempotence         │
+                          │ 2. Publie MQTT         │
+                          │ 3. Update status       │
                           └────────────────────────┘
 ```
 
@@ -125,19 +88,37 @@ L'utilisateur ne voit que les événements `token` (réponse du LLM) et `error`.
 ### 6. Confirmation structurée (confirmed_tool_call)
 Pour les actions critiques (chauffe-eau, climatiseur, four, cuisinière), le backend demande une confirmation modale via `tool_pending` avec `requires_confirmation: true`. L'utilisateur confirme dans l'UI, et Flutter renvoie un `confirmed_tool_call` structuré (contournant le LLM) directement au backend pour exécution, sans risque de mauvaise interprétation par le modèle.
 
-Le `confirmed_tool_call` inclut désormais `confirmed: true` dans les arguments pour éviter la boucle infinie de confirmation. Après exécution, le LLM génère une réponse streamée pour confirmer l'action à l'utilisateur.
+Le `confirmed_tool_call` inclut `confirmed: true` dans les arguments pour éviter la boucle infinie de confirmation. Après exécution, le LLM génère une réponse streamée pour confirmer l'action à l'utilisateur.
 
 ## Secrets (dashboard Supabase, jamais côté Flutter)
 
+### Chaîne LLM du chat / tool-calling (`llm.ts`)
 ```
-AZURE_OPENAI_ENDPOINT             → https://paossimb-7935-resource.cognitiveservices.azure.com/
-AZURE_OPENAI_API_KEY              → <clé API Azure>
-AZURE_OPENAI_DEPLOYMENT           → LLM
-AZURE_OPENAI_API_VERSION          → 2024-06-01
-AZURE_OPENAI_EMBEDDING_DEPLOYMENT → text-embedding-3-large-aricie
+OPENCODE_BRIDGE_URL   → URL du pont OpenCode (cloudflared), ex. https://…workers.dev
+OPENCODE_BRIDGE_TOKEN → jeton du pont
+OPENCODE_MODEL        → modèle free exécuté côté client (défaut deepseek-v4.1-flash-free)
+DEEPSEEK_API_KEY      → clé OpenCode Zen (provider deepseek)
+DEEPSEEK_BASE_URL     → (optionnel) défaut OpenCode Zen
+DEEPSEEK_MODEL        → défaut deepseek-v4.1-flash
+CLOUDFLARE_ACCOUNT_ID → compte Cloudflare Workers AI
+CLOUDFLARE_API_TOKEN  → token Workers AI
+LLM_FALLBACK_ENABLED  → true pour activer la cascade bridge→deepseek→cloudflare
+```
+
+### Encore Azure (migration en attente)
+```
+AZURE_OPENAI_ENDPOINT             → embeddings RAG (rag.ts) + chat legacy ai-chat
+AZURE_OPENAI_API_KEY              → idem
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT → text-embedding-3-*
 AZURE_OPENAI_EMBEDDING_DIMENSIONS → 1536
-FLESPI_MQTT_HOST                  → mqtt.flespi.io
-FLESPI_MQTT_TCP_PORT              → 8883
+AZURE_SPEECH_KEY                  → TTS Neural (text-to-speech)
+```
+> `transcribe-audio` (STT) utilise aussi `AZURE_OPENAI_*` (`gpt-4o-transcribe`).
+
+### IoT
+```
+MQTT_USERNAME / MQTT_PASSWORD     → broker EMQX Cloud Serverless (voir AGENTS.md)
+SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY → Worker MQTT5
 ```
 
 ## Tables créées
@@ -152,18 +133,21 @@ FLESPI_MQTT_TCP_PORT              → 8883
 - `match_user_embeddings(query_embedding, requester_id, match_count)` → recherche vectorielle scopée
 - `get_user_appliances_context(requester_id)` → contexte opérationnel JSON
 
-## Flutter → Edge Function (ai-chat)
+## Flutter → Edge Function
+
+Le chemin principal est **`agent-orchestrator`** (flux SSE, cf. `lib/services/agent_service.dart`).
+La fonction **`ai-chat`** reste un chemin **legacy** (réponse JSON simple, encore Azure) :
 
 ```dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 final supabase = Supabase.instance.client;
 
-Future<String> askAricie(String userMessage) async {
+Future<String> askAricieLegacy(String userMessage) async {
   final session = supabase.auth.currentSession;
 
   final response = await supabase.functions.invoke(
-    'ai-chat',
+    'ai-chat', // legacy — le chat réel passe par agent-orchestrator (SSE)
     body: {
       'messages': [
         {
@@ -175,10 +159,7 @@ Si l'utilisateur demande une action sur un appareil, n'invente jamais.
 Demande confirmation si l'action est ambiguë.
 ''',
         },
-        {
-          'role': 'user',
-          'content': userMessage,
-        },
+        {'role': 'user', 'content': userMessage},
       ],
       'temperature': 0.2,
       'max_tokens': 500,
@@ -190,16 +171,14 @@ Demande confirmation si l'action est ambiguë.
   );
 
   final data = response.data;
-
   if (data == null || data['success'] != true) {
     throw Exception(data?['error'] ?? 'Erreur inconnue');
   }
-
   return data['content'] as String? ?? '';
 }
 ```
 
-## Sortie JSON structurée pour commandes IoT
+## Sortie JSON structurée pour commandes IoT (prompt legacy ai-chat)
 
 ```dart
 const aricieSystemPrompt = '''
@@ -242,24 +221,13 @@ Règles :
 ]
 ```
 
-### Fallback LLM (v1.4.1)
-Si Azure OpenAI est indisponible (HTTP 429, 500, 502, 503, 504), l'orchestrateur bascule automatiquement. Le fallback est activé via la variable d'environnement `LLM_FALLBACK_ENABLED=true`.
+### Chaîne LLM & fallback (v2)
+`llm.ts` construit une cascade **bridge (OpenCode) → deepseek (OpenCode Zen) → cloudflare (Workers AI)**.
+Chaque provider absent/échoué (réseau, timeout, 5xx) bascule sur le suivant. `LLM_FALLBACK_ENABLED=true`
+active la cascade complète ; sinon seul le premier provider configuré est appelé.
+Azure n'est plus dans cette chaîne (chat/tool-calling).
 
-## Résumé des déploiements Azure
-
-| Modèle | Nom du déploiement | SKU | Status |
-|--------|-------------------|-----|--------|
-| `LLM` | `LLM` | GlobalStandard (1) | ✅ Déployé |
-| `gpt-4o-transcribe` | `gpt-4o-transcribe-aricie` | GlobalStandard (1) | ✅ Déployé |
-| `gpt-4o-transcribe-diarize` | `gpt-4o-transcribe-diarize-aricie` | GlobalStandard (1) | ✅ Déployé |
-| `text-embedding-3-large` | `text-embedding-3-large-aricie` | Standard (1) | ✅ Déployé |
-
-| Ressource | Endpoint | Usage |
-|-----------|----------|-------|
-| `paossimb-7935-resource` (Azure OpenAI) | `cognitiveservices.azure.com` | Chat (Phi-4), STT (gpt-4o-transcribe), Embeddings |
-| `paossimb-speech-7935` (Speech Services) | `francecentral.tts.speech.microsoft.com` | TTS (Neural) — Free F0 |
-
-## Voice Mode Architecture
+## Voice Mode Architecture — encore Azure (migration en attente)
 
 ```
 Flutter Voice Mode
@@ -267,8 +235,8 @@ Flutter Voice Mode
   │ 1. Appuie sur le micro → record audio (WAV) │
   │ 2. POST /functions/v1/transcribe-audio      │
   │ 3. Azure gpt-4o-transcribe → texte          │
-  │ 4. POST /functions/v1/ai-chat               │
-  │    (ou agent-orchestrator pour tool calling) │
+  │ 4. POST /functions/v1/agent-orchestrator    │
+  │    (chat / tool calling, SSE)               │
   │ 5. Réponse texte → POST /functions/v1/      │
   │    text-to-speech                           │
   │ 6. Azure Neural TTS → audio MP3            │
@@ -277,10 +245,10 @@ Flutter Voice Mode
   └─────────────────────────────────────────────┘
 
 Edge Functions:
-  • transcribe-audio : audio → gpt-4o-transcribe → texte
-  • text-to-speech    : texte → Azure Neural TTS → audio MP3
-  • ai-chat           : messages → LLM → réponse
-  • agent-orchestrator : message + tools → LLM → SSE
+  • transcribe-audio     : audio → gpt-4o-transcribe → texte (Azure)
+  • text-to-speech       : texte → Azure Neural TTS → audio MP3 (Azure)
+  • agent-orchestrator   : message + tools → LLM (OpenCode→DeepSeek→Cloudflare) → SSE
+  • ai-chat              : messages → Azure LLM → réponse (legacy)
 ```
 
 ## Testing requis
@@ -292,12 +260,12 @@ Edge Functions:
 5. Commande dupliquée → pas de double publication
 6. RAG User A → jamais document User B
 7. Voice → STT → agent → SSE → TTS
-8. Azure LLM indisponible → erreur UI propre
+8. Provider LLM indisponible → bascule sur le suivant / erreur UI propre
 
 ## Évolution future
 
-- **Azure Realtime Audio** (WebRTC) pour voix basse latence
+- Migration hors Azure : embeddings RAG → provider non-Microsoft ; STT/TTS → provider non-Microsoft
 - **Worker MQTT persistant** si le broker ne supporte pas HTTP API
 - **Dashboard admin** pour supervision des logs agent
 - **Feedback loop** : good/bad sur réponses agent
-- **Retour à GPT-4o** dès que le quota est approuvé (changer un seul secret : `AZURE_OPENAI_DEPLOYMENT`)
+- **Voix basse latence** (WebRTC) hors Azure

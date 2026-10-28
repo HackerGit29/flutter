@@ -5,7 +5,7 @@ export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, PATCH, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
 };
 
 export function jsonResponse(data: unknown, status = 200): Response {
@@ -36,7 +36,10 @@ export type Pagination = {
 
 // ?page=1&page_size=50 (page_size plafonné à 200)
 export function parsePagination(url: URL): Pagination {
-  const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10) || 1);
+  const page = Math.max(
+    1,
+    parseInt(url.searchParams.get("page") ?? "1", 10) || 1,
+  );
   const rawSize = parseInt(url.searchParams.get("page_size") ?? "50", 10) || 50;
   const pageSize = Math.min(200, Math.max(1, rawSize));
   const from = (page - 1) * pageSize;

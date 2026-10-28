@@ -25,18 +25,18 @@ class SupabaseLicenseDataSource {
   }
 
   Future<Map<String, dynamic>?> getLicenseByKey(String licenseKey) async {
-    final response = await _client.from('licences')
+    final response = await _client.from('licenses')
       .select().eq('license_key', licenseKey).maybeSingle();
     return response;
   }
 
   Future<Map<String, dynamic>> createLicense(Map<String, dynamic> data) async {
-    final response = await _client.from('licences').insert(data).select().single();
+    final response = await _client.from('licenses').insert(data).select().single();
     return response;
   }
 
   Future<Map<String, dynamic>?> getLicenseBySubscription(String subscriptionId) async {
-    final response = await _client.from('licences')
+    final response = await _client.from('licenses')
       .select().eq('subscription_id', subscriptionId).maybeSingle();
     return response;
   }

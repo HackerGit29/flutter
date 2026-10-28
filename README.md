@@ -11,7 +11,7 @@ Application Flutter de suivi et gestion de consommation énergétique avec objet
 | Auth            | Supabase Auth                                         |
 | Base de données | Supabase PostgreSQL                                   |
 | IoT             | MQTT 5.0 (TCP TLS/WSS) via `mqtt5_client` (app subscribe telemetry/status; worker publie commandes via `device_commands`) |
-| IA              | Agent‑orchestrator (Azure OpenAI GPT‑4o / Phi‑4‑mini‑instruct) avec RAG pgvector, streaming SSE, policy engine et file d’attente de commandes MQTT |
+| IA              | Agent‑orchestrator (chaîne LLM : OpenCode bridge → DeepSeek → Cloudflare Workers AI) avec RAG pgvector, streaming SSE, policy engine et file d’attente de commandes MQTT |
 | Architecture    | Clean Architecture (core/data/domain/presentation)    |
 
 ## Requirements
@@ -95,7 +95,7 @@ flutter run
 - Statistiques : historique, tendances, **conso live en haut de page**
 - Appareils : lecture seule, toggle via `device_commands` (admin crée les boîtiers depuis le dashboard admin)
 - Paramètres : thème, état MQTT, liste appareils, bouton « Donner un avis » (formulaire de retours utilisateurs)
-- Chatbot : agent‑orchestrator (Azure OpenAI GPT‑4o / Phi‑4‑mini‑instruct) avec streaming SSE
+- Chatbot : agent‑orchestrator (chaîne LLM OpenCode → DeepSeek → Cloudflare, embeddings RAG encore Azure) avec streaming SSE
 - Administration : gestion utilisateurs, boîtiers, licences, **création de boîtiers + 3 appareils** (admin only)
 
 ## Contribuer
