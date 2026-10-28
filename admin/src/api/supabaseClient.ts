@@ -25,7 +25,7 @@ function buildClient(): SupabaseClient {
   if (!isSupabaseConfigured) {
     throw new Error(
       'Configuration Supabase manquante : renseignez VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY ' +
-        '(fichier .env.local en développement, variables de build sur Cloudflare Pages).',
+        '(fichier .env.local en développement, variables de build fournies par l’environnement de déploiement).',
     );
   }
 
