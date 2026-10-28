@@ -53,8 +53,8 @@ const LEVELS: Record<AdminLevel, { label: string; hint: string; tone: string; ic
 };
 
 const CURRENCIES: { value: Currency; label: string; hint: string }[] = [
-  { value: 'EUR', label: 'EUR — Euro', hint: 'Devise de facturation' },
-  { value: 'XAF', label: 'XAF — Franc CFA', hint: 'Parité fixe : 1 EUR = 655,957 XAF' },
+  { value: 'XAF', label: 'XAF — Franc CFA', hint: 'Devise de l’application (par défaut)' },
+  { value: 'EUR', label: 'EUR — Euro', hint: 'Conversion : 1 EUR = 655,957 XAF' },
   { value: 'USD', label: 'USD — Dollar', hint: 'Conversion indicative' },
 ];
 

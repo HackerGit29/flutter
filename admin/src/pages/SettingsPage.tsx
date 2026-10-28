@@ -30,8 +30,8 @@ export const SettingsPage: React.FC = () => {
         <Typography sx={{ fontWeight: 700, color: '#fff', mb: 1 }}>{language === 'fr' ? 'Devise d’affichage' : 'Display currency'}</Typography>
         <Typography sx={{ color: '#8e94a3', fontSize: '.82rem', mb: 2 }}>{language === 'fr' ? 'Préférence locale uniquement ; elle ne modifie pas les données de facturation.' : 'Local preference only; it does not change billing records.'}</Typography>
         <RadioGroup row value={currency} onChange={(event) => setCurrency(event.target.value as Currency)}>
+          <FormControlLabel value="XAF" control={<Radio />} label="XAF (par défaut)" />
           <FormControlLabel value="EUR" control={<Radio />} label="EUR" />
-          <FormControlLabel value="XAF" control={<Radio />} label="XAF" />
           <FormControlLabel value="USD" control={<Radio />} label="USD" />
         </RadioGroup>
       </Card>

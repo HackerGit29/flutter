@@ -64,7 +64,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setLanguage: (language) => set({ language }),
   toggleLanguage: () => set((state) => ({ language: state.language === 'fr' ? 'en' : 'fr' })),
 
-  currency: 'EUR',
+  // Devise de l'application : le XAF. Les montants backend sont exprimés en
+  // euros (VIP_MONTHLY_PRICE_EUR) mais l'UI affiche toujours le XAF par défaut,
+  // converti à la parité fixe BEAC (1 EUR = 655,957 XAF).
+  currency: 'XAF',
   setCurrency: (currency) => set({ currency }),
   formatCurrency: (amountInEur) => {
     const currency = get().currency;
