@@ -6,7 +6,6 @@ Interface web React 19 + TypeScript construite avec Vite. Le frontend statique l
 
 - Bun (le lockfile du projet est `bun.lock`)
 - Accès au projet Supabase utilisé par `admin-api`
-- Wrangler authentifié avec un compte Cloudflare pour préparer un déploiement Pages
 
 ## Développement local
 
@@ -30,14 +29,3 @@ bun run build
 ```
 
 Vite produit les fichiers statiques dans `dist/`. Les variables `VITE_*` sont intégrées au bundle au moment du build ; fournir les valeurs du bon environnement avant `bun run build`.
-
-## Cloudflare Pages
-
-Aucun projet Pages ni fichier de configuration Wrangler n'est actuellement associé à ce dossier. Après avoir choisi/créé le projet Pages et configuré les variables Supabase dans l'environnement de build, produire le bundle puis le déployer explicitement :
-
-```bash
-bun run build
-bunx wrangler pages deploy dist --project-name <nom-du-projet-pages> --branch <branche>
-```
-
-Remplacer les deux valeurs entre chevrons par la cible confirmée. Ne pas réutiliser un projet Pages existant sans vérifier qu'il est bien réservé à cet admin. Les builds Preview et Production doivent recevoir les variables publiques Supabase correspondant à leur environnement.

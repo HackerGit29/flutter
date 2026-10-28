@@ -72,7 +72,7 @@ backoffice. La version mobile peut être **gelée** (lecture seule) une fois le 
 ┌────────────────────────────────────────────────────────┐
 │  admin/ — Aricie Backoffice (dans le dépôt Flutter)    │
 │  React 19 + TypeScript · Vite · MUI · TanStack Query  │
-│  Site statique prévu pour Cloudflare Pages             │
+│  Site statique (hébergement web du projet)             │
 └──────────────┬─────────────────────────────────────────┘
                │ HTTPS (JWT Supabase + claim admin)
                ▼
@@ -511,7 +511,7 @@ Une page par utilisateur :
 | Règle | Implémentation |
 |---|---|
 | Comptes admin = `users.role='admin'` **et** `admin_level` renseigné | garde middleware `admin-api` |
-| 2FA obligatoire pour operator/super_admin | Supabase Auth + TOTP (ou IAP Cloudflare en surcouche) |
+| 2FA obligatoire pour operator/super_admin | Supabase Auth + TOTP |
 | Toute écriture audité | trigger SQL sur les tables mutables → `admin_actions` |
 | Service role uniquement dans Edge Functions | jamais au front |
 | RGPD : droit à l'effacement | script `admin-gdpr-erase` : anonymise user + purge analytics_events/chat_embeddings/sync_logs (conformité, audit conservé) |
@@ -551,7 +551,7 @@ combien de kWh ? lesquels sont VIP ? où installer le prochain boîtier ? » —
 
 ## 10. Décisions à valider avec le client
 
-1. **App web** : décision prise — frontend statique React + TypeScript + Vite dans `admin/`, à déployer sur Cloudflare Pages. Le navigateur appelle l'Edge Function `admin-api` avec la clé anon et un JWT Supabase ; aucune clé `service_role` ne doit être incluse dans le bundle. Le branchement complet de l'authentification et la configuration du projet Pages restent des prérequis à la mise en production.
+1. **App web** : décision prise — frontend statique React + TypeScript + Vite dans `admin/`. Le navigateur appelle l'Edge Function `admin-api` avec la clé anon et un JWT Supabase ; aucune clé `service_role` ne doit être incluse dans le bundle. Le branchement complet de l'authentification et la configuration de l'hébergement statique restent des prérequis à la mise en production.
 2. **Pricing VIP** : valeur du MRR (config pour le calcul MRR/LTV) ? je n'ai pas encore mais go ahead  je te suis via le contexte de l'app
 3. **Géolocalisation** : saisie manuelle à l'installation (installateur saisit lat/lng), ou
    dérivation depuis une adresse, ou géoloc approximative (ville) pour la confidentialité ?
