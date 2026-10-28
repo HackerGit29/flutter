@@ -15,7 +15,14 @@ export type AdminActionName =
   | "override_ownership"
   | "update_subscription"
   | "activate_license"
-  | "revoke_license";
+  | "revoke_license"
+  | "create_zone"
+  | "update_zone"
+  | "delete_zone"
+  | "bulk_geo"
+  | "retry_command"
+  | "export_user_data"
+  | "create_export";
 
 export type AdminTargetType =
   | "user"
@@ -23,7 +30,9 @@ export type AdminTargetType =
   | "license"
   | "subscription"
   | "box"
-  | "appliance";
+  | "appliance"
+  | "coverage_zone"
+  | "device_command";
 
 export async function auditAdminAction(params: {
   supabase: SupabaseClient;

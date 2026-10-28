@@ -1,7 +1,7 @@
 # Cahier des charges — Dashboard Admin web (Aricie Backoffice)
 
-> **Statut** : Proposition v1 — Octobre 2026
-> **Cible** : Application web séparée (hors app mobile Flutter), réservée à l'équipe interne aricie
+> **Statut** : Implémentation en cours — Octobre 2026
+> **Cible** : Application web statique `admin/` dans le dépôt Flutter, réservée à l'équipe interne aricie
 > **Backend** : Supabase (PostgreSQL, RLS, Edge Functions, Realtime)
 
 ---
@@ -70,9 +70,9 @@ backoffice. La version mobile peut être **gelée** (lecture seule) une fois le 
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│  aricie-backoffice (app web, repo séparé ou /webadmin) │
-│  Next.js 15 (App Router) + TypeScript strict          │
-│  TanStack Query · shadcn/ui · Recharts · MapLibre GL   │
+│  admin/ — Aricie Backoffice (dans le dépôt Flutter)    │
+│  React 19 + TypeScript · Vite · MUI · TanStack Query  │
+│  Site statique prévu pour Cloudflare Pages             │
 └──────────────┬─────────────────────────────────────────┘
                │ HTTPS (JWT Supabase + claim admin)
                ▼
@@ -90,9 +90,8 @@ backoffice. La version mobile peut être **gelée** (lecture seule) une fois le 
 **Choix assumés** :
 - **Une seule Edge Function `admin-api`** en routeur (`/v1/kpi`, `/v1/boxes`, …) plutôt qu'une
   function par endpoint : partage du middleware d'auth/RBAC, déploiement atomique, coût cold-start
-  unique. Les lectures simples peuvent aussi continuer en RLS direct depuis le front.
-- **MapLibre GL JS + OpenStreetMap** (gratuit, pas de clé API) avec `deck.gl` pour le rendu
-  heatmap/cluster sur gros volumes. Alternative payante : Mapbox.
+  unique. Le client Supabase du navigateur est réservé à l'authentification ; les données métier passent par l'API admin.
+- **Carte** : MapLibre GL JS + OpenStreetMap sont prévus pour le rendu cartographique ; l'écran actuel interroge l'API, la visualisation cartographique reste à finaliser.
 - **Pas de stockage géo côté client** : les positions sont centralisées en base (voir §5.1).
 
 ---
@@ -186,10 +185,9 @@ WHERE b.latitude IS NOT NULL;
 
 ### 5.1 Conventions
 
-- **Base URL** : `https://<project>.supabase.co/functions/v1/admin-api`
+- **Base URL** : `https://<project>.supabase.co/functions/v1/admin-api` (le frontend Vite la construit à partir de `VITE_SUPABASE_URL`).
 - **Auth** : header `Authorization: Bearer <access_token Supabase>` + header `apikey`.
-- **Garde-fou** : chaque route vérifie `users.role = 'admin'` (et `admin_level` pour les écritures)
-  via `auth.getUser()` côté function — **jamais** un champ envoyé par le client.
+- **Garde-fou** : chaque route protégée vérifie le JWT et `users.role = 'admin'`, puis applique `admin_level` pour les écritures via `auth.getUser()` côté function — **jamais** un champ envoyé par le client. Le navigateur conserve uniquement la clé anon ; la clé `service_role` reste côté Edge Function.
 - **Formats** : JSON, dates ISO-8601 UTC, `snake_case` aligné sur la BDD.
 - **Pagination** : `?page=1&page_size=50` → réponse enveloppée `{ data, page, page_size, total }`.
 - **Erreurs** : `{ error: { code, message } }` avec codes `unauthorized`, `forbidden`,
@@ -402,22 +400,22 @@ Réponse : `{ metric, points: GeoPoint[] }` — chaque point = boîtier ou clust
 |---|---|
 | `GET /v1/iot/health` | KPIs parc : online/offline, taux ACK 24h, latence p50/p95, top errored boxes |
 | `GET /v1/iot/commands` | `Paginated<DeviceCommand>` — filtres status/box/user/date |
-| `POST /v1/iot/commands/:id/retry` | operator — resoumet une commande failed |
+| `POST /v1/iot/commands/:id/retry` | operator — resoumet une commande `failed` ou `timeout`, avec déduplication des relances actives |
 | `GET /v1/iot/sync-logs` | filtres box_id/user_id/status/date |
 
 #### 5.3.11 Agent IA — `/v1/agent`
 
 | Route | Description |
 |---|---|
-| `GET /v1/agent/analytics` | volume messages/jour, tool calls par tool, taux de confirmation, taux de blocage policy |
+| `GET /v1/agent/analytics` | volume messages/jour, appels des tools de contrôle, taux de succès et blocages policy ; le backend indique explicitement si les confirmations sont suivies (actuellement non) |
 | `GET /v1/agent/audit` | `Paginated<agent_audit_logs>` — filtres action/status/user |
 
 #### 5.3.12 Exports — `/v1/exports`
 
 | Route | Description |
 |---|---|
-| `POST /v1/exports` | `{ dataset: 'users'\|'boxes'\|'energy'\|'commands', filters, format: 'csv'\|'xlsx' }` → `{ export_id }` (job async) |
-| `GET /v1/exports/:id` | `{ status: 'pending'\|'ready'\|'failed', download_url? }` — URL signée Storage, TTL 1 h |
+| `POST /v1/exports` | `{ dataset: 'users'\|'boxes'\|'energy'\|'commands', filters, format: 'csv' }` → `{ export_id, status: 'ready', row_count, download_url, expires_in_seconds }` (génération immédiate, limite 20 000 lignes) |
+| `GET /v1/exports/:id` | Renvoie une URL signée pour l'export du compte admin connecté, valable une heure ; stockage dans le bucket privé `admin-exports`. XLSX et traitement asynchrone ne sont pas encore implémentés. |
 
 #### 5.3.13 Admin & audit — `/v1/admin`
 
@@ -486,14 +484,13 @@ Une page par utilisateur :
 ### 6.6 Analytics agent IA (P1)
 
 - Volume de messages et d'appels d'outils par jour
-- Top tools (`turn_on_appliance`, `get_energy_history`…), taux de `tool_pending` confirmés vs
-  annulés par l'utilisateur
+- Top tools de contrôle (`turn_on_appliance`, `turn_off_appliance`), taux d'appels réussis et blocages Policy Engine. Les événements de confirmation/annulation ne sont pas encore suivis par le backend.
 - Blocages Policy Engine (depuis `agent_audit_logs.status = 'blocked'`) → détecte les tentatives
   hors périmètre (signal produit précieux)
 
 ### 6.7 Exports & rapports (P1)
 
-- Export manuel CSV/XLSX de n'importe quel dataset (job async → Storage signé)
+- Export manuel CSV de users, boxes, energy ou commands (génération immédiate, max. 20 000 lignes, URL Storage signée valable une heure). XLSX et jobs asynchrones restent à développer.
 - Rapport hebdo automatique (email) : KPI + zones chaudes + alertes parc — Cron Supabase
   `admin-weekly-report`
 
@@ -554,7 +551,7 @@ combien de kWh ? lesquels sont VIP ? où installer le prochain boîtier ? » —
 
 ## 10. Décisions à valider avec le client
 
-1. **App web** : Vite+React en static pas de framework etc d'ailleurs je vais gérer app web en parallele dans une autre session et je reviendrai dans cette session pour bind le front du backoffice avec salogique côté serveur
+1. **App web** : décision prise — frontend statique React + TypeScript + Vite dans `admin/`, à déployer sur Cloudflare Pages. Le navigateur appelle l'Edge Function `admin-api` avec la clé anon et un JWT Supabase ; aucune clé `service_role` ne doit être incluse dans le bundle. Le branchement complet de l'authentification et la configuration du projet Pages restent des prérequis à la mise en production.
 2. **Pricing VIP** : valeur du MRR (config pour le calcul MRR/LTV) ? je n'ai pas encore mais go ahead  je te suis via le contexte de l'app
 3. **Géolocalisation** : saisie manuelle à l'installation (installateur saisit lat/lng), ou
    dérivation depuis une adresse, ou géoloc approximative (ville) pour la confidentialité ?

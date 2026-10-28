@@ -1,0 +1,6 @@
+{
+  "name": "Aricie Backoffice",
+  "description": "Backoffice de supervision Aricie : couverture, boîtiers IoT, utilisateurs, abonnements et audit.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
