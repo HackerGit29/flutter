@@ -2,14 +2,12 @@
  * Amorçage de la page.
  *
  * Volontairement minimal : les surfaces, la typographie et la barre de
- * défilement sont gérées par `MuiCssBaseline` dans `theme/muiTheme.ts`, qui
- * suit le mode clair/sombre.
+ * défilement sont gérées par `MuiCssBaseline` dans `theme/muiTheme.ts`.
  *
  * Ce fichier est chargé **avant** React et avant que MUI n'injecte ses
- * variables CSS. Les valeurs de repli ci-dessous reprennent la palette
- * aricie (fond clair blanc, fond sombre `#1A2530`) afin qu'il n'y ait
- * aucun flash de couleur au chargement, et `prefers-color-scheme` choisit le
- * bon repli tant que MUI n'a pas posé sa classe sur `<html>`.
+ * variables CSS. Le repli ci-dessous reprend le fond blanc du backoffice afin
+ * qu'il n'y ait aucun flash de couleur au chargement — quel que soit le mode
+ * d'apparence du système, le backoffice reste blanc.
  */
 
 *,
@@ -31,20 +29,10 @@ body {
 
 /*
  * Repli clair. Dès que MUI est actif, `--mui-palette-background-default`
- * prend le dessus et suit le mode réellement sélectionné.
+ * prend le dessus (même valeur, blanc).
  */
 html {
   background-color: var(--mui-palette-background-default, #ffffff);
-}
-
-/*
- * Repli sombre tant que MUI n'a pas posé sa classe : le sélecteur est plus
- * spécifique que le précédent, donc il gagne quand l'OS est en sombre.
- */
-@media (prefers-color-scheme: dark) {
-  html:not(.light) {
-    background-color: var(--mui-palette-background-default, #1a2530);
-  }
 }
 
 #root {

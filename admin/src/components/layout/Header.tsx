@@ -24,7 +24,6 @@ import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded';
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
 import { getSupabase } from '../../api/supabaseClient';
-import { ThemeModeToggle } from './ThemeModeToggle';
 import { useAppStore } from '../../store/useAppStore';
 import type { AdminLevel } from '../../types/admin';
 import type { Currency } from '../../types';
@@ -231,9 +230,6 @@ export const Header: React.FC = () => {
             </Box>
           </IconButton>
         </Tooltip>
-
-        {/* Theme clair / sombre / systeme */}
-        <ThemeModeToggle />
 
         {/* Alertes */}
         <Tooltip title="Alertes du parc">

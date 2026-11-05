@@ -2,7 +2,6 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CssBaseline } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
-import InitColorSchemeScript from '@mui/material/InitColorSchemeScript';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { muiTheme } from './theme/muiTheme';
 import { Layout } from './components/layout/Layout';
@@ -29,15 +28,9 @@ const queryClient = new QueryClient({
 export default function App() {
   return (
     <>
-      {/*
-        Pose la classe `.light` / `.dark` sur <html> avant le premier rendu,
-        en lisant le choix persisté. Sans ce script, la page s'affiche dans le
-        mode par défaut du thème puis bascule — un flash visible.
-      */}
-      <InitColorSchemeScript defaultMode="system" attribute="class" />
-
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider theme={muiTheme} defaultMode="system">
+        {/* Thème unique, blanc : aucun mode sombre ni bascule de color scheme. */}
+        <ThemeProvider theme={muiTheme}>
           <CssBaseline />
           <AdminAccess>
           <BrowserRouter>

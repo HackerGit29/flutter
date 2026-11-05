@@ -16,7 +16,13 @@
 /* Couleurs de base                                                    */
 /* ------------------------------------------------------------------ */
 
-/** Palette claire (surfaces + texte). */
+/**
+ * Palette de surfaces et de texte.
+ *
+ * Le backoffice n'a qu'un seul mode : blanc. Pas de variante sombre, donc
+ * aucun fond bleu nuit — la charte repose sur un fond blanc et un accent vert
+ * d'eau unique.
+ */
 export const lightColors = {
   /** Fond applicatif — blanc pur : le backoffice est épuré, sans aplat bleuté. */
   bgApp: '#FFFFFF',
@@ -41,29 +47,8 @@ export const lightColors = {
   shadowCard: 'rgba(20, 58, 72, 0.10)',
 } as const;
 
-/** Palette sombre (surfaces + texte), alignée sur AppColors.dark*. */
-export const darkColors = {
-  bgApp: '#1A2530',
-  bgPrimary: '#2A3540',
-  bgSecondary: '#354050',
-  bgTertiary: '#3A4555',
-
-  textPrimary: '#E8EDF0',
-  textSecondary: '#A8B5C0',
-  textMuted: '#6A7A8A',
-  /** Sur fond sombre, le texte posé sur l'action principale reste le noir de la palette claire. */
-  textInverse: '#1A2530',
-
-  /** Skip the dark theme's interactive teal, one step lighter for AA contrast. */
-  interactive: '#4A7A8A',
-  seed: '#4A6572',
-
-  borderSubtle: 'rgba(232, 237, 240, 0.08)',
-  shadowCard: 'rgba(0, 0, 0, 0.24)',
-} as const;
-
 /* ------------------------------------------------------------------ */
-/* Accents pastels (identiques dans les deux modes)                    */
+/* Accents pastels                                                     */
 /* ------------------------------------------------------------------ */
 
 /** Accents pastels de la charte — utilisés pour les catégories et badges. */
@@ -137,10 +122,6 @@ export const shadows = {
   md: `0 4px 16px rgba(${shadowRgb}, 0.10)`,
   lg: `0 8px 32px rgba(${shadowRgb}, 0.12)`,
   float: `0 16px 48px rgba(${shadowRgb}, 0.16)`,
-  /** Ombres du mode sombre — plus opaques, les ombres claires n'y lisent pas. */
-  darkSm: '0 2px 8px rgba(0, 0, 0, 0.28)',
-  darkMd: '0 4px 16px rgba(0, 0, 0, 0.36)',
-  darkLg: '0 8px 32px rgba(0, 0, 0, 0.44)',
 } as const;
 
 /* ------------------------------------------------------------------ */

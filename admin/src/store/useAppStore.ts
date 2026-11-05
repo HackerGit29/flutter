@@ -7,7 +7,7 @@ import type { AnalysisPeriod, Currency, Language } from '../types';
  *
  * Ce store ne contient **que** de l'état d'UI et la session :
  *  - les données métier viennent de `admin-api` via TanStack Query ;
- *  - le mode clair/sombre est la propriété de MUI (`useColorScheme`), pour
+ *  - l'apparence (thème blanc unique) est la propriété du thème MUI, pour
  *    qu'il n'existe qu'une seule source de vérité.
  *
  * L'ancien store portait tout le jeu de données mock en mémoire, ce qui
