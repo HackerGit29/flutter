@@ -16,59 +16,44 @@
 /* Couleurs de base                                                    */
 /* ------------------------------------------------------------------ */
 
-/** Palette claire (surfaces + texte), alignée sur AppColors. */
+/**
+ * Palette de surfaces et de texte.
+ *
+ * Le backoffice n'a qu'un seul mode : blanc. Pas de variante sombre, donc
+ * aucun fond bleu nuit — la charte repose sur un fond blanc et un accent vert
+ * d'eau unique.
+ */
 export const lightColors = {
-  /** Fond applicatif — légèrement bleuté pour détacher les cartes. */
-  bgApp: '#C8D9E0',
+  /** Fond applicatif — blanc pur : le backoffice est épuré, sans aplat bleuté. */
+  bgApp: '#FFFFFF',
   /** Surface principale (cartes, feuilles). */
   bgPrimary: '#FFFFFF',
   /** Surface secondaire (zones encadrées, lignes de tableau alternées). */
-  bgSecondary: '#F0F6F8',
+  bgSecondary: '#F3F8F9',
   /** Surface tertiaire (champs, puces, boutons d'icône neutres). */
-  bgTertiary: '#E8F2F5',
+  bgTertiary: '#E9F2F4',
 
-  textPrimary: '#1A2530',
-  textSecondary: '#4A5A68',
-  textMuted: '#8A9AAA',
+  textPrimary: '#14262E',
+  textSecondary: '#4C6270',
+  textMuted: '#7E939D',
   textInverse: '#FFFFFF',
 
-  /** Couleur d'action principale (boutons pleins, nav active). */
-  interactive: '#1A3A4A',
-  /** Seed documenté — teinte de marque pour l'accentuation graphique. */
-  seed: '#4A6572',
-
-  borderSubtle: 'rgba(26, 58, 74, 0.08)',
-  shadowCard: 'rgba(26, 58, 74, 0.08)',
-} as const;
-
-/** Palette sombre (surfaces + texte), alignée sur AppColors.dark*. */
-export const darkColors = {
-  bgApp: '#1A2530',
-  bgPrimary: '#2A3540',
-  bgSecondary: '#354050',
-  bgTertiary: '#3A4555',
-
-  textPrimary: '#E8EDF0',
-  textSecondary: '#A8B5C0',
-  textMuted: '#6A7A8A',
-  /** Sur fond sombre, le texte posé sur l'action principale reste le noir de la palette claire. */
-  textInverse: '#1A2530',
-
-  /** Skip the dark theme's interactive teal, one step lighter for AA contrast. */
+  /** Vert d'eau — couleur d'action unique (boutons pleins, nav active, accents). */
   interactive: '#4A7A8A',
-  seed: '#4A6572',
+  /** Même vert d'eau : une seule teinte d'accentuation dans tout le backoffice. */
+  seed: '#4A7A8A',
 
-  borderSubtle: 'rgba(232, 237, 240, 0.08)',
-  shadowCard: 'rgba(0, 0, 0, 0.24)',
+  borderSubtle: 'rgba(74, 122, 138, 0.16)',
+  shadowCard: 'rgba(20, 58, 72, 0.10)',
 } as const;
 
 /* ------------------------------------------------------------------ */
-/* Accents pastels (identiques dans les deux modes)                    */
+/* Accents pastels                                                     */
 /* ------------------------------------------------------------------ */
 
 /** Accents pastels de la charte — utilisés pour les catégories et badges. */
 export const accents = {
-  teal: '#1A3A4A',
+  teal: '#4A7A8A',
   pink: '#F0B8C8',
   purple: '#C8A8D8',
   sage: '#A8C8A8',
@@ -137,10 +122,6 @@ export const shadows = {
   md: `0 4px 16px rgba(${shadowRgb}, 0.10)`,
   lg: `0 8px 32px rgba(${shadowRgb}, 0.12)`,
   float: `0 16px 48px rgba(${shadowRgb}, 0.16)`,
-  /** Ombres du mode sombre — plus opaques, les ombres claires n'y lisent pas. */
-  darkSm: '0 2px 8px rgba(0, 0, 0, 0.28)',
-  darkMd: '0 4px 16px rgba(0, 0, 0, 0.36)',
-  darkLg: '0 8px 32px rgba(0, 0, 0, 0.44)',
 } as const;
 
 /* ------------------------------------------------------------------ */

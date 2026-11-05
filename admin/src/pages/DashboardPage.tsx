@@ -34,19 +34,16 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2.5, md: 3.5 } }}>
-      <Typography variant="h1" sx={{ fontSize: { xs: '1.75rem', sm: '2.1rem', md: '2.4rem' }, fontWeight: 700, letterSpacing: '-0.03em', color: '#ffffff' }}>
-        {language === 'fr' ? 'Tableau de bord' : 'Dashboard'}
-      </Typography>
       {query.isLoading && <Box role="status" sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>}
       {query.error && <Alert severity="error" action={<Typography component="button" onClick={() => void query.refetch()} sx={{ color: 'inherit', cursor: 'pointer' }}>{language === 'fr' ? 'Réessayer' : 'Retry'}</Typography>}>{query.error instanceof Error ? query.error.message : 'Erreur API'}</Alert>}
       {summary && <>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', lg: 'repeat(4, 1fr)' }, gap: 2 }}>
-          {metrics.map((metric) => <Card key={metric.label} sx={{ backgroundColor: '#1c1e22', borderRadius: 0, border: '1px solid rgba(255,255,255,0.05)', p: 2.2 }}>
-            <Typography sx={{ fontSize: '0.78rem', color: '#8e94a3', fontWeight: 600 }}>{metric.label}</Typography>
-            <Typography sx={{ fontSize: '1.6rem', fontWeight: 700, color: '#4B7BFF', mt: 1 }}>{metric.value}</Typography>
+          {metrics.map((metric) => <Card key={metric.label} sx={{ backgroundColor: 'background.paper', border: '1px solid', borderColor: 'divider', p: 2.2 }}>
+            <Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', fontWeight: 600 }}>{metric.label}</Typography>
+            <Typography sx={{ fontSize: '1.6rem', fontWeight: 700, color: 'primary.main', mt: 1 }}>{metric.value}</Typography>
           </Card>)}
         </Box>
-        <Typography sx={{ color: '#8e94a3', fontSize: '0.8rem' }}>
+        <Typography sx={{ color: 'text.secondary', fontSize: '0.8rem' }}>
           {language === 'fr' ? `Période : ${period}. Métriques calculées par admin-api.` : `Period: ${period}. Metrics calculated by admin-api.`}
         </Typography>
       </>}

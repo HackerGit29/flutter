@@ -1,37 +1,34 @@
 /**
- * Thème MUI du backoffice aricie — mode clair **et** sombre.
+ * Thème MUI du backoffice aricie — mode clair uniquement.
  *
  * Construit sur les tokens de `aricieTokens.ts` (eux-mêmes alignés sur
  * `lib/theme/app_theme.dart` de l'app mobile).
  *
- * Architecture : thème à variables CSS (`cssVariables: true`). Chaque
- * `colorSchemes.{light,dark}` génère une série de variables
- * `--mui-palette-*`, résolues par MUI selon la classe posée sur `<html>`
- * (`colorSchemeSelector: 'class'` → `.light` / `.dark`).
+ * Le backoffice est volontairement blanc, sans variante sombre : une seule
+ * palette, aucune bascule de mode, aucun fond bleu nuit même quand le système
+ * de l'utilisateur est en sombre.
  *
- * Conséquence pour les composants : utiliser `theme.palette.*` ou `sx`
- * suffit à être correct dans les deux modes — aucun test
- * `theme.palette.mode === 'dark'` n'est nécessaire.
+ * Architecture : thème à variables CSS (`cssVariables: true`). Le schéma
+ * `light` génère la série de variables `--mui-palette-*`, résolues par MUI
+ * selon la classe `colorSchemeSelector: 'class'` posée sur `<html>`.
+ *
+ * Conséquence pour les composants : utiliser `theme.palette.*` ou `sx` suffit,
+ * aucun test `theme.palette.mode` n'est nécessaire.
  *
  * Contrainte de l'API MUI v9 : `colorSchemes.{mode}` n'accepte que
  * `palette` (+ `opacity`/`overlays`), **pas** `components`. Les différences
- * de mode passent donc par :
- *   1. les **slots de palette par composant** (`Tooltip.bg`,
- *      `TableCell.border`…) que MUI transforme en variables CSS ;
- *   2. les helpers `useAricieShadows()` / `useAricieAccent()` pour ce qui
- *      ne peut pas être une variable CSS (les chaînes `boxShadow`).
+ * de mode passent donc par les **slots de palette par composant**
+ * (`Tooltip.bg`, `TableCell.border`…) que MUI transforme en variables CSS.
  */
 
-import { createTheme, useTheme  } from '@mui/material/styles';
+import { createTheme } from '@mui/material/styles';
 import type { Theme } from '@mui/material/styles';
 import {
   accents,
-  darkColors,
   fonts,
   lightColors,
   radius,
   semantic,
-  shadows,
 } from './aricieTokens';
 
 /* ------------------------------------------------------------------ */
@@ -40,9 +37,9 @@ import {
 
 const lightPalette = {
   primary: {
-    main: lightColors.interactive, // #1A3A4A
-    light: lightColors.seed, // #4A6572 (seed documenté)
-    dark: '#12282F',
+    main: lightColors.interactive, // #4A7A8A — vert d'eau
+    light: '#6E9AA8',
+    dark: '#3A6274',
     contrastText: lightColors.textInverse,
   },
   secondary: {
@@ -52,7 +49,7 @@ const lightPalette = {
     contrastText: '#12282F',
   },
   background: {
-    default: lightColors.bgApp, // #C8D9E0
+    default: lightColors.bgApp, // #FFFFFF
     paper: lightColors.bgPrimary, // #FFFFFF
   },
   text: {
@@ -66,49 +63,13 @@ const lightPalette = {
   error: { main: semantic.error, light: '#F592A3', dark: '#C43A52' },
   info: { main: semantic.info, light: '#A6E0F8', dark: semantic.infoDeep },
   action: {
-    hover: 'rgba(26, 58, 74, 0.04)',
-    selected: 'rgba(26, 58, 74, 0.08)',
-    focus: 'rgba(26, 58, 74, 0.12)',
+    hover: 'rgba(74, 122, 138, 0.06)',
+    selected: 'rgba(74, 122, 138, 0.10)',
+    focus: 'rgba(74, 122, 138, 0.16)',
   },
   // Slots par composant → variables CSS --mui-palette-Tooltip-bg, etc.
-  Tooltip: { bg: lightColors.interactive },
+  Tooltip: { bg: lightColors.textPrimary },
   TableCell: { border: lightColors.borderSubtle },
-} as const;
-
-const darkPalette = {
-  primary: {
-    main: darkColors.interactive, // #4A7A8A
-    light: '#6A9AAA',
-    dark: '#35596A',
-    contrastText: '#FFFFFF',
-  },
-  secondary: {
-    main: accents.accent,
-    light: '#A6E0F8',
-    dark: '#4FA8CC',
-    contrastText: '#12282F',
-  },
-  background: {
-    default: darkColors.bgApp, // #1A2530
-    paper: darkColors.bgPrimary, // #2A3540
-  },
-  text: {
-    primary: darkColors.textPrimary,
-    secondary: darkColors.textSecondary,
-    disabled: darkColors.textMuted,
-  },
-  divider: darkColors.borderSubtle,
-  success: { main: semantic.successLight, light: '#C4DCB8', dark: semantic.success },
-  warning: { main: semantic.warning, light: '#FFE08A', dark: semantic.warningDeep },
-  error: { main: '#F0728A', light: '#F592A3', dark: semantic.error },
-  info: { main: accents.accent, light: '#A6E0F8', dark: '#4FA8CC' },
-  action: {
-    hover: 'rgba(232, 237, 240, 0.06)',
-    selected: 'rgba(232, 237, 240, 0.10)',
-    focus: 'rgba(232, 237, 240, 0.14)',
-  },
-  Tooltip: { bg: '#E8EDF0' },
-  TableCell: { border: darkColors.borderSubtle },
 } as const;
 
 /* ------------------------------------------------------------------ */
@@ -120,8 +81,8 @@ const darkPalette = {
  * la charte (ombres bleutées, douces) tout en gardant une progression
  * monotone pour les composants qui utilisent `elevation`.
  *
- * Les cas qui exigent une ombre réellement différente en mode sombre
- * passent par `useAricieShadows()`.
+ * Les ombres sont posées une fois pour toutes : plus de variante sombre, un
+ * `boxShadow` reste donc la même chaîne littérale dans un `sx`.
  */
 const elevation = [
   'none',
@@ -164,13 +125,13 @@ const typography = {
 export const muiTheme = createTheme({
   // Les options de variables CSS sont imbriquées ici : MUI les retire du
   // niveau racine de `ThemeOptions` et attend cet objet.
-  // `'class'` pose `.light` / `.dark` sur <html>, ce qui laisse la main au
-  // `setMode()` de `useColorScheme` (et non au seul `prefers-color-scheme`).
+  // `'class'` pose `.light` sur <html>, ce qui laisse MUI résoudre les
+  // variables `--mui-palette-*` sans dépendre de `prefers-color-scheme`.
   cssVariables: { colorSchemeSelector: 'class' },
   defaultColorScheme: 'light',
+  // Un seul schéma : le backoffice n'a pas de mode sombre.
   colorSchemes: {
     light: { palette: lightPalette },
-    dark: { palette: darkPalette },
   },
 
   shadows: elevation,
@@ -180,7 +141,7 @@ export const muiTheme = createTheme({
   components: {
     MuiCssBaseline: {
       styleOverrides: {
-        ':root': { colorScheme: 'light dark' },
+        ':root': { colorScheme: 'light' },
         html: { WebkitFontSmoothing: 'antialiased', MozOsxFontSmoothing: 'grayscale' },
         body: {
           backgroundColor: 'var(--mui-palette-background-default)',
@@ -462,46 +423,10 @@ export const muiTheme = createTheme({
 });
 
 /* ------------------------------------------------------------------ */
-/* Aides dépendantes du mode                                           */
+/* Accents                                                             */
 /* ------------------------------------------------------------------ */
 
-/**
- * Ombres du mode courant.
- *
- * Les ombres sont la seule valeur qui ne passe pas par une variable CSS du
- * thème : un `boxShadow` reste une chaîne littérale dans `sx`. En mode
- * sombre, les ombres bleutées de la charte claire sont invisibles — il
- * faut donc les versions opaques.
- */
-export function useAricieShadows() {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-  return {
-    xs: isDark ? shadows.darkSm : shadows.xs,
-    sm: isDark ? shadows.darkSm : shadows.sm,
-    md: isDark ? shadows.darkMd : shadows.md,
-    lg: isDark ? shadows.darkLg : shadows.lg,
-    float: isDark ? shadows.darkLg : shadows.float,
-  };
-}
-
-/** Teintes d'accent lisibles selon le mode. */
-export function useAricieAccent() {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
-  return {
-    /** Trait accent documenté — lisible dans les deux modes. */
-    line: accents.accent,
-    /** Fond d'un aplat d'accent. */
-    fill: isDark ? 'rgba(121, 207, 244, 0.16)' : 'rgba(121, 207, 244, 0.24)',
-    /** Texte posé sur un aplat d'accent. */
-    on: isDark ? '#A6E0F8' : '#1A3A4A',
-    /** Seed documenté, ajusté pour rester lisible. */
-    seed: isDark ? '#7A95A2' : accents.teal,
-  };
-}
-
-/** Palette d'accents, identique dans les deux modes (pastels de la charte). */
+/** Palette d'accents, identique partout (pastels de la charte). */
 export { accents };
 
 /** Point d'accroche pour les tests. */

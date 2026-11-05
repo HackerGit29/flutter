@@ -64,15 +64,6 @@ export const BoxesPage: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box>
-        <Typography variant="h1" sx={{ fontSize: { xs: '1.6rem', md: '2.2rem' }, fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>
-          {language === 'fr' ? 'Parc IoT & Monitoring Boîtiers' : 'IoT Fleet & Box Monitoring'}
-        </Typography>
-        <Typography sx={{ color: '#8e94a3', fontSize: '0.88rem', mt: 0.5 }}>
-          {language === 'fr' ? 'État du parc, commandes et acquittements réels via admin-api.' : 'Live fleet, command and acknowledgement data from admin-api.'}
-        </Typography>
-      </Box>
-
       {error && <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => { void healthQuery.refetch(); void boxesQuery.refetch(); void commandsQuery.refetch(); }}>{language === 'fr' ? 'Réessayer' : 'Retry'}</Button>}>
         {error instanceof AdminApiError ? error.message : error instanceof Error ? error.message : 'API error'}
       </Alert>}
@@ -88,64 +79,64 @@ export const BoxesPage: React.FC = () => {
         <Metric label={language === 'fr' ? 'Latence p95' : 'p95 latency'} value={health.latency_p95_ms === null ? '—' : `${Math.round(health.latency_p95_ms)} ms`} />
       </Box>}
 
-      {health && <Card sx={{ backgroundColor: '#1c1e22', borderRadius: 0, border: '1px solid rgba(255,255,255,0.05)', p: 2 }}>
-        <Typography sx={{ fontWeight: 700, color: '#ffffff', mb: 1 }}>{language === 'fr' ? 'Firmware déployé' : 'Firmware distribution'}</Typography>
+      {health && <Card sx={{ backgroundColor: 'background.paper', border: '1px solid', borderColor: 'divider', p: 2 }}>
+        <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 1 }}>{language === 'fr' ? 'Firmware déployé' : 'Firmware distribution'}</Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           {health.firmware_distribution.map((entry) => <Chip key={entry.version} label={`${entry.version} · ${entry.count}`} size="small" sx={{ borderRadius: 0 }} />)}
-          {!health.firmware_distribution.length && <Typography sx={{ color: '#8e94a3' }}>—</Typography>}
+          {!health.firmware_distribution.length && <Typography sx={{ color: 'text.secondary' }}>—</Typography>}
         </Box>
       </Card>}
 
-      <Card sx={{ backgroundColor: '#1c1e22', borderRadius: 0, border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+      <Card sx={{ backgroundColor: 'background.paper', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, p: 2 }}>
-          <Typography sx={{ fontWeight: 700, color: '#ffffff' }}>{language === 'fr' ? `Commandes (${commandsQuery.data?.total ?? 0})` : `Commands (${commandsQuery.data?.total ?? 0})`}</Typography>
+          <Typography sx={{ fontWeight: 700, color: 'text.primary' }}>{language === 'fr' ? `Commandes (${commandsQuery.data?.total ?? 0})` : `Commands (${commandsQuery.data?.total ?? 0})`}</Typography>
           <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
             {['', 'pending', 'sent', 'acknowledged', 'failed', 'timeout'].map((item) => <Chip key={item || 'all'} clickable label={item ? statusLabel(item) : language === 'fr' ? 'Toutes' : 'All'} onClick={() => setStatus(item)} color={status === item ? 'primary' : 'default'} size="small" sx={{ borderRadius: 0 }} />)}
           </Box>
         </Box>
         <TableContainer>
           <Table size="small">
-            <TableHead sx={{ backgroundColor: '#14161a' }}><TableRow>
-              <TableCell sx={{ color: '#8e94a3', fontWeight: 700 }}>{language === 'fr' ? 'Action / Appareil' : 'Action / appliance'}</TableCell>
-              <TableCell sx={{ color: '#8e94a3', fontWeight: 700 }}>{language === 'fr' ? 'Statut' : 'Status'}</TableCell>
-              <TableCell sx={{ color: '#8e94a3', fontWeight: 700 }}>{language === 'fr' ? 'Créée' : 'Created'}</TableCell>
-              <TableCell sx={{ color: '#8e94a3', fontWeight: 700 }}>{language === 'fr' ? 'Acquittement / latence' : 'Acknowledgement / latency'}</TableCell>
-              <TableCell align="right" sx={{ color: '#8e94a3', fontWeight: 700 }}>{language === 'fr' ? 'Action' : 'Action'}</TableCell>
+            <TableHead sx={{ backgroundColor: 'action.hover' }}><TableRow>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>{language === 'fr' ? 'Action / Appareil' : 'Action / appliance'}</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>{language === 'fr' ? 'Statut' : 'Status'}</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>{language === 'fr' ? 'Créée' : 'Created'}</TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>{language === 'fr' ? 'Acquittement / latence' : 'Acknowledgement / latency'}</TableCell>
+              <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 700 }}>{language === 'fr' ? 'Action' : 'Action'}</TableCell>
             </TableRow></TableHead>
             <TableBody>
               {commands.map((command) => <TableRow key={command.id} hover>
                 <TableCell>
-                  <Typography sx={{ color: '#ffffff', fontFamily: 'monospace' }}>{command.action.toUpperCase()}</Typography>
-                  <Typography sx={{ color: '#8e94a3', fontSize: '0.75rem' }}>{command.appliance_name ?? command.box_id}</Typography>
+                  <Typography sx={{ color: 'text.primary', fontFamily: 'monospace' }}>{command.action.toUpperCase()}</Typography>
+                  <Typography sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>{command.appliance_name ?? command.box_id}</Typography>
                 </TableCell>
                 <TableCell><Chip label={statusLabel(command.status)} size="small" sx={{ borderRadius: 0 }} /></TableCell>
-                <TableCell sx={{ color: '#e0e4ec' }}>{formatTimestamp(command.created_at)}</TableCell>
-                <TableCell sx={{ color: '#e0e4ec' }}>{command.acknowledged_at ? `${formatTimestamp(command.acknowledged_at)}${command.latency_ms === null ? '' : ` · ${Math.round(command.latency_ms)} ms`}` : command.error_message ?? '—'}</TableCell>
+                <TableCell sx={{ color: 'text.primary' }}>{formatTimestamp(command.created_at)}</TableCell>
+                <TableCell sx={{ color: 'text.primary' }}>{command.acknowledged_at ? `${formatTimestamp(command.acknowledged_at)}${command.latency_ms === null ? '' : ` · ${Math.round(command.latency_ms)} ms`}` : command.error_message ?? '—'}</TableCell>
                 <TableCell align="right">{retryable(command) && <Button size="small" variant="outlined" disabled={!canRetry || retryMutation.isPending} onClick={() => retryMutation.mutate(command.id)}>{language === 'fr' ? 'Relancer' : 'Retry'}</Button>}</TableCell>
               </TableRow>)}
-              {!commands.length && !commandsQuery.isLoading && <TableRow><TableCell colSpan={5} align="center" sx={{ color: '#8e94a3', py: 4 }}>{language === 'fr' ? 'Aucune commande pour ce filtre.' : 'No commands for this filter.'}</TableCell></TableRow>}
+              {!commands.length && !commandsQuery.isLoading && <TableRow><TableCell colSpan={5} align="center" sx={{ color: 'text.secondary', py: 4 }}>{language === 'fr' ? 'Aucune commande pour ce filtre.' : 'No commands for this filter.'}</TableCell></TableRow>}
             </TableBody>
           </Table>
         </TableContainer>
       </Card>
 
-      <Card sx={{ backgroundColor: '#1c1e22', borderRadius: 0, border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
-        <Box sx={{ p: 2 }}><Typography sx={{ fontWeight: 700, color: '#ffffff' }}>{language === 'fr' ? `Parc des boîtiers (${boxesQuery.data?.total ?? 0})` : `Box fleet (${boxesQuery.data?.total ?? 0})`}</Typography></Box>
-        <TableContainer><Table size="small"><TableHead sx={{ backgroundColor: '#14161a' }}><TableRow>
-          <TableCell sx={{ color: '#8e94a3', fontWeight: 700 }}>UID / {language === 'fr' ? 'Nom' : 'Name'}</TableCell>
-          <TableCell sx={{ color: '#8e94a3', fontWeight: 700 }}>{language === 'fr' ? 'Propriétaire' : 'Owner'}</TableCell>
-          <TableCell sx={{ color: '#8e94a3', fontWeight: 700 }}>{language === 'fr' ? 'Statut' : 'Status'}</TableCell>
-          <TableCell sx={{ color: '#8e94a3', fontWeight: 700 }}>{language === 'fr' ? 'Dernière synchro' : 'Last sync'}</TableCell>
-          <TableCell sx={{ color: '#8e94a3', fontWeight: 700 }}>Firmware</TableCell>
+      <Card sx={{ backgroundColor: 'background.paper', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+        <Box sx={{ p: 2 }}><Typography sx={{ fontWeight: 700, color: 'text.primary' }}>{language === 'fr' ? `Parc des boîtiers (${boxesQuery.data?.total ?? 0})` : `Box fleet (${boxesQuery.data?.total ?? 0})`}</Typography></Box>
+        <TableContainer><Table size="small"><TableHead sx={{ backgroundColor: 'action.hover' }}><TableRow>
+          <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>UID / {language === 'fr' ? 'Nom' : 'Name'}</TableCell>
+          <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>{language === 'fr' ? 'Propriétaire' : 'Owner'}</TableCell>
+          <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>{language === 'fr' ? 'Statut' : 'Status'}</TableCell>
+          <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>{language === 'fr' ? 'Dernière synchro' : 'Last sync'}</TableCell>
+          <TableCell sx={{ color: 'text.secondary', fontWeight: 700 }}>Firmware</TableCell>
         </TableRow></TableHead><TableBody>
           {boxes.map((box) => <TableRow key={box.id} hover>
-            <TableCell><Typography sx={{ color: '#ffffff', fontFamily: 'monospace' }}>{box.uid_hardware ?? box.id}</Typography><Typography sx={{ color: '#8e94a3', fontSize: '0.75rem' }}>{box.name}</Typography></TableCell>
-            <TableCell sx={{ color: '#e0e4ec' }}>{mask(box.user_email)}</TableCell>
+            <TableCell><Typography sx={{ color: 'text.primary', fontFamily: 'monospace' }}>{box.uid_hardware ?? box.id}</Typography><Typography sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>{box.name}</Typography></TableCell>
+            <TableCell sx={{ color: 'text.primary' }}>{mask(box.user_email)}</TableCell>
             <TableCell><Chip label={box.online ? language === 'fr' ? 'En ligne' : 'Online' : box.status} size="small" sx={{ borderRadius: 0 }} /></TableCell>
-            <TableCell sx={{ color: '#e0e4ec' }}>{formatTimestamp(box.last_sync)}</TableCell>
-            <TableCell sx={{ color: '#e0e4ec' }}>{box.firmware_version ?? '—'}</TableCell>
+            <TableCell sx={{ color: 'text.primary' }}>{formatTimestamp(box.last_sync)}</TableCell>
+            <TableCell sx={{ color: 'text.primary' }}>{box.firmware_version ?? '—'}</TableCell>
           </TableRow>)}
-          {!boxes.length && !boxesQuery.isLoading && <TableRow><TableCell colSpan={5} align="center" sx={{ color: '#8e94a3', py: 4 }}>{language === 'fr' ? 'Aucun boîtier.' : 'No boxes.'}</TableCell></TableRow>}
+          {!boxes.length && !boxesQuery.isLoading && <TableRow><TableCell colSpan={5} align="center" sx={{ color: 'text.secondary', py: 4 }}>{language === 'fr' ? 'Aucun boîtier.' : 'No boxes.'}</TableCell></TableRow>}
         </TableBody></Table></TableContainer>
       </Card>
     </Box>
@@ -153,5 +144,5 @@ export const BoxesPage: React.FC = () => {
 };
 
 function Metric({ label, value }: { label: string; value: string }) {
-  return <Card sx={{ backgroundColor: '#1c1e22', borderRadius: 0, border: '1px solid rgba(255,255,255,0.05)', p: 2 }}><Typography sx={{ fontSize: '0.78rem', color: '#8e94a3', fontWeight: 600 }}>{label}</Typography><Typography sx={{ fontSize: '1.6rem', fontWeight: 700, color: '#ffffff', mt: 1 }}>{value}</Typography></Card>;
+  return <Card sx={{ backgroundColor: 'background.paper', border: '1px solid', borderColor: 'divider', p: 2 }}><Typography sx={{ fontSize: '0.78rem', color: 'text.secondary', fontWeight: 600 }}>{label}</Typography><Typography sx={{ fontSize: '1.6rem', fontWeight: 700, color: 'text.primary', mt: 1 }}>{value}</Typography></Card>;
 }

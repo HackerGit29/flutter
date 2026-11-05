@@ -30,16 +30,15 @@ export const SupportPage: React.FC = () => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box><Typography variant="h1" sx={{ fontSize: { xs: '1.6rem', md: '2.2rem' }, fontWeight: 700, color: '#fff' }}>{language === 'fr' ? 'Support · Notes internes' : 'Support · Internal notes'}</Typography><Typography sx={{ color: '#8e94a3', fontSize: '.88rem', mt: .5 }}>{language === 'fr' ? 'Notes réelles stockées par admin-api. Les tickets ne sont pas exposés par le backend.' : 'Internal notes stored by admin-api. Ticket endpoints are not available in the backend.'}</Typography></Box>
       {error && <Alert severity="error" action={<Button color="inherit" onClick={() => { void usersQuery.refetch(); void notesQuery.refetch(); }}>{language === 'fr' ? 'Réessayer' : 'Retry'}</Button>}>{errorMessage}</Alert>}
       {mutation.error && <Alert severity="error">{mutation.error instanceof Error ? mutation.error.message : 'Erreur API'}</Alert>}
       {mutation.isSuccess && <Alert severity="success">{language === 'fr' ? 'Note enregistrée.' : 'Note saved.'}</Alert>}
       {(usersQuery.isLoading || notesQuery.isLoading) && <Box role="status" sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>}
-      <Card sx={{ backgroundColor: '#1c1e22', border: '1px solid rgba(255,255,255,0.05)', p: 2 }}>
+      <Card sx={{ backgroundColor: 'background.paper', border: '1px solid', borderColor: 'divider', p: 2 }}>
         <TextField fullWidth size="small" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === 'fr' ? 'Filtrer les notes…' : 'Filter notes…'} />
       </Card>
-      {canWrite && <Card sx={{ backgroundColor: '#1c1e22', border: '1px solid rgba(255,255,255,0.05)', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        <Typography sx={{ fontWeight: 700, color: '#fff' }}>{language === 'fr' ? 'Ajouter une note interne à un client' : 'Add an internal user note'}</Typography>
+      {canWrite && <Card sx={{ backgroundColor: 'background.paper', border: '1px solid', borderColor: 'divider', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <Typography sx={{ fontWeight: 700, color: 'text.primary' }}>{language === 'fr' ? 'Ajouter une note interne à un client' : 'Add an internal user note'}</Typography>
         <TextField select label={language === 'fr' ? 'Client' : 'User'} value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value)} slotProps={{ select: { native: true } }}>
           <option value="">{language === 'fr' ? 'Sélectionner un client' : 'Select a user'}</option>
           {users.map((user) => <option key={user.id} value={user.id}>{maskEmail(user.email, level)}</option>)}
@@ -50,9 +49,9 @@ export const SupportPage: React.FC = () => {
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
         {notes.map((note) => {
           const user = users.find((item) => item.id === note.target_id);
-          return <Card key={note.id} sx={{ backgroundColor: '#1c1e22', border: '1px solid rgba(255,255,255,0.05)', p: 2 }}>
-            <Typography sx={{ color: '#e0e4ec', whiteSpace: 'pre-wrap' }}>{note.body}</Typography>
-            <Typography sx={{ color: '#8e94a3', fontSize: '.75rem', mt: 1 }}>{user ? maskEmail(user.email, level) : note.target_id} · {note.admin_email ?? note.admin_id} · {new Date(note.created_at).toLocaleString()}</Typography>
+          return <Card key={note.id} sx={{ backgroundColor: 'background.paper', border: '1px solid', borderColor: 'divider', p: 2 }}>
+            <Typography sx={{ color: 'text.primary', whiteSpace: 'pre-wrap' }}>{note.body}</Typography>
+            <Typography sx={{ color: 'text.secondary', fontSize: '.75rem', mt: 1 }}>{user ? maskEmail(user.email, level) : note.target_id} · {note.admin_email ?? note.admin_id} · {new Date(note.created_at).toLocaleString()}</Typography>
           </Card>;
         })}
         {!notes.length && !notesQuery.isLoading && !notesQuery.error && <Alert severity="info" sx={{ gridColumn: '1 / -1' }}>{language === 'fr' ? 'Aucune note interne enregistrée.' : 'No internal notes recorded.'}</Alert>}
