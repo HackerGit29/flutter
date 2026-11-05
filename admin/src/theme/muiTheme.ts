@@ -40,9 +40,9 @@ import {
 
 const lightPalette = {
   primary: {
-    main: lightColors.interactive, // #1A3A4A
-    light: lightColors.seed, // #4A6572 (seed documenté)
-    dark: '#12282F',
+    main: lightColors.interactive, // #4A7A8A — vert d'eau
+    light: '#6E9AA8',
+    dark: '#3A6274',
     contrastText: lightColors.textInverse,
   },
   secondary: {
@@ -52,7 +52,7 @@ const lightPalette = {
     contrastText: '#12282F',
   },
   background: {
-    default: lightColors.bgApp, // #C8D9E0
+    default: lightColors.bgApp, // #FFFFFF
     paper: lightColors.bgPrimary, // #FFFFFF
   },
   text: {
@@ -66,12 +66,12 @@ const lightPalette = {
   error: { main: semantic.error, light: '#F592A3', dark: '#C43A52' },
   info: { main: semantic.info, light: '#A6E0F8', dark: semantic.infoDeep },
   action: {
-    hover: 'rgba(26, 58, 74, 0.04)',
-    selected: 'rgba(26, 58, 74, 0.08)',
-    focus: 'rgba(26, 58, 74, 0.12)',
+    hover: 'rgba(74, 122, 138, 0.06)',
+    selected: 'rgba(74, 122, 138, 0.10)',
+    focus: 'rgba(74, 122, 138, 0.16)',
   },
   // Slots par composant → variables CSS --mui-palette-Tooltip-bg, etc.
-  Tooltip: { bg: lightColors.interactive },
+  Tooltip: { bg: lightColors.textPrimary },
   TableCell: { border: lightColors.borderSubtle },
 } as const;
 
@@ -495,7 +495,7 @@ export function useAricieAccent() {
     /** Fond d'un aplat d'accent. */
     fill: isDark ? 'rgba(121, 207, 244, 0.16)' : 'rgba(121, 207, 244, 0.24)',
     /** Texte posé sur un aplat d'accent. */
-    on: isDark ? '#A6E0F8' : '#1A3A4A',
+    on: isDark ? '#A6E0F8' : '#14262E',
     /** Seed documenté, ajusté pour rester lisible. */
     seed: isDark ? '#7A95A2' : accents.teal,
   };

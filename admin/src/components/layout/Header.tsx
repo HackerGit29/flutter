@@ -30,24 +30,33 @@ import type { AdminLevel } from '../../types/admin';
 import type { Currency } from '../../types';
 import { accents } from '../../theme/aricieTokens';
 
-/** Libellé et teinte d'accent par niveau d'accès. */
-const LEVELS: Record<AdminLevel, { label: string; hint: string; tone: string; icon: React.ReactNode }> = {
+/**
+ * Libellé et teinte d'accent par niveau d'accès.
+ *
+ * `tone` (pastel) ne sert qu'au fond et à la bordure de la pastille ; le texte
+ * utilise `ink`, une déclinaison foncée du même accent, seule lisible sur blanc
+ * (les pastels de la charte tombent sous 2:1 de contraste).
+ */
+const LEVELS: Record<AdminLevel, { label: string; hint: string; tone: string; ink: string; icon: React.ReactNode }> = {
   viewer: {
     label: 'Lecteur',
     hint: 'Lecture seule, emails masqués (RGPD)',
     tone: accents.gold,
+    ink: '#8A6A12',
     icon: <VisibilityOffRoundedIcon sx={{ fontSize: 16 }} />,
   },
   operator: {
     label: 'Opérateur',
     hint: 'Écritures opérationnelles, emails visibles',
     tone: accents.accent,
+    ink: '#21647F',
     icon: <SecurityRoundedIcon sx={{ fontSize: 16 }} />,
   },
   super_admin: {
     label: 'Super admin',
     hint: 'Rôles, licences, reset et audit complet',
     tone: accents.purple,
+    ink: '#6B4C8A',
     icon: <AdminPanelSettingsRoundedIcon sx={{ fontSize: 16 }} />,
   },
 };
@@ -153,10 +162,10 @@ export const Header: React.FC = () => {
                 px: 1.5,
                 py: 0.6,
                 borderRadius: 9999,
-                color: levelMeta.tone,
-                backgroundColor: (t) => `${levelMeta.tone}22`,
+                color: levelMeta.ink,
+                backgroundColor: `${levelMeta.tone}24`,
                 border: '1px solid',
-                borderColor: (t) => `${levelMeta.tone}55`,
+                borderColor: `${levelMeta.tone}66`,
               }}
             >
               {levelMeta.icon}

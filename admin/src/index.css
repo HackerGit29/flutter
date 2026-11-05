@@ -7,7 +7,7 @@
  *
  * Ce fichier est chargé **avant** React et avant que MUI n'injecte ses
  * variables CSS. Les valeurs de repli ci-dessous reprennent la palette
- * aricie (fond clair `#C8D9E0`, fond sombre `#1A2530`) afin qu'il n'y ait
+ * aricie (fond clair blanc, fond sombre `#1A2530`) afin qu'il n'y ait
  * aucun flash de couleur au chargement, et `prefers-color-scheme` choisit le
  * bon repli tant que MUI n'a pas posé sa classe sur `<html>`.
  */
@@ -34,7 +34,7 @@ body {
  * prend le dessus et suit le mode réellement sélectionné.
  */
 html {
-  background-color: var(--mui-palette-background-default, #c8d9e0);
+  background-color: var(--mui-palette-background-default, #ffffff);
 }
 
 /*
