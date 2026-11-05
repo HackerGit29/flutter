@@ -4,6 +4,14 @@ import { useQuery } from '@tanstack/react-query';
 import { getKpiSummary } from '../api/operations';
 import { useAppStore } from '../store/useAppStore';
 
+/**
+ * Formate un compteur sans jamais planter : un champ absent ou `null`
+ * (contrat non respecté, agrégat indisponible) s'affiche « — » au lieu de
+ * faire tomber tout le tableau de bord sur `undefined.toLocaleString()`.
+ */
+const formatCount = (value: number | null | undefined): string =>
+  typeof value === 'number' && Number.isFinite(value) ? value.toLocaleString('fr-FR') : '—';
+
 export const DashboardPage: React.FC = () => {
   const language = useAppStore((state) => state.language);
   const formatCurrency = useAppStore((state) => state.formatCurrency);
@@ -14,14 +22,14 @@ export const DashboardPage: React.FC = () => {
   });
   const summary = query.data;
   const metrics = summary ? [
-    { label: language === 'fr' ? 'Utilisateurs' : 'Users', value: summary.total_users.toLocaleString() },
-    { label: language === 'fr' ? 'Boîtiers en ligne' : 'Online boxes', value: `${summary.online_boxes.toLocaleString()} / ${summary.total_boxes.toLocaleString()}` },
+    { label: language === 'fr' ? 'Utilisateurs' : 'Users', value: formatCount(summary.total_users) },
+    { label: language === 'fr' ? 'Boîtiers en ligne' : 'Online boxes', value: `${formatCount(summary.online_boxes)} / ${formatCount(summary.total_boxes)}` },
     { label: language === 'fr' ? 'MRR VIP' : 'VIP MRR', value: formatCurrency(summary.mrr_vip) },
-    { label: language === 'fr' ? 'Énergie sur 30 jours' : 'Energy (30 days)', value: `${summary.total_kwh_30d.toLocaleString()} kWh` },
-    { label: language === 'fr' ? 'Utilisateurs actifs (30 j)' : 'Active users (30d)', value: summary.active_users_30d.toLocaleString() },
-    { label: language === 'fr' ? 'Nouveaux utilisateurs' : 'New users', value: summary.new_users.toLocaleString() },
-    { label: language === 'fr' ? 'Messages agent (30 j)' : 'Agent messages (30d)', value: summary.agent_messages_30d.toLocaleString() },
-    { label: language === 'fr' ? 'Commandes acquittées' : 'Device success rate', value: `${(summary.device_success_rate * 100).toFixed(1)}%` },
+    { label: language === 'fr' ? 'Énergie sur 30 jours' : 'Energy (30 days)', value: `${formatCount(summary.total_kwh_30d)} kWh` },
+    { label: language === 'fr' ? 'Utilisateurs actifs (30 j)' : 'Active users (30d)', value: formatCount(summary.active_users_30d) },
+    { label: language === 'fr' ? 'Nouveaux utilisateurs' : 'New users', value: formatCount(summary.new_users) },
+    { label: language === 'fr' ? 'Messages agent (30 j)' : 'Agent messages (30d)', value: formatCount(summary.agent_messages_30d) },
+    { label: language === 'fr' ? 'Commandes acquittées' : 'Device success rate', value: typeof summary.device_success_rate === 'number' ? `${(summary.device_success_rate * 100).toFixed(1)}%` : '—' },
   ] : [];
 
   return (

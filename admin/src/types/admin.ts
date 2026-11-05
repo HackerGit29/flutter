@@ -339,8 +339,8 @@ export interface KpiSummary {
   online_boxes: number;
   total_kwh_30d: number;
   agent_messages_30d: number;
-  /** ACK / commandes, 0..1. */
-  device_success_rate: number;
+  /** ACK / commandes, 0..1 — `null` tant qu'aucune commande n'a été émise. */
+  device_success_rate: number | null;
   /** Répartition des boîtiers par version de firmware. */
   firmware_distribution?: { version: string; count: number }[];
   /** Répartition des appareils par catégorie. */

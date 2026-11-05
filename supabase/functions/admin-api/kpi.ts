@@ -52,6 +52,8 @@ export async function handleKpiSummary(url: URL): Promise<Response> {
   return jsonResponse({
     ...summary,
     period,
+    // Contrat §5.2 : la RPC expose `new_users_30d`, l'API expose `new_users`.
+    new_users: (summary.new_users_30d as number) ?? 0,
     // MRR VIP = abonnés VIP × prix mensuel (config)
     mrr_vip: (summary.vip_subscribers as number ?? 0) * VIP_MONTHLY_PRICE_EUR,
   });
